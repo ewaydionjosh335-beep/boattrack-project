@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boarding Station - BoatTrack Receptionist</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <!-- QR Code Generator & jsQR Scanner CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    .wizard-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    .wizard-step {
+      flex: 1;
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      background: #e2e8f0;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      border-top: 4px solid var(--border);
+      transition: all 0.2s;
+    }
+    .wizard-step.active {
+      background: white;
+      color: var(--primary);
+      border-top-color: var(--teal);
+      box-shadow: var(--shadow-sm);
+    }
+    .wizard-step.completed {
+      background: rgba(42, 157, 143, 0.1);
+      color: var(--success);
+      border-top-color: var(--success);
+    }
+    .step-content { display: none; }
+    .step-content.active { display: block; }
+
+    /* Receipt Print Styles */
+    .receipt-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .receipt-card {
+      background: white;
+      width: 80mm;
+      padding: 5mm;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg);
+    }
+    @media print {
+      body * { visibility: hidden; }
+      .receipt-card, .receipt-card * { visibility: visible; }
+      .receipt-card {
+        position: absolute;
+        left: 0; top: 0;
+        width: 80mm;
+        border: none;
+        box-shadow: none;
+      }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Receptionist
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/receptionist/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/receptionist/register-guest.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"/></svg> Register Guest</a>
+      <a href="/receptionist/boarding.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Boarding Station</a>
+      <a href="/receptionist/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Today's Manifests</a>
+      <a href="/receptionist/remittance.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payments & Remittance</a>
+      <a href="/receptionist/booking-review.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Private Booking Review</a>
+      <a href="/receptionist/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Boarding & Ticketing Station</h2>
+      <span id="receptionistName" style="font-weight: 600;"></span>
+    </header>
+
+    <div class="admin-content">
+      <!-- Wizard Steps Header -->
+      <div class="wizard-steps">
+        <div class="wizard-step active" id="wStep1">1. Scan QR</div>
+        <div class="wizard-step" id="wStep2">2. Type & ID</div>
+        <div class="wizard-step" id="wStep3">3. Boat Assignment</div>
+        <div class="wizard-step" id="wStep4">4. Baggage</div>
+        <div class="wizard-step" id="wStep5">5. Payment</div>
+      </div>
+
+      <!-- STEP 1: Scan QR -->
+      <div class="card step-content active" id="step1Content">
+        <h3 style="margin-bottom: 1rem;">Step 1 — Identify Passenger</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <!-- Camera Scanner -->
+          <div style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; text-align: center; background: #f8fafc;">
+            <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem;">Camera QR Scanner</h4>
+            <div id="cameraContainer" style="position: relative; width: 100%; max-width: 280px; height: 200px; margin: 0 auto 0.75rem; background: #000; border-radius: 4px; overflow: hidden; display: none;">
+              <video id="scannerVideo" style="width: 100%; height: 100%; object-fit: cover;" autoplay playsinline></video>
+              <canvas id="scannerCanvas" style="display: none;"></canvas>
+            </div>
+            <div id="cameraMsg" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">Camera inactive. Click Start Camera below.</div>
+            <div style="display: flex; gap: 0.5rem; justify-content: center;">
+              <button id="startCamBtn" class="btn btn-primary btn-sm">Start Camera</button>
+              <button id="stopCamBtn" class="btn btn-outline btn-sm" style="display: none;">Stop Camera</button>
+            </div>
+          </div>
+
+          <!-- Typed QR / Hardware Scanner or Passenger Search -->
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Scan / Paste QR Payload (Hardware Scanner)</label>
+              <input type="text" id="qrInputBox" class="form-control" placeholder="Click here and scan/paste QR payload..." autofocus>
+              <button id="processQrBtn" class="btn btn-outline btn-sm" style="margin-top: 0.5rem; width: 100%;">Process Payload</button>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border);">
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Or Search Passenger by Name</label>
+              <select id="passengerSelect" class="form-control">
+                <option value="">-- Select registered passenger --</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="selectedPassengerCard" style="display: none; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem;">
+          <h4 style="color: var(--success); margin-bottom: 0.25rem;">Passenger Identified</h4>
+          <p id="passengerDetailsText" style="font-size: 0.95rem; margin: 0;"></p>
+        </div>
+
+        <div style="text-align: right;">
+          <button id="toStep2Btn" class="btn btn-primary" disabled>Next: Passenger Type &rarr;</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Passenger Type & ID Check -->
+      <div class="card step-content" id="step2Content">
+        <h3 style="margin-bottom: 1rem;">Step 2 — Passenger Type & ID Verification</h3>
+        
+        <div class="form-group">
+          <label class="form-label">Passenger Fare Type</label>
+          <select id="passengerTypeSelect" class="form-control">
+            <option value="Adult">Adult (Regular Fare)</option>
+            <option value="Senior Citizen">Senior Citizen (20% Discount)</option>
+            <option value="PWD">PWD (20% Discount)</option>
+            <option value="Student">Student (20% Discount)</option>
+          </select>
+        </div>
+
+        <div id="idVerificationBox" class="form-group" style="display: none; background: #fffbeb; border: 1px solid #fde68a; padding: 1rem; border-radius: var(--radius-sm);">
+          <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; cursor: pointer;">
+            <input type="checkbox" id="idVerifiedCheckbox" style="width: 18px; height: 18px;">
+            I have verified a valid ID for this passenger (Required for discount)
+          </label>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; margin-left: 1.5rem;">
+            If unchecked, the passenger will be charged the regular Adult fare.
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+          <button class="btn btn-outline" onclick="goToStep(1)">&larr; Back</button>
+          <button class="btn btn-primary" onclick="goToStep(3)">Next: Boat Assignment &rarr;</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Boat Assignment -->
+      <div class="card step-content" id="step3Content">
+        <h3 style="margin-bottom: 1rem;">Step 3 — Boat & Trip Assignment</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          Select from today's Scheduled trips only. (Verified & Active boats only. Held trips are disabled).
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Available Scheduled Trips Today</label>
+          <select id="tripAssignmentSelect" class="form-control" size="5" style="height: auto;">
+            <option value="">Loading trips...</option>
+          </select>
+        </div>
+
+        <div id="tripInfoBox" style="display: none; background: #f8fafc; border: 1px solid var(--border); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem;">
+          <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">Trip & Boat Status</h4>
+          <div id="tripInfoDetails" style="font-size: 0.9rem; display: flex; flex-direction: column; gap: 0.25rem;"></div>
+        </div>
+
+        <div id="tripBlockReason" style="display: none; background: #fef2f2; border: 1px solid #fecaca; color: var(--danger); padding: 0.875rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-weight: 600;"></div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+          <button class="btn btn-outline" onclick="goToStep(2)">&larr; Back</button>
+          <button id="toStep4Btn" class="btn btn-primary" onclick="goToStep(4)" disabled>Next: Baggage Weight &rarr;</button>
+        </div>
+      </div>
+
+      <!-- STEP 4: Baggage Weight -->
+      <div class="card step-content" id="step4Content">
+        <h3 style="margin-bottom: 1rem;">Step 4 — Baggage Weight</h3>
+
+        <div class="form-group">
+          <label class="form-label">Baggage Weight (kg ≥ 0, decimals allowed)</label>
+          <input type="number" id="baggageInput" class="form-control" min="0" step="0.1" value="0.0">
+        </div>
+
+        <div id="loadSummaryBox" style="background: #f8fafc; border: 1px solid var(--border); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem; font-size: 0.9rem;"></div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+          <button class="btn btn-outline" onclick="goToStep(3)">&larr; Back</button>
+          <button class="btn btn-primary" onclick="goToStep(5)">Next: Payment &rarr;</button>
+        </div>
+      </div>
+
+      <!-- STEP 5: Payment & Private Booking -->
+      <div class="card step-content" id="step5Content">
+        <h3 style="margin-bottom: 1rem;">Step 5 — Payment & Ticketing</h3>
+
+        <div id="privateBookingNotice" style="display: none; background: #e0f2fe; border: 1px solid #bae6fd; padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem;">
+          <h4 style="color: #0369a1; margin-bottom: 0.25rem;">Approved Private Booking Detected</h4>
+          <p style="margin: 0; font-size: 0.9rem;">This passenger has an Approved & Paid private booking for this trip. Payment is waived. Manifest entry will be linked automatically.</p>
+        </div>
+
+        <div id="paymentSection">
+          <div style="background: #f8fafc; border: 1px solid var(--border); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Route Regular Fare:</span>
+              <strong id="summaryRouteFare">₱0.00</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;" id="discountRow">
+              <span>Discount (<span id="summaryDiscountLabel">20%</span>):</span>
+              <strong id="summaryDiscountAmount" style="color: var(--success);">-₱0.00</strong>
+            </div>
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 0.5rem 0;">
+            <div style="display: flex; justify-content: space-between; font-size: 1.1rem;">
+              <span>Total Payable Fare:</span>
+              <strong id="summaryTotalFare" style="color: var(--teal);">₱0.00</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Payment Method</label>
+            <select id="paymentMethodSelect" class="form-control">
+              <option value="Cash">Cash</option>
+              <option value="GCash">GCash</option>
+            </select>
+          </div>
+
+          <div id="cashPaymentGroup" class="form-group">
+            <label class="form-label">Cash Tendered (₱)</label>
+            <input type="number" id="cashTenderedInput" class="form-control" min="0" step="1" placeholder="0.00">
+            <div style="margin-top: 0.5rem; font-size: 0.9rem;">Change: <strong id="changeOutput" style="color: var(--success);">₱0.00</strong></div>
+          </div>
+
+          <div id="gcashPaymentGroup" class="form-group" style="display: none;">
+            <label class="form-label">GCash Reference Number (Required)</label>
+            <input type="text" id="gcashRefInput" class="form-control" placeholder="e.g. REF123456789">
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 1.5rem;">
+          <button class="btn btn-outline" onclick="goToStep(4)">&larr; Back</button>
+          <button id="confirmBoardingBtn" class="btn btn-primary" style="background-color: var(--success);">Confirm & Issue Ticket</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printable Ticket Modal -->
+  <div id="receiptModal" class="receipt-modal">
+    <div class="receipt-card">
+      <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px;">
+        <strong style="font-size: 14px;">BOATRACK / BINANGONAN PORT</strong><br>
+        <span style="font-size: 10px;">Official Passenger Ticket</span>
+      </div>
+      <div id="receiptContent"></div>
+      <div style="text-align: center; margin-top: 10px;" id="receiptQrContainer"></div>
+      <div class="no-print" style="margin-top: 15px; display: flex; gap: 5px; justify-content: center;">
+        <button onclick="window.print()" class="btn btn-primary btn-sm">Print Ticket</button>
+        <button id="nextPassengerBtn" class="btn btn-outline btn-sm">Next Passenger</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['receptionist']);
+    if (!session) throw new Error('Unauthorized');
+    document.getElementById('receptionistName').textContent = session.full_name;
+
+    // State
+    let allPassengers = [];
+    let allTrips = [];
+    let allBoats = [];
+    let allRoutes = [];
+    let allTerminals = [];
+    let allManifests = [];
+    let allBookings = [];
+    let allPayments = [];
+    let settings = {};
+
+    let selectedPassenger = null;
+    let selectedTrip = null;
+    let currentStep = 1;
+
+    let videoStream = null;
+    let scanInterval = null;
+
+    async function init() {
+      allPassengers = await api.passengers.list();
+      allTrips = await api.trips.list();
+      allBoats = await api.boats.list();
+      allRoutes = await api.routes.list();
+      allTerminals = await api.terminals.list();
+      allManifests = await api.manifests.list();
+      allBookings = await api.bookings.list();
+      allPayments = await api.payments.list();
+      settings = await api.settings.get();
+
+      populatePassengerSelect();
+
+      // Check URL params for ?passenger_id=xxx
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPsgId = urlParams.get('passenger_id');
+      if (urlPsgId) {
+        const found = allPassengers.find(p => p.id === urlPsgId);
+        if (found) {
+          selectPassenger(found);
+        }
+      }
+    }
+
+    function populatePassengerSelect() {
+      const select = document.getElementById('passengerSelect');
+      select.innerHTML = '<option value="">-- Select registered passenger --</option>' + allPassengers.map(p => `
+        <option value="${p.id}">${p.full_name} (${p.weight_kg} kg)</option>
+      `).join('');
+
+      select.onchange = (e) => {
+        const pId = e.target.value;
+        if (!pId) return;
+        const p = allPassengers.find(x => x.id === pId);
+        if (p) selectPassenger(p);
+      };
+    }
+
+    function selectPassenger(p) {
+      selectedPassenger = p;
+      document.getElementById('passengerDetailsText').innerHTML = `<strong>${p.full_name}</strong> — Weight: <strong>${p.weight_kg} kg</strong> (ID: ${p.id})`;
+      document.getElementById('selectedPassengerCard').style.display = 'block';
+      document.getElementById('toStep2Btn').disabled = false;
+      ui.showToast(`Passenger selected: ${p.full_name}`, 'success');
+    }
+
+    // Process typed/scanned QR payload
+    document.getElementById('processQrBtn').onclick = () => {
+      const val = document.getElementById('qrInputBox').value.trim();
+      if (!val) {
+        ui.showToast('Please enter or scan a QR payload.', 'warning');
+        return;
+      }
+      try {
+        const data = JSON.parse(val);
+        const pId = data.passenger_id;
+        const found = allPassengers.find(p => p.id === pId);
+        if (!found) {
+          throw new Error('Passenger ID not found in database.');
+        }
+        selectPassenger(found);
+      } catch (err) {
+        ui.showToast(`Invalid QR payload: ${err.message}`, 'danger');
+      }
+    };
+
+    document.getElementById('qrInputBox').onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('processQrBtn').click();
+      }
+    };
+
+    // Camera Scanner (jsQR)
+    const video = document.getElementById('scannerVideo');
+    const canvas = document.getElementById('scannerCanvas');
+    const canvasCtx = canvas.getContext('2d');
+
+    document.getElementById('startCamBtn').onclick = async () => {
+      try {
+        document.getElementById('cameraContainer').style.display = 'block';
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = videoStream;
+        video.setAttribute('playsinline', true);
+        video.play();
+
+        document.getElementById('startCamBtn').style.display = 'none';
+        document.getElementById('stopCamBtn').style.display = 'inline-block';
+        document.getElementById('cameraMsg').textContent = 'Scanning camera feed for QR code...';
+
+        scanInterval = setInterval(scanTick, 300);
+      } catch (err) {
+        document.getElementById('cameraMsg').textContent = `Camera access denied or unavailable: ${err.message}`;
+        ui.showToast('Camera access failed.', 'danger');
+      }
+    };
+
+    document.getElementById('stopCamBtn').onclick = stopCamera;
+
+    function stopCamera() {
+      if (scanInterval) clearInterval(scanInterval);
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+      document.getElementById('cameraContainer').style.display = 'none';
+      document.getElementById('startCamBtn').style.display = 'inline-block';
+      document.getElementById('stopCamBtn').style.display = 'none';
+      document.getElementById('cameraMsg').textContent = 'Camera inactive.';
+    }
+
+    function scanTick() {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth;
+        canvasCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imgData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+        if (code) {
+          stopCamera();
+          document.getElementById('qrInputBox').value = code.data;
+          document.getElementById('processQrBtn').click();
+        }
+      }
+    }
+
+    // Step navigation
+    window.goToStep = (step) => {
+      if (step === 2 && !selectedPassenger) {
+        ui.showToast('Please select a passenger first.', 'warning');
+        return;
+      }
+      if (step === 3) {
+        populateTripAssignment();
+      }
+      if (step === 4 && !selectedTrip) {
+        ui.showToast('Please select a boat and trip.', 'warning');
+        return;
+      }
+      if (step === 5) {
+        setupPaymentStep();
+      }
+
+      currentStep = step;
+      for (let i = 1; i <= 5; i++) {
+        const stepEl = document.getElementById(`wStep${i}`);
+        const contentEl = document.getElementById(`step${i}Content`);
+        stepEl.classList.remove('active', 'completed');
+        contentEl.classList.remove('active');
+
+        if (i < step) stepEl.classList.add('completed');
+        else if (i === step) stepEl.classList.add('active');
+      }
+      document.getElementById(`step${step}Content`).classList.add('active');
+    };
+
+    document.getElementById('toStep2Btn').onclick = () => goToStep(2);
+
+    // Passenger type handler for ID check checkbox
+    const typeSelect = document.getElementById('passengerTypeSelect');
+    const idBox = document.getElementById('idVerificationBox');
+    typeSelect.onchange = () => {
+      if (typeSelect.value !== 'Adult') {
+        idBox.style.display = 'block';
+      } else {
+        idBox.style.display = 'none';
+        document.getElementById('idVerifiedCheckbox').checked = false;
+      }
+    };
+
+    // Step 3: Populate Trip Assignment
+    function populateTripAssignment() {
+      const select = document.getElementById('tripAssignmentSelect');
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayTrips = allTrips.filter(t => t.departure_time && t.departure_time.startsWith(todayStr) && t.trip_status === 'Scheduled');
+
+      if (todayTrips.length === 0) {
+        select.innerHTML = '<option value="">No scheduled trips available for today.</option>';
+        return;
+      }
+
+      select.innerHTML = todayTrips.map(t => {
+        const boat = allBoats.find(b => b.id === t.boat_id) || { name: 'Boat' };
+        const route = allRoutes.find(r => r.id === t.route_id) || {};
+        const origin = allTerminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+        const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+        const time = new Date(t.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `<option value="${t.id}">${boat.name} | ${origin} → ${dest} (${time}) [Req: ${t.required_passengers}]</option>`;
+      }).join('');
+
+      select.onchange = (e) => {
+        const tId = e.target.value;
+        if (!tId) return;
+        selectedTrip = allTrips.find(x => x.id === tId);
+        inspectSelectedTrip();
+      };
+    }
+
+    function inspectSelectedTrip() {
+      if (!selectedTrip) return;
+      const boat = allBoats.find(b => b.id === selectedTrip.boat_id) || { name: 'Boat', passenger_capacity: 50, max_load_kg: 2000, registration_status: 'Verified', boat_status: 'Active' };
+      const route = allRoutes.find(r => r.id === selectedTrip.route_id) || {};
+      const origin = allTerminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+      const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+
+      // Calculate current passengers & load on this trip
+      const tripManifests = allManifests.filter(m => m.trip_id === selectedTrip.id);
+      const paxCount = tripManifests.length;
+
+      let paxWt = 0;
+      let bagWt = 0;
+      tripManifests.forEach(m => {
+        const psg = allPassengers.find(p => p.id === m.passenger_id) || { weight_kg: 65 };
+        paxWt += (psg.weight_kg || 65);
+        bagWt += (m.baggage_weight_kg || 0);
+      });
+
+      let cargoWt = 0;
+      allBookings.forEach(b => {
+        if (b.trip_id === selectedTrip.id && b.status === 'Approved' && b.booking_type === 'Cargo') {
+          cargoWt += (b.cargo_weight_kg || 0);
+        }
+      });
+
+      const currentLoad = paxWt + bagWt + cargoWt;
+      const candidateWeight = (selectedPassenger?.weight_kg || 65);
+      const newTotalLoad = currentLoad + candidateWeight;
+
+      document.getElementById('tripInfoBox').style.display = 'block';
+      document.getElementById('tripInfoDetails').innerHTML = `
+        <div><strong>Boat:</strong> ${boat.name} (${boat.registration_status} / ${boat.boat_status})</div>
+        <div><strong>Route:</strong> ${origin} → ${dest}</div>
+        <div><strong>Current Passengers:</strong> ${paxCount} / Capacity: ${boat.passenger_capacity}</div>
+        <div><strong>Current Total Load:</strong> ${currentLoad.toFixed(1)} kg / Max Load: ${boat.max_load_kg} kg</div>
+        <div><strong>Required Passengers Indicator:</strong> ${paxCount} vs ${selectedTrip.required_passengers} required</div>
+      `;
+
+      // Validation / Blocking checks
+      let blockReason = '';
+      if (boat.registration_status !== 'Verified' || boat.boat_status !== 'Active') {
+        blockReason = 'Error: Boat is not Verified or is Suspended.';
+      } else if (paxCount >= boat.passenger_capacity) {
+        blockReason = `Error: Passenger capacity reached (${paxCount}/${boat.passenger_capacity}).`;
+      } else if (newTotalLoad > boat.max_load_kg) {
+        blockReason = `Error: Max load capacity exceeded (${newTotalLoad.toFixed(1)} kg > ${boat.max_load_kg} kg).`;
+      } else {
+        // Check duplicate passenger on this trip
+        const isDuplicate = tripManifests.some(m => m.passenger_id === selectedPassenger.id);
+        if (isDuplicate) {
+          blockReason = 'Error: This passenger is already manifested on this trip (duplicate boarding).';
+        }
+      }
+
+      const blockBox = document.getElementById('tripBlockReason');
+      const nextBtn = document.getElementById('toStep4Btn');
+
+      if (blockReason) {
+        blockBox.textContent = blockReason;
+        blockBox.style.display = 'block';
+        nextBtn.disabled = true;
+      } else {
+        blockBox.style.display = 'none';
+        nextBtn.disabled = false;
+      }
+    }
+
+    // Step 4 -> 5 Setup
+    function setupPaymentStep() {
+      const baggageKg = parseFloat(document.getElementById('baggageInput').value) || 0.0;
+      const boat = allBoats.find(b => b.id === selectedTrip.boat_id) || { max_load_kg: 2000 };
+      const route = allRoutes.find(r => r.id === selectedTrip.route_id) || { fare: 100.00 };
+
+      // Calculate current load + candidate
+      const tripManifests = allManifests.filter(m => m.trip_id === selectedTrip.id);
+      let loadSum = (selectedPassenger?.weight_kg || 65) + baggageKg;
+      tripManifests.forEach(m => {
+        const psg = allPassengers.find(p => p.id === m.passenger_id) || { weight_kg: 65 };
+        loadSum += (psg.weight_kg || 65) + (m.baggage_weight_kg || 0);
+      });
+      allBookings.forEach(b => {
+        if (b.trip_id === selectedTrip.id && b.status === 'Approved' && b.booking_type === 'Cargo') {
+          loadSum += (b.cargo_weight_kg || 0);
+        }
+      });
+
+      document.getElementById('loadSummaryBox').innerHTML = `
+        <div><strong>Candidate Passenger Weight:</strong> ${selectedPassenger?.weight_kg || 65} kg</div>
+        <div><strong>Baggage Weight:</strong> ${baggageKg} kg</div>
+        <div><strong>New Total Trip Load:</strong> <strong>${loadSum.toFixed(1)} kg</strong> / Max Load: ${boat.max_load_kg} kg</div>
+      `;
+
+      // Check if passenger has an Approved private booking for this trip
+      const approvedBooking = allBookings.find(b => 
+        b.passenger_id === selectedPassenger.id && 
+        b.trip_id === selectedTrip.id && 
+        b.status === 'Approved'
+      );
+
+      const privNotice = document.getElementById('privateBookingNotice');
+      const paymentSection = document.getElementById('paymentSection');
+
+      if (approvedBooking) {
+        privNotice.style.display = 'block';
+        paymentSection.style.display = 'none';
+        selectedPassenger._matchedBookingId = approvedBooking.id;
+      } else {
+        privNotice.style.display = 'none';
+        paymentSection.style.display = 'block';
+        selectedPassenger._matchedBookingId = null;
+
+        // Calculate fare
+        const regularFare = route.fare || 100.00;
+        const pType = document.getElementById('passengerTypeSelect').value;
+        const idChecked = document.getElementById('idVerifiedCheckbox').checked;
+
+        let discountRate = 0;
+        if (pType !== 'Adult' && idChecked) {
+          if (pType === 'Senior Citizen') discountRate = settings.discount_rate_senior ?? 20;
+          else if (pType === 'PWD') discountRate = settings.discount_rate_pwd ?? 20;
+          else if (pType === 'Student') discountRate = settings.discount_rate_student ?? 20;
+        }
+
+        const discountAmt = (regularFare * discountRate) / 100;
+        const finalFare = Math.max(0, regularFare - discountAmt);
+
+        document.getElementById('summaryRouteFare').textContent = `₱${regularFare.toFixed(2)}`;
+        document.getElementById('summaryDiscountLabel').textContent = `${discountRate}%`;
+        document.getElementById('summaryDiscountAmount').textContent = `-₱${discountAmt.toFixed(2)}`;
+        document.getElementById('summaryTotalFare').textContent = `₱${finalFare.toFixed(2)}`;
+        selectedPassenger._computedFare = finalFare;
+        selectedPassenger._discountType = (discountRate > 0) ? pType : 'Adult';
+      }
+    }
+
+    // Payment method toggle
+    document.getElementById('paymentMethodSelect').onchange = (e) => {
+      const method = e.target.value;
+      if (method === 'Cash') {
+        document.getElementById('cashPaymentGroup').style.display = 'block';
+        document.getElementById('gcashPaymentGroup').style.display = 'none';
+      } else {
+        document.getElementById('cashPaymentGroup').style.display = 'none';
+        document.getElementById('gcashPaymentGroup').style.display = 'block';
+      }
+    };
+
+    // Cash tendered change calculation
+    document.getElementById('cashTenderedInput').oninput = (e) => {
+      const tendered = parseFloat(e.target.value) || 0;
+      const finalFare = selectedPassenger._computedFare || 0;
+      const change = Math.max(0, tendered - finalFare);
+      document.getElementById('changeOutput').textContent = `₱${change.toFixed(2)}`;
+    };
+
+    // Confirm Boarding & Issue Ticket
+    document.getElementById('confirmBoardingBtn').onclick = async () => {
+      const baggageKg = parseFloat(document.getElementById('baggageInput').value) || 0.0;
+      const hasBooking = Boolean(selectedPassenger._matchedBookingId);
+
+      let method = 'Cash';
+      let amount = 0;
+      let refNo = null;
+
+      if (!hasBooking) {
+        method = document.getElementById('paymentMethodSelect').value;
+        amount = selectedPassenger._computedFare || 0;
+
+        if (method === 'Cash') {
+          const tendered = parseFloat(document.getElementById('cashTenderedInput').value) || 0;
+          if (tendered < amount) {
+            ui.showToast('Cash tendered is less than the total payable fare.', 'danger');
+            return;
+          }
+        } else {
+          refNo = document.getElementById('gcashRefInput').value.trim();
+          if (!refNo) {
+            ui.showToast('GCash reference number is required.', 'danger');
+            return;
+          }
+        }
+      }
+
+      try {
+        // Atomic save: 1. Create manifest entry, 2. Create payment record (if not private booking waiver)
+        const ticketNo = api.generateTicketNo();
+        const discountType = hasBooking ? 'Private Booking' : (selectedPassenger._discountType || 'Adult');
+
+        const newManifest = await api.manifests.create({
+          trip_id: selectedTrip.id,
+          passenger_id: selectedPassenger.id,
+          ticket_no: ticketNo,
+          discount_type: discountType,
+          id_verified: document.getElementById('idVerifiedCheckbox').checked,
+          fare: hasBooking ? 0 : amount,
+          baggage_weight_kg: baggageKg,
+          booking_id: selectedPassenger._matchedBookingId || null,
+          recorded_by: session.full_name
+        });
+
+        if (!hasBooking) {
+          await api.payments.create({
+            manifest_id: newManifest.id,
+            booking_id: null,
+            boat_id: selectedTrip.boat_id,
+            method: method,
+            amount: amount,
+            status: 'Paid',
+            reference_no: refNo,
+            recorded_by: session.full_name
+          });
+        }
+
+        // Show Printable Ticket Modal
+        showTicketModal(newManifest, ticketNo, baggageKg, hasBooking ? 'Waived (Private Booking)' : `${method} ${refNo ? '('+refNo+')' : ''}`, hasBooking ? 0 : amount);
+        ui.showToast('Ticket issued and manifest updated successfully!', 'success');
+      } catch (err) {
+        ui.showToast(err.message, 'danger');
+      }
+    };
+
+    function showTicketModal(manifest, ticketNo, baggageKg, paymentInfo, fareAmt) {
+      const route = allRoutes.find(r => r.id === selectedTrip.route_id) || {};
+      const origin = allTerminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+      const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+      const boat = allBoats.find(b => b.id === selectedTrip.boat_id) || { name: 'Boat' };
+      const timeStr = new Date(selectedTrip.departure_time).toLocaleString();
+      const printedAt = new Date().toLocaleString();
+
+      const html = `
+        <div><strong>Ticket No:</strong> ${ticketNo}</div>
+        <div><strong>Passenger:</strong> ${selectedPassenger.full_name}</div>
+        <div><strong>Type:</strong> ${manifest.discount_type}</div>
+        <div style="border-top: 1px dashed #000; margin: 4px 0; padding-top: 4px;"></div>
+        <div><strong>Boat:</strong> ${boat.name}</div>
+        <div><strong>Route:</strong> ${origin} → ${dest}</div>
+        <div><strong>Departure:</strong> ${timeStr}</div>
+        <div style="border-top: 1px dashed #000; margin: 4px 0; padding-top: 4px;"></div>
+        <div><strong>Fare Paid:</strong> ₱${fareAmt.toFixed(2)}</div>
+        <div><strong>Baggage:</strong> ${baggageKg} kg</div>
+        <div><strong>Payment:</strong> ${paymentInfo}</div>
+        <div style="border-top: 1px dashed #000; margin: 4px 0; padding-top: 4px;"></div>
+        <div><strong>Cashier:</strong> ${session.full_name}</div>
+        <div><strong>Printed:</strong> ${printedAt}</div>
+      `;
+
+      document.getElementById('receiptContent').innerHTML = html;
+      const qrDiv = document.getElementById('receiptQrContainer');
+      qrDiv.innerHTML = '';
+      new QRCode(qrDiv, {
+        text: ticketNo,
+        width: 120,
+        height: 120
+      });
+
+      document.getElementById('receiptModal').style.display = 'flex';
+    }
+
+    document.getElementById('nextPassengerBtn').onclick = () => {
+      document.getElementById('receiptModal').style.display = 'none';
+      // Reset flow
+      window.location.href = '/receptionist/boarding.html';
+    };
+
+    init();
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

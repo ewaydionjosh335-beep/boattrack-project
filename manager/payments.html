@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Records - BoatTrack Port Manager</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .stat-card h4 { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.375rem; }
+    .stat-card .val { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Port Manager
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/manager/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/manager/trip-schedule.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Trip Schedule</a>
+      <a href="/manager/monitoring.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat & Trip Monitoring</a>
+      <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
+      <a href="/manager/payments.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
+      <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Payment Records (Read-only)</h2>
+      <button id="exportCsvBtn" class="btn btn-primary">Export CSV</button>
+    </header>
+
+    <div class="admin-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h4>Total Cash</h4>
+          <div class="val" id="statCash" style="color: var(--primary);">₱0.00</div>
+        </div>
+        <div class="stat-card">
+          <h4>Total GCash</h4>
+          <div class="val" id="statGcash" style="color: var(--teal);">₱0.00</div>
+        </div>
+        <div class="stat-card">
+          <h4>Remitted</h4>
+          <div class="val" id="statRemitted" style="color: var(--success);">₱0.00</div>
+        </div>
+        <div class="stat-card">
+          <h4>Not Yet Remitted</h4>
+          <div class="val" id="statUnremitted" style="color: var(--warning);">₱0.00</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">Filter & Search Transactions</h3>
+          <button id="resetFiltersBtn" class="btn btn-sm btn-outline" style="font-size: 0.75rem;">Reset Filters</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Search (Passenger / Ref)</label>
+            <input type="text" id="searchInput" class="form-control" placeholder="Search name or ref...">
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Transaction Type</label>
+            <select id="typeFilter" class="form-control">
+              <option value="">All Types</option>
+              <option value="Booking">Booking</option>
+              <option value="Walk-in">Walk-in / Manifest</option>
+              <option value="General">General / Fee</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Start Date</label>
+            <input type="date" id="startDateFilter" class="form-control">
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">End Date</label>
+            <input type="date" id="endDateFilter" class="form-control">
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Boat</label>
+            <select id="boatFilter" class="form-control">
+              <option value="">All Boats</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Method</label>
+            <select id="methodFilter" class="form-control">
+              <option value="">All Methods</option>
+              <option value="Cash">Cash</option>
+              <option value="GCash">GCash</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Status</label>
+            <select id="statusFilter" class="form-control">
+              <option value="">All Statuses</option>
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Failed">Failed</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.8rem;">Remittance</label>
+            <select id="remitFilter" class="form-control">
+              <option value="">All Remittance</option>
+              <option value="remitted">Remitted</option>
+              <option value="unremitted">Not Remitted</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="margin-bottom: 1rem;">Per-Vessel Summary</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Boat Name</th>
+                <th>Total Collected</th>
+                <th>Cash</th>
+                <th>GCash</th>
+                <th>Remitted</th>
+                <th>Not Yet Remitted</th>
+              </tr>
+            </thead>
+            <tbody id="vesselSummaryBody">
+              <tr><td colspan="6" style="text-align: center;">Loading summary...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="margin-bottom: 0;">Payment Transactions</h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Click any row to inspect transaction details</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date / Time</th>
+                <th>Type</th>
+                <th>Boat</th>
+                <th>Passenger Name</th>
+                <th>Method</th>
+                <th>Amount</th>
+                <th>Reference No.</th>
+                <th>Status</th>
+                <th>Remittance</th>
+              </tr>
+            </thead>
+            <tbody id="paymentsTableBody">
+              <tr><td colspan="9" style="text-align: center;">Loading payments...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="paymentModal" class="modal-backdrop" style="display: none;">
+    <div class="modal" style="max-width: 550px;">
+      <div class="modal-header">
+        <h3>Transaction Details</h3>
+        <button id="closeModalBtn" class="btn btn-sm btn-outline">&times;</button>
+      </div>
+      <div class="modal-body" id="paymentModalBody">
+        <!-- Details loaded dynamically -->
+      </div>
+      <div class="modal-footer">
+        <button id="modalCloseBtn" class="btn btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['port_manager']);
+    if (!session) throw new Error('Unauthorized');
+
+    let allPayments = [];
+    let allBoats = [];
+    let allManifests = [];
+    let allBookings = [];
+    let allTrips = [];
+    let allPassengers = [];
+
+    async function loadData() {
+      allPayments = await api.payments.list();
+      allBoats = await api.boats.list();
+      allManifests = await api.manifests.list();
+      allBookings = await api.bookings.list();
+      allTrips = await api.trips.list();
+      allPassengers = await api.passengers.list();
+
+      populateBoatFilter();
+      renderAll();
+    }
+
+    function populateBoatFilter() {
+      const select = document.getElementById('boatFilter');
+      select.innerHTML = '<option value="">All Boats</option>' + allBoats.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    }
+
+    function getPaymentType(p) {
+      if (p.booking_id) return 'Booking';
+      if (p.manifest_id) return 'Walk-in';
+      return 'General';
+    }
+
+    function getPaymentTypeBadge(type) {
+      if (type === 'Booking') return '<span class="badge" style="background: #e0e7ff; color: #3730a3;">Booking</span>';
+      if (type === 'Walk-in') return '<span class="badge" style="background: #ccfbf1; color: #115e59;">Walk-in</span>';
+      return '<span class="badge" style="background: #f1f5f9; color: #475569;">General</span>';
+    }
+
+    function getPaymentBoatAndPassenger(p) {
+      let boat = null;
+      let passengerName = 'Unknown Passenger';
+
+      if (p.boat_id) {
+        boat = allBoats.find(b => b.id === p.boat_id);
+      }
+      if (p.manifest_id) {
+        const man = allManifests.find(m => m.id === p.manifest_id);
+        if (man) {
+          const psg = allPassengers.find(x => x.id === man.passenger_id);
+          if (psg) passengerName = psg.full_name;
+          const trip = allTrips.find(t => t.id === man.trip_id);
+          if (trip && !boat) {
+            boat = allBoats.find(b => b.id === trip.boat_id);
+          }
+        }
+      } else if (p.booking_id) {
+        const book = allBookings.find(b => b.id === p.booking_id);
+        if (book) {
+          const psg = allPassengers.find(x => x.id === book.passenger_id);
+          if (psg) passengerName = psg.full_name;
+          const trip = allTrips.find(t => t.id === book.trip_id);
+          if (trip && !boat) {
+            boat = allBoats.find(b => b.id === trip.boat_id);
+          }
+        }
+      }
+      return { boat: boat || { id: 'unknown', name: 'General / Unassigned' }, passengerName };
+    }
+
+    function filterPayments() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const type = document.getElementById('typeFilter').value;
+      const startDate = document.getElementById('startDateFilter').value;
+      const endDate = document.getElementById('endDateFilter').value;
+      const boatId = document.getElementById('boatFilter').value;
+      const method = document.getElementById('methodFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const remit = document.getElementById('remitFilter').value;
+
+      return allPayments.filter(p => {
+        const { boat, passengerName } = getPaymentBoatAndPassenger(p);
+        const pType = getPaymentType(p);
+
+        if (search && !passengerName.toLowerCase().includes(search) && !(p.reference_no && p.reference_no.toLowerCase().includes(search))) return false;
+        if (type && pType !== type) return false;
+        if (startDate && p.created_at.split('T')[0] < startDate) return false;
+        if (endDate && p.created_at.split('T')[0] > endDate) return false;
+        if (boatId && boat.id !== boatId) return false;
+        if (method && p.method !== method) return false;
+        if (status && p.status !== status) return false;
+        if (remit === 'remitted' && !p.remittance_id) return false;
+        if (remit === 'unremitted' && p.remittance_id) return false;
+
+        return true;
+      });
+    }
+
+    function openPaymentModal(p) {
+      const { boat, passengerName } = getPaymentBoatAndPassenger(p);
+      const type = getPaymentType(p);
+      const timeStr = new Date(p.created_at).toLocaleString([], { dateStyle: 'full', timeStyle: 'medium' });
+      
+      const body = document.getElementById('paymentModalBody');
+      body.innerHTML = `
+        <div style="display: grid; gap: 0.75rem; font-size: 0.9rem;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Payment ID</span>
+            <span style="font-family: monospace;">${p.id}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Date / Time</span>
+            <span>${timeStr}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Transaction Type</span>
+            <span>${getPaymentTypeBadge(type)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Vessel / Boat</span>
+            <strong>${boat.name}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Passenger Name</span>
+            <strong>${passengerName}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Payment Method</span>
+            <span>${p.method}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Amount</span>
+            <strong style="font-size: 1.1rem; color: var(--primary);">₱${(p.amount || 0).toFixed(2)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Reference No.</span>
+            <span>${p.reference_no || 'N/A'}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Status</span>
+            <span>${p.status}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Remittance Status</span>
+            <span>${p.remittance_id ? 'Remitted (ID: ' + p.remittance_id + ')' : 'Not Remitted'}</span>
+          </div>
+        </div>
+      `;
+      document.getElementById('paymentModal').style.display = 'flex';
+    }
+
+    function closePaymentModal() {
+      document.getElementById('paymentModal').style.display = 'none';
+    }
+
+    document.getElementById('closeModalBtn').onclick = closePaymentModal;
+    document.getElementById('modalCloseBtn').onclick = closePaymentModal;
+    document.getElementById('paymentModal').onclick = (e) => {
+      if (e.target.id === 'paymentModal') closePaymentModal();
+    };
+
+    function renderAll() {
+      const filtered = filterPayments();
+
+      // Calculate totals for paid payments in filtered set
+      let totalCash = 0;
+      let totalGcash = 0;
+      let totalRemitted = 0;
+      let totalUnremitted = 0;
+
+      filtered.forEach(p => {
+        const amt = p.status === 'Paid' ? (p.amount || 0) : 0;
+        if (p.method === 'Cash') totalCash += amt;
+        if (p.method === 'GCash') totalGcash += amt;
+        if (p.remittance_id) totalRemitted += amt;
+        else totalUnremitted += amt;
+      });
+
+      document.getElementById('statCash').textContent = `₱${totalCash.toFixed(2)}`;
+      document.getElementById('statGcash').textContent = `₱${totalGcash.toFixed(2)}`;
+      document.getElementById('statRemitted').textContent = `₱${totalRemitted.toFixed(2)}`;
+      document.getElementById('statUnremitted').textContent = `₱${totalUnremitted.toFixed(2)}`;
+
+      // Per-Vessel Summary
+      const vesselMap = {};
+      allBoats.forEach(b => {
+        vesselMap[b.id] = { name: b.name, total: 0, cash: 0, gcash: 0, remitted: 0, unremitted: 0 };
+      });
+      vesselMap['unknown'] = { name: 'General / Unassigned', total: 0, cash: 0, gcash: 0, remitted: 0, unremitted: 0 };
+
+      filtered.forEach(p => {
+        if (p.status !== 'Paid') return;
+        const { boat } = getPaymentBoatAndPassenger(p);
+        const bId = boat.id || 'unknown';
+        if (!vesselMap[bId]) {
+          vesselMap[bId] = { name: boat.name, total: 0, cash: 0, gcash: 0, remitted: 0, unremitted: 0 };
+        }
+        const amt = p.amount || 0;
+        vesselMap[bId].total += amt;
+        if (p.method === 'Cash') vesselMap[bId].cash += amt;
+        if (p.method === 'GCash') vesselMap[bId].gcash += amt;
+        if (p.remittance_id) vesselMap[bId].remitted += amt;
+        else vesselMap[bId].unremitted += amt;
+      });
+
+      const summaryBody = document.getElementById('vesselSummaryBody');
+      const vesselKeys = Object.keys(vesselMap).filter(k => vesselMap[k].total > 0 || k !== 'unknown');
+      if (vesselKeys.length === 0) {
+        summaryBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No payment data recorded.</td></tr>';
+      } else {
+        summaryBody.innerHTML = vesselKeys.map(k => {
+          const v = vesselMap[k];
+          return `
+            <tr>
+              <td><strong>${v.name}</strong></td>
+              <td>₱${v.total.toFixed(2)}</td>
+              <td>₱${v.cash.toFixed(2)}</td>
+              <td>₱${v.gcash.toFixed(2)}</td>
+              <td style="color: var(--success);">₱${v.remitted.toFixed(2)}</td>
+              <td style="color: var(--warning);">₱${v.unremitted.toFixed(2)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Payments Table
+      const tbody = document.getElementById('paymentsTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No payments found matching filters.</td></tr>';
+      } else {
+        tbody.innerHTML = filtered.map(p => {
+          const { boat, passengerName } = getPaymentBoatAndPassenger(p);
+          const timeStr = new Date(p.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+          let statusBadge = 'badge-pending';
+          if (p.status === 'Paid') statusBadge = 'badge-paid';
+          else if (p.status === 'Failed') statusBadge = 'badge-failed';
+
+          return `
+            <tr style="cursor: pointer;" data-id="${p.id}" class="payment-row">
+              <td>${timeStr}</td>
+              <td>${getPaymentTypeBadge(getPaymentType(p))}</td>
+              <td><strong>${boat.name}</strong></td>
+              <td>${passengerName}</td>
+              <td><span class="badge" style="background: #e2e8f0; color: #334155;">${p.method}</span></td>
+              <td>₱${(p.amount || 0).toFixed(2)}</td>
+              <td>${p.reference_no || '-'}</td>
+              <td><span class="badge ${statusBadge}">${p.status}</span></td>
+              <td>${p.remittance_id ? '<span class="badge badge-verified">Remitted</span>' : '<span class="badge badge-pending">Not Remitted</span>'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.payment-row').forEach(row => {
+          row.onclick = () => {
+            const id = row.getAttribute('data-id');
+            const p = allPayments.find(x => x.id === id);
+            if (p) openPaymentModal(p);
+          };
+        });
+      }
+    }
+
+    // Event listeners
+    document.getElementById('searchInput').oninput = renderAll;
+    document.getElementById('typeFilter').onchange = renderAll;
+    document.getElementById('startDateFilter').onchange = renderAll;
+    document.getElementById('endDateFilter').onchange = renderAll;
+    document.getElementById('boatFilter').onchange = renderAll;
+    document.getElementById('methodFilter').onchange = renderAll;
+    document.getElementById('statusFilter').onchange = renderAll;
+    document.getElementById('remitFilter').onchange = renderAll;
+
+    document.getElementById('resetFiltersBtn').onclick = () => {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('typeFilter').value = '';
+      document.getElementById('startDateFilter').value = '';
+      document.getElementById('endDateFilter').value = '';
+      document.getElementById('boatFilter').value = '';
+      document.getElementById('methodFilter').value = '';
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('remitFilter').value = '';
+      renderAll();
+    };
+
+    document.getElementById('exportCsvBtn').onclick = () => {
+      const filtered = filterPayments();
+      if (!filtered.length) {
+        ui.showToast('No payment records to export.', 'warning');
+        return;
+      }
+      const rows = filtered.map(p => {
+        const { boat, passengerName } = getPaymentBoatAndPassenger(p);
+        return {
+          payment_id: p.id,
+          date: p.created_at,
+          type: getPaymentType(p),
+          boat_name: boat.name,
+          passenger_name: passengerName,
+          method: p.method,
+          amount: p.amount,
+          reference_no: p.reference_no || '',
+          status: p.status,
+          remitted: p.remittance_id ? 'Yes' : 'No'
+        };
+      });
+      ui.exportToCSV('port_manager_payments.csv', rows);
+    };
+
+    loadData();
+    ui.setupSync(loadData);
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

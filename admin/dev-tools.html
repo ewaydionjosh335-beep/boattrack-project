@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Tools - BoatTrack Admin</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Administrator
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/admin/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/admin/accounts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts</a>
+      <a href="/admin/boat-verification.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg> Boat Verification</a>
+      <a href="/admin/crew-verification.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Crew Verification</a>
+      <a href="/admin/routes-fares.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Routes & Fares</a>
+      <a href="/admin/terminals.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/></svg> Terminals</a>
+      <a href="/admin/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Manifests</a>
+      <a href="/admin/bookings.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Bookings</a>
+      <a href="/admin/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/></svg> SOS Alerts <span class="badge badge-pending" id="sosBadge">0</span></a>
+      <a href="/admin/dev-tools.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .69.21 1.35.6 1.91z"/></svg> Dev Tools</a>
+          <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Developer & Testing Tools</h2>
+    </header>
+
+    <div class="admin-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Complete Multi-Role Simulation & Data Hub</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          Instantly seed and simulate test records across <strong>all 7 system roles</strong>. This populates boats, trips, bookings, manifests, payments, e-tickets, attendance, inspections, and SOS alerts so you can thoroughly test and view every function of the platform.
+        </p>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+          <button id="seedAllRolesBtn" class="btn btn-primary">Populate & Simulate All Roles with Full Data</button>
+        </div>
+        
+        <div style="margin-top: 1rem; overflow-x: auto;">
+          <table class="table" style="font-size: 0.85rem; width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--bg-alt); text-align: left;">
+                <th style="padding: 0.5rem;">Role Name</th>
+                <th style="padding: 0.5rem;">Test Username / Pass</th>
+                <th style="padding: 0.5rem;">Key Functions Simulated</th>
+                <th style="padding: 0.5rem;">Dashboard Link</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Administrator</td>
+                <td style="padding: 0.5rem;"><code>admin</code> / <code>123</code></td>
+                <td style="padding: 0.5rem;">System settings, accounts management, boat verification approvals, global SOS alerts</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_admin" data-url="/admin/dashboard.html">Open Admin</button></td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Port Manager</td>
+                <td style="padding: 0.5rem;"><code>manager</code> / <code>123</code></td>
+                <td style="padding: 0.5rem;">Trip scheduling, monitoring map, payment review, weather/gale holds</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_mgr" data-url="/manager/dashboard.html">Open Manager</button></td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Receptionist</td>
+                <td style="padding: 0.5rem;"><code>receptionist</code> / <code>123</code></td>
+                <td style="padding: 0.5rem;">Guest registration, booking review, boarding QR scanner, manifest entry, remittances</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_rec" data-url="/receptionist/dashboard.html">Open Receptionist</button></td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Boat Owner</td>
+                <td style="padding: 0.5rem;"><code>roberto</code> / <code>123</code></td>
+                <td style="padding: 0.5rem;">Boat registration, MARINA inspection permits upload, fleet status</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_owner1" data-url="/owner/dashboard.html">Open Owner</button></td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Boat Operator</td>
+                <td style="padding: 0.5rem;"><code>nestor</code> / <code>123</code></td>
+                <td style="padding: 0.5rem;">Active trips monitoring, crew list assignment, attendance records, job applications</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_oper1" data-url="/operator/dashboard.html">Open Operator</button></td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Crew</td>
+                <td style="padding: 0.5rem;"><code>dante</code> / <code>123</code></td>
+                <td style="padding: 0.5rem;">Assigned trips manifest, passenger list, pre/post-arrival inspections, crew SOS alert</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_crew1" data-url="/crew/dashboard.html">Open Crew</button></td>
+              </tr>
+              <tr>
+                <td style="padding: 0.5rem; font-weight: 600;">Passenger</td>
+                <td style="padding: 0.5rem;"><code>angelica</code> / <code>123</code> (also `pax_paid`, `pax_cargo`, etc.)</td>
+                <td style="padding: 0.5rem;">Trip booking, e-ticket generation, QR code pass, payment upload, notifications, SOS</td>
+                <td style="padding: 0.5rem;"><button class="btn btn-sm btn-outline impersonate-btn" data-userid="usr_psg1" data-url="/passenger/dashboard.html">Open Passenger</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Database Management</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Reset or re-seed localStorage with sample Binangonan Port data.</p>
+        <div style="display: flex; gap: 1rem;">
+          <button id="wipeKeepAccBtn" class="btn btn-warning">Wipe Data (Keep Accounts)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { seedDatabase } from '/js/seed.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    await seedDatabase();
+    const session = await auth.requireAuth(['administrator']);
+    if (!session) throw new Error('Unauthorized');
+
+    const alerts = await api.alerts.list();
+    const openAlerts = alerts.filter(a => a.status === 'Open');
+    const badge = document.getElementById('sosBadge');
+    if (openAlerts.length > 0) {
+      badge.textContent = openAlerts.length;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    document.getElementById('wipeKeepAccBtn').onclick = () => {
+      ui.confirm('Wipe all data except user accounts? You will be logged out.', () => {
+        const users = localStorage.getItem('users');
+        localStorage.clear();
+        localStorage.setItem('users', users);
+        api._set('settings', { discount_rate_senior: 20, discount_rate_pwd: 20, discount_rate_student: 20, cargo_rate_per_kg: 2.00 });
+        window.location.href = '/login.html';
+      });
+    };
+
+    document.getElementById('seedAllRolesBtn').onclick = () => {
+      ui.confirm('This will wipe and re-seed the entire database with comprehensive test data for ALL 7 roles (Admin, Port Manager, Receptionist, Boat Owner, Operator, Crew, Passenger). Proceed?', async () => {
+        await seedDatabase(true);
+        ui.showToast('All roles populated with full simulation data successfully!', 'success');
+        setTimeout(() => location.reload(), 1000);
+      });
+    };
+
+    document.querySelectorAll('.impersonate-btn').forEach(btn => {
+      btn.onclick = async () => {
+        const userId = btn.getAttribute('data-userid');
+        const url = btn.getAttribute('data-url');
+        await api.auth.impersonate(userId);
+        window.location.href = url;
+      };
+    });
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

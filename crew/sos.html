@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emergency SOS - BoatTrack Crew</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .portal-layout { display: flex; min-height: 100vh; background-color: var(--bg-main); }
+    .portal-sidebar { width: 240px; background: var(--bg-sidebar); color: white; display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 200; }
+    .portal-main { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-width: 0; }
+    .portal-header { background: white; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .portal-content { padding: 1.5rem; flex: 1; }
+    
+    .bottom-tab-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); height: 60px; z-index: 1000; justify-content: space-around; align-items: center; }
+    .bottom-tab-bar a { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; font-size: 0.65rem; font-weight: 500; gap: 2px; flex: 1; height: 100%; }
+    .bottom-tab-bar a.active, .bottom-tab-bar a:hover { color: var(--teal); }
+
+    .sos-btn {
+      width: 200px; height: 200px; border-radius: 50%; background: var(--danger); color: white;
+      font-size: 1.5rem; font-weight: 700; border: none; cursor: pointer;
+      box-shadow: 0 10px 25px rgba(231, 111, 81, 0.4); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 0.5rem; margin: 2rem auto;
+      transition: transform 0.2s, background 0.2s; position: relative; user-select: none;
+    }
+    .sos-btn:hover { transform: scale(1.05); }
+    .sos-btn:active { transform: scale(0.95); }
+
+    @media (max-width: 992px) {
+      .portal-sidebar { display: none !important; }
+      .portal-main { margin-left: 0 !important; padding-bottom: 70px !important; }
+      .bottom-tab-bar { display: flex !important; }
+    }
+  </style>
+</head>
+<body class="portal-layout">
+
+  <!-- Desktop Sidebar -->
+  <aside class="portal-sidebar">
+    <div style="padding: 1.5rem; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid var(--border-dark); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/></svg>
+      Crew Portal
+    </div>
+    <div style="padding: 1rem 0; overflow-y: auto;">
+      <a href="/crew/dashboard.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/crew/my-trips.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg> My Trips</a>
+      <a href="/crew/inspections.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Inspections</a>
+      <a href="/crew/sos.html" class="active" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: white; text-decoration: none; font-weight: 500; background: rgba(255,255,255,0.05);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> SOS Emergency</a>
+      <a href="/crew/profile.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: var(--danger); text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="portal-main">
+    <header class="portal-header">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--danger);">Emergency SOS Distress Alert</h2>
+      <span id="userName" style="font-weight: 600; font-size: 0.9rem;"></span>
+    </header>
+
+    <div class="portal-content">
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        
+        <!-- Vessel Distress Reporting Card -->
+        <div class="card" style="text-align: center;">
+          <div id="sosGuardCard">
+            <h3 style="margin-bottom: 0.5rem;">Vessel Distress Reporting</h3>
+            <p id="sosStatusDesc" style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem;">Checking vessel trip status...</p>
+
+            <div id="sosTriggerArea" style="display: none;">
+              <div id="activeTripInfo" style="background: #f8fafc; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 1.5rem; text-align: left; font-size: 0.9rem;">
+                Loading active trip...
+              </div>
+              <div class="form-group" style="text-align: left; margin-bottom: 1.5rem;">
+                <label class="form-label">Emergency Message / Details (Optional)</label>
+                <textarea id="sosMessageInput" class="form-control" rows="3" placeholder="Describe emergency (e.g. engine failure, heavy flooding, medical emergency)..."></textarea>
+              </div>
+
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Press and hold for 1.5 seconds OR click confirm to trigger distress alert.</p>
+              <button id="sosButton" class="sos-btn">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                HOLD SOS
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active & Recent SOS Alerts Card -->
+        <div class="card">
+          <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Active & Recent SOS Alerts</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Trip / Route</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="alertsTableBody">
+                <tr><td colspan="4" style="text-align: center;">Loading alerts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Tab Bar -->
+  <nav class="bottom-tab-bar">
+    <a href="/crew/dashboard.html">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      Dashboard
+    </a>
+    <a href="/crew/my-trips.html">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+      My Trips
+    </a>
+    <a href="/crew/inspections.html">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Inspections
+    </a>
+    <a href="/crew/sos.html" class="active">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      SOS
+    </a>
+    <a href="/crew/profile.html">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { seedDatabase } from '/js/seed.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    await seedDatabase();
+    const session = await auth.requireAuth(['crew']);
+    if (!session) throw new Error('Unauthorized');
+
+    const users = await api.users.list();
+    const user = users.find(u => u.id === session.user_id);
+    if (user) {
+      document.getElementById('userName').textContent = user.full_name;
+    }
+
+    let crewMember = null;
+    let boats = [];
+    let assignedBoat = null;
+    let allTrips = [];
+    let allAlerts = [];
+    let allRoutes = [];
+    let allTerminals = [];
+
+    async function init() {
+      crewMember = await api.crewMembers.getByUser(session.user_id);
+      boats = await api.boats.list();
+      assignedBoat = (crewMember ? boats.find(b => b.id === crewMember.boat_id) : null) || boats[0];
+
+      allTrips = await api.trips.list();
+      allAlerts = await api.alerts.list();
+      allRoutes = await api.routes.list();
+      allTerminals = await api.terminals.list();
+
+      const boatTrips = assignedBoat ? allTrips.filter(t => t.boat_id === assignedBoat.id && t.trip_status === 'Departed') : [];
+
+      const desc = document.getElementById('sosStatusDesc');
+      const triggerArea = document.getElementById('sosTriggerArea');
+
+      if (boatTrips.length === 0) {
+        desc.textContent = 'SOS is disabled because your vessel has no active trip with status Departed.';
+        triggerArea.style.display = 'none';
+      } else {
+        desc.textContent = 'Your vessel is currently on a Departed trip. You can trigger an emergency SOS alert below.';
+        triggerArea.style.display = 'block';
+
+        const activeTrip = boatTrips[0];
+        const route = allRoutes.find(r => r.id === activeTrip.route_id) || {};
+        const origin = allTerminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+        const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+        const timeStr = new Date(activeTrip.departure_time).toLocaleString();
+
+        document.getElementById('activeTripInfo').innerHTML = `
+          <div>Active Trip Route: <strong>${origin} → ${dest}</strong></div>
+          <div>Departure Time: <strong>${timeStr}</strong></div>
+          <div>Status: <span class="badge badge-departed">Departed</span></div>
+          <input type="hidden" id="activeTripId" value="${activeTrip.id}">
+        `;
+      }
+
+      renderAlerts();
+    }
+
+    function renderAlerts() {
+      const myAlerts = allAlerts.filter(a => a.sent_by_user_id === session.user_id || (assignedBoat && a.boat_id === assignedBoat.id));
+      const tbody = document.getElementById('alertsTableBody');
+
+      if (myAlerts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No SOS alerts recorded for your vessel.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = myAlerts.map(a => {
+        const trip = allTrips.find(t => t.id === a.trip_id);
+        const route = trip ? allRoutes.find(r => r.id === trip.route_id) : null;
+        const origin = route ? allTerminals.find(t => t.id === route.origin_terminal_id)?.name : '';
+        const dest = route ? allTerminals.find(t => t.id === route.destination_terminal_id)?.name : '';
+        const tripName = route && origin && dest ? `${origin} → ${dest}` : (a.trip_id || 'N/A');
+
+        return `
+          <tr>
+            <td><strong>${tripName}</strong></td>
+            <td>${a.message}</td>
+            <td><span class="badge badge-${a.status.toLowerCase()}">${a.status}</span></td>
+            <td>${new Date(a.created_at).toLocaleTimeString()}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Press and hold logic
+    const sosBtn = document.getElementById('sosButton');
+    let holdTimer = null;
+
+    async function triggerSos() {
+      const tripIdElem = document.getElementById('activeTripId');
+      const tripId = tripIdElem ? tripIdElem.value : null;
+      const message = document.getElementById('sosMessageInput').value.trim() || 'Crew emergency SOS distress alert triggered!';
+
+      if (!tripId) {
+        alert('No active departed trip found.');
+        return;
+      }
+
+      // Check duplicate Open alert for same trip and sender
+      const existing = allAlerts.find(a => a.trip_id === tripId && a.sent_by_user_id === session.user_id && a.status === 'Open');
+      if (existing) {
+        alert('An open SOS alert already exists for this trip and sender.');
+        return;
+      }
+
+      ui.confirm('Are you absolutely sure you want to trigger an emergency SOS distress alert for this trip?', async () => {
+        await api.alerts.create({
+          trip_id: tripId,
+          boat_id: assignedBoat ? assignedBoat.id : null,
+          sent_by_user_id: session.user_id,
+          sender_role: 'Crew',
+          message,
+          status: 'Open'
+        });
+
+        ui.showToast('SOS Distress Alert sent successfully!', 'danger');
+        allAlerts = await api.alerts.list();
+        renderAlerts();
+        document.getElementById('sosMessageInput').value = '';
+      });
+    }
+
+    sosBtn.onmousedown = () => {
+      sosBtn.style.background = '#991b1b';
+      holdTimer = setTimeout(() => {
+        triggerSos();
+      }, 1500);
+    };
+
+    sosBtn.onmouseup = () => {
+      sosBtn.style.background = 'var(--danger)';
+      if (holdTimer) clearTimeout(holdTimer);
+    };
+
+    sosBtn.onmouseleave = () => {
+      sosBtn.style.background = 'var(--danger)';
+      if (holdTimer) clearTimeout(holdTimer);
+    };
+
+    // Touch support
+    sosBtn.ontouchstart = (e) => {
+      e.preventDefault();
+      sosBtn.style.background = '#991b1b';
+      holdTimer = setTimeout(() => {
+        triggerSos();
+      }, 1500);
+    };
+
+    sosBtn.ontouchend = () => {
+      sosBtn.style.background = 'var(--danger)';
+      if (holdTimer) clearTimeout(holdTimer);
+    };
+
+    sosBtn.onclick = () => {
+      // Also allow click with confirm dialog
+      triggerSos();
+    };
+
+    init();
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boat & Trip Monitoring - BoatTrack Port Manager</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .boat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+    .boat-card { background: white; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow-sm); padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+    .progress-bar-container { background: #e2e8f0; border-radius: 999px; height: 16px; overflow: hidden; position: relative; margin-top: 0.25rem; }
+    .progress-bar { height: 100%; transition: width 0.3s ease; }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Port Manager
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/manager/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/manager/trip-schedule.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Trip Schedule</a>
+      <a href="/manager/monitoring.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat & Trip Monitoring</a>
+      <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
+      <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
+      <a href="/manager/departure-approval.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
+      <a href="/manager/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 7.86"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Alerts</a>
+      <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
+      <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Boat & Trip Monitoring</h2>
+      <input type="text" id="searchBoatInput" class="form-control" placeholder="Search boats..." style="max-width: 250px;">
+    </header>
+
+    <div class="admin-content">
+      <div id="boatGridContainer" class="boat-grid">
+        <p style="color: var(--text-muted);">Loading verified boats and monitoring data...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUSPEND BOAT MODAL -->
+  <div id="suspendModal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 style="color: var(--danger);">Suspend Boat</h3>
+        <button class="btn btn-outline btn-sm" id="closeSuspendModalBtn">&times;</button>
+      </div>
+      <form id="suspendForm">
+        <div class="modal-body">
+          <input type="hidden" id="suspendBoatId">
+          <p style="font-size: 0.9rem; margin-bottom: 1rem; color: var(--text-muted);">
+            Suspending this boat will automatically set all its scheduled trips to <strong>Held</strong> with the reason "Boat suspended".
+          </p>
+          <div class="form-group">
+            <label class="form-label">Suspension Reason</label>
+            <textarea id="suspendReasonInput" class="form-control" rows="3" required placeholder="Enter suspension reason (e.g. Engine failure, Coast Guard order)..."></textarea>
+          </div>
+          <div id="suspendError" class="error-text"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelSuspendModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-danger">Confirm Suspension</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['port_manager']);
+    if (!session) throw new Error('Unauthorized');
+
+    let allBoats = [];
+    let allTrips = [];
+    let allManifests = [];
+    let allBookings = [];
+    let allUsers = [];
+    let allPassengers = [];
+    let allPayments = [];
+    let allRoutes = [];
+    let allTerminals = [];
+    let allInspections = [];
+
+    async function loadData() {
+      allBoats = await api.boats.list();
+      allTrips = await api.trips.list();
+      allManifests = await api.manifests.list();
+      allBookings = await api.bookings.list();
+      allUsers = await api.users.list();
+      allPassengers = await api.passengers.list();
+      allPayments = await api.payments.list();
+      allRoutes = await api.routes.list();
+      allTerminals = await api.terminals.list();
+      allInspections = await api.inspections.list();
+
+      renderBoats();
+    }
+
+    function renderBoats() {
+      const search = document.getElementById('searchBoatInput').value.toLowerCase();
+      const verifiedBoats = allBoats.filter(b => b.registration_status === 'Verified');
+      const filtered = verifiedBoats.filter(b => b.name.toLowerCase().includes(search));
+
+      const container = document.getElementById('boatGridContainer');
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="card" style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);">No verified boats found.</div>';
+        return;
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      container.innerHTML = filtered.map(boat => {
+        const oper = boat.operator_id ? allUsers.find(u => u.id === boat.operator_id) : null;
+        const clusterStr = oper && oper.cluster ? oper.cluster : 'Unassigned';
+        const isSuspended = boat.boat_status === 'Suspended';
+
+        // Today's trips for this boat
+        const boatTrips = allTrips.filter(t => t.boat_id === boat.id && t.departure_time.startsWith(todayStr));
+
+        // Load calculations for today's trips of this boat
+        let totalManifestPax = 0;
+        let totalRequiredPax = 0;
+        let totalPaxWeight = 0;
+        let totalBaggageWeight = 0;
+        let totalCargoWeight = 0;
+
+        boatTrips.forEach(t => {
+          totalRequiredPax += (t.required_passengers || 0);
+          const manifests = allManifests.filter(m => m.trip_id === t.id);
+          totalManifestPax += manifests.length;
+
+          manifests.forEach(m => {
+            const psg = allPassengers.find(p => p.id === m.passenger_id) || { weight_kg: 65 };
+            totalPaxWeight += (psg.weight_kg || 65);
+            totalBaggageWeight += (m.baggage_weight_kg || 0);
+          });
+
+          // Approved and paid cargo bookings for this trip
+          const tripBookings = allBookings.filter(b => b.trip_id === t.id && b.status === 'Approved' && b.booking_type === 'Cargo');
+          tripBookings.forEach(b => {
+            // check if paid
+            const pay = allPayments.find(p => p.booking_id === b.id && p.status === 'Paid');
+            if (pay) {
+              totalCargoWeight += (b.cargo_weight_kg || 0);
+            }
+          });
+        });
+
+        const currentTotalLoad = totalPaxWeight + totalBaggageWeight + totalCargoWeight;
+        const maxLoad = boat.max_load_kg || 2000;
+        const loadPercent = Math.min(100, (currentTotalLoad / maxLoad) * 100);
+
+        let barColor = 'var(--success)';
+        let statusText = 'Safe Load';
+        if (currentTotalLoad > maxLoad || totalManifestPax > boat.passenger_capacity) {
+          barColor = 'var(--danger)';
+          statusText = 'Capacity/Load Exceeded!';
+        } else if (loadPercent >= 80) {
+          barColor = 'var(--warning)';
+          statusText = 'High Load';
+        }
+
+        return `
+          <div class="boat-card">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <h3 style="margin-bottom: 0.25rem;">${boat.name}</h3>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">${boat.boat_type} | Max Cap: ${boat.passenger_capacity} Pax | Max Load: ${maxLoad} kg</span>
+              </div>
+              <span class="badge ${isSuspended ? 'badge-suspended' : 'badge-active'}">${boat.boat_status}</span>
+            </div>
+
+            <div style="font-size: 0.875rem; background: var(--bg-main); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
+              <strong>Operator:</strong> ${oper ? oper.full_name : 'None'} <br>
+              <strong>Cluster:</strong> ${clusterStr}
+            </div>
+
+            <div>
+              <h4 style="font-size: 0.9rem; margin-bottom: 0.375rem; color: var(--primary);">Today's Trips (${boatTrips.length})</h4>
+              ${boatTrips.length === 0 ? '<p style="font-size: 0.85rem; color: var(--text-muted);">No trips today.</p>' : `
+                <div style="display: flex; flex-direction: column; gap: 0.375rem;">
+                  ${boatTrips.map(t => {
+                    const route = allRoutes.find(r => r.id === t.route_id) || {};
+                    const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+                    const time = new Date(t.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    const tripInspecs = allInspections.filter(i => i.trip_id === t.id);
+                    const preInsp = tripInspecs.find(i => i.inspection_type === 'Pre-departure');
+                    const postInsp = tripInspecs.find(i => i.inspection_type === 'Post-arrival');
+                    const preBadge = preInsp ? `<span class="badge ${preInsp.overall === 'Passed' ? 'badge-active' : 'badge-danger'}" style="font-size: 0.7rem;">Pre: ${preInsp.overall}</span>` : '';
+                    const postBadge = postInsp ? `<span class="badge ${postInsp.overall === 'Passed' ? 'badge-active' : 'badge-danger'}" style="font-size: 0.7rem;">Post: ${postInsp.overall}</span>` : '';
+
+                    return `<div style="font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; background: white; padding: 0.375rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
+                      <div>
+                        <span>${time} → ${dest}</span>
+                        <div style="display: flex; gap: 0.25rem; margin-top: 0.125rem;">${preBadge} ${postBadge}</div>
+                      </div>
+                      <span class="badge ${t.trip_status === 'Scheduled' ? 'badge-scheduled' : (t.trip_status === 'Held' ? 'badge-held' : (t.trip_status === 'Departed' ? 'badge-active' : 'badge-arrived'))}">${t.trip_status}</span>
+                    </div>`;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                <strong>Manifest Pax vs Cap:</strong>
+                <span>${totalManifestPax} / ${boat.passenger_capacity} pax (Req: ${totalRequiredPax})</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+                <strong>Total Load (Pax+Baggage+Cargo):</strong>
+                <span>${currentTotalLoad.toFixed(1)} / ${maxLoad} kg</span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" style="width: ${loadPercent}%; background-color: ${barColor};"></div>
+              </div>
+              <div style="font-size: 0.75rem; margin-top: 0.25rem; font-weight: 600; color: ${barColor};">${statusText} (${loadPercent.toFixed(1)}%)</div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+              ${isSuspended ? 
+                `<button class="btn btn-outline btn-sm" style="color:var(--success); border-color:var(--success);" onclick="window.reactivateBoat('${boat.id}')">Reactivate Boat</button>` :
+                `<button class="btn btn-danger btn-sm" onclick="window.openSuspendModal('${boat.id}')">Suspend Boat</button>`
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('searchBoatInput').oninput = renderBoats;
+
+    // Suspend Boat Modal
+    const suspendModal = document.getElementById('suspendModal');
+    const closeSuspendModal = () => suspendModal.style.display = 'none';
+    document.getElementById('closeSuspendModalBtn').onclick = closeSuspendModal;
+    document.getElementById('cancelSuspendModalBtn').onclick = closeSuspendModal;
+
+    window.openSuspendModal = (id) => {
+      document.getElementById('suspendBoatId').value = id;
+      document.getElementById('suspendReasonInput').value = '';
+      document.getElementById('suspendError').textContent = '';
+      suspendModal.style.display = 'flex';
+    };
+
+    document.getElementById('suspendForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('suspendBoatId').value;
+      const reason = document.getElementById('suspendReasonInput').value.trim();
+      const errBox = document.getElementById('suspendError');
+      errBox.textContent = '';
+
+      try {
+        if (!reason) throw new Error('A suspension reason is required.');
+        await api.boats.updateStatus(id, 'Suspended', reason);
+        ui.showToast('Boat suspended and scheduled trips placed on hold.', 'success');
+        closeSuspendModal();
+        await loadData();
+      } catch (err) {
+        errBox.textContent = err.message;
+      }
+    };
+
+    window.reactivateBoat = async (id) => {
+      ui.confirm('Are you sure you want to reactivate this boat? Note: Held trips must be manually released from the trip schedule.', async () => {
+        try {
+          await api.boats.updateStatus(id, 'Active');
+          ui.showToast('Boat reactivated successfully.', 'success');
+          await loadData();
+        } catch (err) {
+          ui.showToast(err.message, 'danger');
+        }
+      });
+    };
+
+    loadData();
+    ui.setupSync(loadData);
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

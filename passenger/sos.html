@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOS Emergency - BoatTrack Passenger</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .portal-layout { display: flex; min-height: 100vh; background-color: var(--bg-main); }
+    .portal-sidebar { width: 240px; background: var(--bg-sidebar); color: white; display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 200; }
+    .portal-main { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-width: 0; }
+    .portal-header { background: white; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .portal-content { padding: 1.5rem; flex: 1; }
+    
+    .sos-button-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2.5rem; background: rgba(220, 53, 69, 0.05); border: 2px dashed var(--danger); border-radius: var(--radius-lg); text-align: center; margin-top: 1.5rem; }
+    .sos-big-btn { width: 140px; height: 140px; border-radius: 50%; background: var(--danger); color: white; font-size: 1.5rem; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(220, 53, 69, 0.4); display: flex; align-items: center; justify-content: center; transition: transform 0.1s, background 0.2s; user-select: none; }
+    .sos-big-btn:active { transform: scale(0.95); background: #b02a37; }
+    .sos-big-btn:disabled { background: var(--text-muted); box-shadow: none; cursor: not-allowed; }
+
+    .bottom-tab-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); height: 60px; z-index: 1000; justify-content: space-around; align-items: center; }
+    .bottom-tab-bar a { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; font-weight: 500; gap: 2px; flex: 1; height: 100%; }
+    .bottom-tab-bar a.active, .bottom-tab-bar a:hover { color: var(--teal); }
+
+    @media (max-width: 992px) {
+      .portal-sidebar { display: none !important; }
+      .portal-main { margin-left: 0 !important; padding-bottom: 70px !important; }
+      .bottom-tab-bar { display: flex !important; }
+    }
+  </style>
+</head>
+<body class="portal-layout">
+
+  <!-- Desktop Sidebar -->
+  <aside class="portal-sidebar">
+    <div style="padding: 1.5rem; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid var(--border-dark); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/></svg>
+      Passenger Portal
+    </div>
+    <div style="padding: 1rem 0; overflow-y: auto;">
+      <a href="/passenger/dashboard.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/passenger/schedules.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Schedules</a>
+      <a href="/passenger/my-bookings.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> My Bookings</a>
+      <a href="/passenger/my-trips.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> My Trips</a>
+      <a href="/passenger/my-qr.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> My QR</a>
+      <a href="/passenger/sos.html" class="active" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: white; text-decoration: none; font-weight: 500; background: rgba(255,255,255,0.05);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Emergency</a>
+      <a href="/passenger/profile.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: var(--danger); text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="portal-main">
+    <header class="portal-header">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--danger);">SOS Emergency Alert</h2>
+    </header>
+
+    <div class="portal-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">Emergency Assistance</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+          Use the SOS button only during an actual emergency when you are currently on a departed trip. Coast Guard authorities and port operators will be instantly notified with your active trip and vessel details.
+        </p>
+      </div>
+
+      <div id="sosSection">
+        <div style="text-align: center; color: var(--text-muted);">Checking active trip status...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Tab Bar -->
+  <nav class="bottom-tab-bar">
+    <a href="/passenger/dashboard.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      Dashboard
+    </a>
+    <a href="/passenger/schedules.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Schedules
+    </a>
+    <a href="/passenger/my-bookings.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Bookings
+    </a>
+    <a href="/passenger/my-trips.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+      My Trips
+    </a>
+    <a href="/passenger/sos.html" class="active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      SOS
+    </a>
+    <a href="/passenger/my-qr.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      My QR
+    </a>
+  </nav>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['passenger']);
+    if (!session) throw new Error('Unauthorized');
+
+    const passenger = await api.passengers.getByUserId(session.user_id);
+
+    async function loadSOS() {
+      const manifests = await api.manifests.list();
+      const trips = await api.trips.list();
+      const boats = await api.boats.list();
+      const routes = await api.routes.list();
+      const terminals = await api.terminals.list();
+      const alerts = await api.alerts.list();
+
+      const myManifests = manifests.filter(m => m.passenger_id === passenger.id);
+      
+      // Find a departed trip for this passenger
+      const departedTripItem = myManifests.map(m => {
+        const trip = trips.find(t => t.id === m.trip_id);
+        return { manifest: m, trip };
+      }).find(item => item.trip && item.trip.trip_status === 'Departed');
+
+      const container = document.getElementById('sosSection');
+
+      if (!departedTripItem) {
+        container.innerHTML = `
+          <div class="card" style="text-align: center; padding: 2.5rem 1.5rem;">
+            <div style="margin-bottom: 1rem;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+            </div>
+            <h3 style="color: var(--text-main); margin-bottom: 0.5rem;">SOS Currently Inactive</h3>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">You are not currently on an active trip (Departed status).</p>
+          </div>
+        `;
+        return;
+      }
+
+      const { trip } = departedTripItem;
+      const boat = boats.find(b => b.id === trip.boat_id);
+      const route = routes.find(r => r.id === trip.route_id);
+      const orig = route ? terminals.find(t => t.id === route.origin_terminal_id) : null;
+      const dest = route ? terminals.find(t => t.id === route.destination_terminal_id) : null;
+
+      // Check if duplicate Open alert exists for this passenger and trip
+      const existingAlert = alerts.find(a => a.trip_id === trip.id && a.sent_by_user_id === session.user_id && a.status === 'Open');
+
+      if (existingAlert) {
+        container.innerHTML = `
+          <div class="card" style="border-left: 4px solid var(--danger);">
+            <h3 style="color: var(--danger); margin-bottom: 0.5rem;">Active SOS Alert Sent</h3>
+            <p style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 1rem;">
+              You have already triggered an SOS alert for this trip (${boat ? boat.name : 'Vessel'}). Port authorities have been alerted.
+            </p>
+            <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-md); font-size: 0.9rem;">
+              <div><strong>Status:</strong> <span class="badge badge-pending">${existingAlert.status}</span></div>
+              <div><strong>Trip:</strong> ${orig ? orig.name : ''} → ${dest ? dest.name : ''}</div>
+              <div><strong>Message:</strong> ${existingAlert.message}</div>
+              <div><strong>Sent At:</strong> ${new Date(existingAlert.created_at).toLocaleString()}</div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Check Acknowledged alert
+      const ackAlert = alerts.find(a => a.trip_id === trip.id && a.sent_by_user_id === session.user_id && a.status === 'Acknowledged');
+
+      container.innerHTML = `
+        <div class="card">
+          <div style="margin-bottom: 1.5rem; background: var(--bg-main); padding: 1rem; border-radius: var(--radius-md); font-size: 0.9rem;">
+            <strong>Active Trip Details:</strong><br>
+            Vessel: ${boat ? boat.name : 'Vessel'}<br>
+            Route: ${orig ? orig.name : ''} → ${dest ? dest.name : ''}<br>
+            Departure: ${new Date(trip.departure_time).toLocaleString()}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Emergency Message (Optional)</label>
+            <textarea id="sosMessage" class="form-control" rows="3" placeholder="Describe the emergency (e.g. Engine failure, medical emergency)...">SOS Emergency reported by passenger.</textarea>
+          </div>
+
+          ${ackAlert ? `<div style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(40, 167, 69, 0.1); border-radius: 4px; color: var(--teal); font-size: 0.9rem;">Previous SOS was Acknowledged at ${new Date(ackAlert.acknowledged_at).toLocaleString()}</div>` : ''}
+
+          <div class="sos-button-container">
+            <p style="font-weight: 600; color: var(--danger); margin-bottom: 1rem;">Press and hold (1.5s) or click with confirmation</p>
+            <button id="sosActionBtn" class="sos-big-btn">SOS</button>
+          </div>
+        </div>
+      `;
+
+      let pressTimer = null;
+      const sosBtn = document.getElementById('sosActionBtn');
+
+      const triggerSos = async () => {
+        const msg = document.getElementById('sosMessage').value || 'SOS Emergency from passenger';
+        await api.alerts.create({
+          trip_id: trip.id,
+          boat_id: trip.boat_id,
+          sent_by_user_id: session.user_id,
+          sender_role: 'Passenger',
+          message: msg,
+          status: 'Open'
+        });
+
+        // Also notify admins / receptionist
+        await api.notifications.create({
+          user_id: null, // broadcast / admin notification
+          type: 'SOS',
+          message: `SOS Emergency Alert triggered by passenger ${passenger.full_name} on vessel ${boat ? boat.name : 'Vessel'}!`,
+          link: `/admin/sos-alerts.html`
+        });
+
+        ui.showToast('SOS Emergency Alert sent successfully!', 'danger');
+        loadSOS();
+      };
+
+      sosBtn.onmousedown = () => {
+        pressTimer = setTimeout(() => {
+          triggerSos();
+        }, 1500);
+      };
+      sosBtn.onmouseup = () => {
+        if (pressTimer) clearTimeout(pressTimer);
+      };
+      sosBtn.onmouseleave = () => {
+        if (pressTimer) clearTimeout(pressTimer);
+      };
+
+      // Also allow confirmation dialog click
+      sosBtn.onclick = () => {
+        if (pressTimer) clearTimeout(pressTimer);
+        ui.confirm('Are you sure you want to send an SOS Emergency Alert?', () => {
+          triggerSos();
+        });
+      };
+    }
+
+    loadSOS();
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

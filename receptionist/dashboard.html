@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Receptionist Dashboard - BoatTrack</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .stat-card h4 { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+    .stat-card .val { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+    @media (max-width: 992px) { .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Receptionist
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/receptionist/dashboard.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/receptionist/register-guest.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"/></svg> Register Guest</a>
+      <a href="/receptionist/boarding.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Boarding Station</a>
+      <a href="/receptionist/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Today's Manifests</a>
+      <a href="/receptionist/remittance.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payments & Remittance</a>
+      <a href="/receptionist/booking-review.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Private Booking Review</a>
+      <a href="/receptionist/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Receptionist Dashboard</h2>
+      <span id="receptionistName" style="font-weight: 600;"></span>
+    </header>
+
+    <div class="admin-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h4>Passengers Processed Today</h4>
+          <div class="val" id="statProcessed">0</div>
+        </div>
+        <div class="stat-card">
+          <h4>Collections Today (Cash / GCash)</h4>
+          <div class="val" id="statCollections" style="font-size: 1.25rem; color: var(--success);">₱0.00</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="statCollBreakdown">Cash: ₱0 | GCash: ₱0</div>
+        </div>
+        <div class="stat-card">
+          <h4>Amount Not Yet Remitted</h4>
+          <div class="val" id="statUnremitted" style="color: var(--warning);">₱0.00</div>
+        </div>
+        <div class="stat-card">
+          <h4>Private Bookings Awaiting Review</h4>
+          <div class="val" id="statReviewBookings" style="color: var(--primary);">0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-bottom: 1rem;">Today's Trips & Fill Status</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Boat Name</th>
+                <th>Route</th>
+                <th>Departure</th>
+                <th>Status</th>
+                <th>Passengers (Manifest / Required)</th>
+                <th>Fill Indicator</th>
+              </tr>
+            </thead>
+            <tbody id="todayTripsBody">
+              <tr><td colspan="6" style="text-align: center;">Loading today's trips...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['receptionist']);
+    if (!session) throw new Error('Unauthorized');
+    document.getElementById('receptionistName').textContent = session.full_name;
+
+    async function loadDashboard() {
+      const manifests = await api.manifests.list();
+      const payments = await api.payments.list();
+      const bookings = await api.bookings.list();
+      const trips = await api.trips.list();
+      const boats = await api.boats.list();
+      const routes = await api.routes.list();
+      const terminals = await api.terminals.list();
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // 1. Passengers processed today (manifest entries created today)
+      const processedToday = manifests.filter(m => m.created_at && m.created_at.startsWith(todayStr)).length;
+      document.getElementById('statProcessed').textContent = processedToday;
+
+      // 2. Collections today (cash vs gcash breakdown)
+      let cashTotal = 0;
+      let gcashTotal = 0;
+      payments.forEach(p => {
+        if (p.status === 'Paid' && p.created_at && p.created_at.startsWith(todayStr)) {
+          if (p.method === 'Cash') cashTotal += (p.amount || 0);
+          else if (p.method === 'GCash') gcashTotal += (p.amount || 0);
+        }
+      });
+      const totalColl = cashTotal + gcashTotal;
+      document.getElementById('statCollections').textContent = `₱${totalColl.toFixed(2)}`;
+      document.getElementById('statCollBreakdown').textContent = `Cash: ₱${cashTotal.toFixed(2)} | GCash: ₱${gcashTotal.toFixed(2)}`;
+
+      // 3. Amount not yet remitted
+      let unremittedTotal = 0;
+      payments.forEach(p => {
+        if (p.status === 'Paid' && (p.remittance_id === null || p.remittance_id === undefined)) {
+          unremittedTotal += (p.amount || 0);
+        }
+      });
+      document.getElementById('statUnremitted').textContent = `₱${unremittedTotal.toFixed(2)}`;
+
+      // 4. Private bookings awaiting review count
+      const reviewCount = bookings.filter(b => b.status === 'Reviewing').length;
+      document.getElementById('statReviewBookings').textContent = reviewCount;
+
+      // 5. Today's trips with fill status
+      const todayTrips = trips.filter(t => t.departure_time && t.departure_time.startsWith(todayStr));
+      const tbody = document.getElementById('todayTripsBody');
+
+      if (todayTrips.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No trips scheduled for today.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = todayTrips.map(t => {
+        const boat = boats.find(b => b.id === t.boat_id) || { name: 'Boat', passenger_capacity: 50 };
+        const route = routes.find(r => r.id === t.route_id) || {};
+        const origin = terminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+        const dest = terminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+        const time = new Date(t.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const tripManifests = manifests.filter(m => m.trip_id === t.id);
+        const paxCount = tripManifests.length;
+        const required = t.required_passengers || 0;
+        const capacity = boat.passenger_capacity || 50;
+
+        const fillPercent = Math.min(100, Math.round((paxCount / capacity) * 100));
+        let badgeClass = 'badge-scheduled';
+        if (t.trip_status === 'Held') badgeClass = 'badge-held';
+        else if (t.trip_status === 'Departed') badgeClass = 'badge-departed';
+        else if (t.trip_status === 'Arrived') badgeClass = 'badge-arrived';
+
+        return `
+          <tr>
+            <td><strong>${boat.name}</strong></td>
+            <td>${origin} → ${dest}</td>
+            <td>${time}</td>
+            <td><span class="badge ${badgeClass}">${t.trip_status}</span></td>
+            <td><strong>${paxCount}</strong> / ${required} req (Cap: ${capacity})</td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="flex: 1; background: #e2e8f0; border-radius: 4px; height: 8px; overflow: hidden; min-width: 80px;">
+                  <div style="background: var(--teal); width: ${fillPercent}%; height: 100%;"></div>
+                </div>
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">${fillPercent}%</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    loadDashboard();
+    ui.setupSync(loadDashboard);
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

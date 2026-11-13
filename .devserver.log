@@ -1,0 +1,17 @@
+npm notice run boat@1.0.0 npx
+npm notice run live-server --port=5500 --no-browser
+[33mhttp://0.0.0.0:5500 is already in use. Trying another port.[39m
+[32mServing "C:\Users\joshd\Downloads\boat" at http://127.0.0.1:63796[39m
+[36mReady for changes[39m
+[35mCSS change detected[39m C:\Users\joshd\Downloads\boat\css\layout.css
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\bcryptjs\src\bcrypt\prng
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\bcryptjs\src\bcrypt\prng
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\live-server\test\conf
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\live-server\test\conf
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\bcryptjs\src\bcrypt\prng\accum.js
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\bcryptjs\src\bcrypt\prng\isaac.js
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\bcryptjs\src\bcrypt\prng\README.md
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\live-server\test\conf\https.conf.js
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\live-server\test\conf\server.key
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\node_modules\live-server\test\conf\server.cert
+[36mChange detected[39m C:\Users\joshd\Downloads\boat\crew\sos.html

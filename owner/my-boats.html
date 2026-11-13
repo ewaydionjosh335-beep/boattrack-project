@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Boats - BoatTrack</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Boat Owner
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/owner/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/owner/my-boats.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> My Boats</a>
+      <a href="/owner/crew-list.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Crew List</a>
+      <a href="/owner/register-boat.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg> Register New Boat</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>My Boats</h2>
+    </header>
+
+    <div class="admin-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem;">
+          <input type="text" id="searchInput" placeholder="Search by name..." class="form-control">
+          <select id="statusFilter" class="form-control" style="width: auto;">
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Verified">Verified</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-container">
+        <table id="boatsTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Capacity</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+
+    const session = await auth.requireAuth(['boat_owner']);
+    let boats = await api.boats.listByOwner(session.user_id);
+    
+    function renderTable(filterBoats = boats) {
+      const tbody = document.querySelector('#boatsTable tbody');
+      tbody.innerHTML = '';
+      if (filterBoats.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No boats found.</td></tr>';
+        return;
+      }
+      filterBoats.forEach(boat => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${boat.name}</strong></td>
+          <td><span class="badge" style="background:#e2e8f0; color:#334155;">${boat.boat_type}</span></td>
+          <td>${boat.passenger_capacity} pax / ${boat.max_load_kg} kg</td>
+          <td><span class="badge badge-${boat.registration_status.toLowerCase()}">${boat.registration_status}</span></td>
+          <td><a href="/owner/boat-details.html?id=${boat.id}" class="btn btn-sm btn-outline">View Details</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderTable();
+
+    document.getElementById('searchInput').oninput = (e) => {
+      const val = e.target.value.toLowerCase();
+      const filtered = boats.filter(b => b.name.toLowerCase().includes(val));
+      renderTable(filtered);
+    };
+
+    document.getElementById('statusFilter').onchange = (e) => {
+      const val = e.target.value;
+      const filtered = val === 'All' ? boats : boats.filter(b => b.registration_status === val);
+      renderTable(filtered);
+    };
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

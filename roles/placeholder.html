@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Role Dashboard - BoatTrack Binangonan</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; height: 100vh; background-color: var(--bg-main);">
+
+  <div class="card" style="text-align: center; max-width: 450px; padding: 2.5rem;">
+    <h2 id="roleTitle" style="color: var(--teal); margin-bottom: 1rem;">Role Dashboard Placeholder</h2>
+    <p id="roleDesc" style="color: var(--text-muted); margin-bottom: 2rem;">Your [Role] pages will be added in a later phase of BoatTrack.</p>
+    <button id="logoutBtn" class="btn btn-danger" style="width: 100%;">Logout</button>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+
+    const session = await auth.requireAuth();
+    if (session) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roleParam = urlParams.get('role') || session.role;
+      document.getElementById('roleTitle').textContent = `${roleParam.replace('_', ' ').toUpperCase()} Dashboard`;
+      document.getElementById('roleDesc').textContent = `Your ${roleParam.replace('_', ' ')} pages will be added in a later phase.`;
+    }
+
+    document.getElementById('logoutBtn').onclick = async () => {
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

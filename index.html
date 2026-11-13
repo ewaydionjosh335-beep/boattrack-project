@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BoatTrack - Binangonan Port Monitoring & Ticketing</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .hero {
+      background: linear-gradient(135deg, var(--primary-dark), var(--teal));
+      color: white;
+      padding: 5rem 1rem;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2.75rem; color: white; margin-bottom: 1rem; font-weight: 700; }
+    .hero p { font-size: 1.25rem; max-width: 100%; margin: 0 auto; color: #e2e8f0; white-space: nowrap; overflow-x: auto; }
+    footer { background: var(--primary-dark); color: #adb5bd; padding: 3rem 1rem; text-align: center; margin-top: 4rem; }
+    footer p { margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <a href="/index.html" class="nav-brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        BoatTrack
+      </a>
+      <div class="nav-links">
+        <a href="/login.html?tab=signup" class="btn btn-outline">Passenger Sign Up</a>
+        <a href="/login.html" class="btn btn-primary">Login</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container">
+      <h1>Binangonan Port Live Departure & Schedule Board</h1>
+      <p>Real-time vessel departure monitor and verified trip schedules across Laguna de Bay.</p>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top: 2.5rem; padding-bottom: 4rem;">
+    <div class="card" style="margin-bottom: 2rem;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Search Vessel / Destination</label>
+          <input type="text" id="searchInput" class="form-control" placeholder="Search...">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Filter Destination</label>
+          <select id="destinationFilter" class="form-control">
+            <option value="">All Destinations</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Vessel Name</th>
+            <th>Type</th>
+            <th>Origin → Destination</th>
+            <th>ETA</th>
+            <th>Fare</th>
+            <th>Coast Guard Officer</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="schedulesTable">
+          <tr><td colspan="8" style="text-align: center;">Loading schedules...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>BoatTrack System - Binangonan Port, Rizal</strong></p>
+      <p>University of Rizal System | BSIT Capstone Project</p>
+      <p style="font-size: 0.85rem; margin-top: 1rem; color: #6c757d;">
+        Data Privacy Act of 2012 (RA 10173) Notice: All personal and manifest data collected are securely protected and used strictly for port safety and passenger monitoring.
+      </p>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { seedDatabase } from '/js/seed.js';
+    import { auth } from '/js/auth.js';
+
+    await seedDatabase();
+    await auth.initNavbarAuth();
+
+    let allTrips = [];
+    let allBoats = [];
+    let allRoutes = [];
+    let allTerminals = [];
+
+    async function loadData() {
+      allTrips = await api.trips.list();
+      allBoats = await api.boats.list();
+      allRoutes = await api.routes.list();
+      allTerminals = await api.terminals.list();
+
+      const destSelect = document.getElementById('destinationFilter');
+      const uniqueDestIds = [...new Set(allRoutes.map(r => r.destination_terminal_id))];
+      destSelect.innerHTML = '<option value="">All Destinations</option>' + uniqueDestIds.map(id => {
+        const term = allTerminals.find(t => t.id === id);
+        return `<option value="${id}">${term ? term.name : id}</option>`;
+      }).join('');
+
+      renderTable();
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const destFilter = document.getElementById('destinationFilter').value;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const filtered = allTrips.filter(trip => {
+        const boat = allBoats.find(b => b.id === trip.boat_id);
+        if (!boat || boat.registration_status !== 'Verified' || boat.boat_status !== 'Active') return false;
+
+        const route = allRoutes.find(r => r.id === trip.route_id);
+        if (!route) return false;
+
+        // Schedule only for today
+        const tripDate = trip.departure_time.split('T')[0];
+        if (tripDate !== todayStr) return false;
+
+        const origin = allTerminals.find(t => t.id === route.origin_terminal_id);
+        const dest = allTerminals.find(t => t.id === route.destination_terminal_id);
+
+        if (destFilter && route.destination_terminal_id !== destFilter) return false;
+
+        if (search) {
+          const matchBoat = boat.name.toLowerCase().includes(search);
+          const matchDest = dest && dest.name.toLowerCase().includes(search);
+          if (!matchBoat && !matchDest) return false;
+        }
+
+        return true;
+      });
+
+      const tbody = document.getElementById('schedulesTable');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No scheduled trips for today matching filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(trip => {
+        const boat = allBoats.find(b => b.id === trip.boat_id);
+        const route = allRoutes.find(r => r.id === trip.route_id);
+        const origin = allTerminals.find(t => t.id === route.origin_terminal_id);
+        const dest = allTerminals.find(t => t.id === route.destination_terminal_id);
+        const depTime = new Date(trip.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const etaTime = new Date(trip.eta).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return `
+          <tr>
+            <td><strong>${depTime}</strong></td>
+            <td><strong>${boat.name}</strong></td>
+            <td><span class="badge" style="background:#e2e8f0; color:#334155;">${boat.boat_type}</span></td>
+            <td>${origin ? origin.name : 'Origin'} → <strong>${dest ? dest.name : 'Dest'}</strong></td>
+            <td>${etaTime}</td>
+            <td>₱${route.fare.toFixed(2)}</td>
+            <td>${dest ? dest.coast_guard_personnel : 'PCG Personnel'}</td>
+            <td><span class="badge badge-${trip.trip_status.toLowerCase()}">${trip.trip_status}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('searchInput').addEventListener('input', renderTable);
+    document.getElementById('destinationFilter').addEventListener('change', renderTable);
+
+    loadData();
+    setInterval(loadData, 10000);
+  </script>
+</body>
+</html>

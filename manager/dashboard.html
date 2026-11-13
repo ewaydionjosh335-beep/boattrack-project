@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Port Manager Dashboard - BoatTrack</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .stat-card h4 { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .stat-card .val { font-size: 1.75rem; font-weight: 700; color: var(--primary); }
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+    @media (max-width: 992px) { .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Port Manager
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/manager/dashboard.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/manager/trip-schedule.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Trip Schedule</a>
+      <a href="/manager/monitoring.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat & Trip Monitoring</a>
+      <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
+      <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
+      <a href="/manager/departure-approval.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
+      <a href="/manager/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 7.86"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Alerts</a>
+      <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
+      <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Port Manager Dashboard</h2>
+      <span id="managerName" style="font-weight: 600;"></span>
+    </header>
+
+    <div class="admin-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h4>Today's Trips Status</h4>
+          <div style="font-size: 0.9rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
+            <span>Scheduled: <strong id="statSch">0</strong></span>
+            <span>Held: <strong id="statHeld" style="color: var(--warning);">0</strong></span>
+            <span>Departed: <strong id="statDep" style="color: var(--primary);">0</strong></span>
+            <span>Arrived: <strong id="statArr" style="color: var(--success);">0</strong></span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <h4>Boats Active vs Suspended</h4>
+          <div class="val" id="statBoatsCount" style="font-size: 1.5rem;">0 Active / 0 Susp.</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Verified fleet overview</div>
+        </div>
+        <div class="stat-card">
+          <h4>Passengers Booked vs Required</h4>
+          <div class="val" id="statPaxCount" style="font-size: 1.5rem;">0 / 0</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Total for today's trips</div>
+        </div>
+        <div class="stat-card">
+          <h4>Total Collections Today</h4>
+          <div class="val" id="statCollections" style="color: var(--success);">₱0.00</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Paid payments recorded today</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="margin-bottom: 1rem;">Today's Trips Overview</h3>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Boat</th>
+                  <th>Route</th>
+                  <th>Departure</th>
+                  <th>Status</th>
+                  <th>Pax (Manifest / Req)</th>
+                </tr>
+              </thead>
+              <tbody id="todayTripsBody">
+                <tr><td colspan="5" style="text-align: center;">Loading trips...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom: 1rem;">Held Trips & Reasons</h3>
+          <div id="heldTripsList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <p style="color: var(--text-muted);">Loading held trips...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['port_manager']);
+    if (!session) throw new Error('Unauthorized');
+    document.getElementById('managerName').textContent = session.full_name;
+
+    async function loadData() {
+      const trips = await api.trips.list();
+      const boats = await api.boats.list();
+      const manifests = await api.manifests.list();
+      const payments = await api.payments.list();
+      const routes = await api.routes.list();
+      const terminals = await api.terminals.list();
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayTrips = trips.filter(t => t.departure_time.startsWith(todayStr));
+
+      let sch = 0, held = 0, dep = 0, arr = 0;
+      todayTrips.forEach(t => {
+        if (t.trip_status === 'Scheduled') sch++;
+        else if (t.trip_status === 'Held') held++;
+        else if (t.trip_status === 'Departed') dep++;
+        else if (t.trip_status === 'Arrived') arr++;
+      });
+
+      document.getElementById('statSch').textContent = sch;
+      document.getElementById('statHeld').textContent = held;
+      document.getElementById('statDep').textContent = dep;
+      document.getElementById('statArr').textContent = arr;
+
+      const activeBoats = boats.filter(b => b.registration_status === 'Verified' && b.boat_status === 'Active').length;
+      const suspendedBoats = boats.filter(b => b.boat_status === 'Suspended').length;
+      document.getElementById('statBoatsCount').textContent = `${activeBoats} Active / ${suspendedBoats} Susp.`;
+
+      let totalBookedPax = 0;
+      let totalRequiredPax = 0;
+      todayTrips.forEach(t => {
+        totalRequiredPax += (t.required_passengers || 0);
+        const mCount = manifests.filter(m => m.trip_id === t.id).length;
+        totalBookedPax += mCount;
+      });
+      document.getElementById('statPaxCount').textContent = `${totalBookedPax} booked / ${totalRequiredPax} req`;
+
+      let totalColl = 0;
+      payments.forEach(p => {
+        if (p.status === 'Paid' && p.created_at.startsWith(todayStr)) {
+          totalColl += (p.amount || 0);
+        }
+      });
+      document.getElementById('statCollections').textContent = `₱${totalColl.toFixed(2)}`;
+
+      // Render today's trips table
+      const tbody = document.getElementById('todayTripsBody');
+      if (todayTrips.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No trips scheduled for today.</td></tr>';
+      } else {
+        tbody.innerHTML = todayTrips.map(t => {
+          const boat = boats.find(b => b.id === t.boat_id) || { name: 'Boat' };
+          const route = routes.find(r => r.id === t.route_id) || {};
+          const origin = terminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+          const dest = terminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+          const time = new Date(t.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const mCount = manifests.filter(m => m.trip_id === t.id).length;
+
+          let badgeClass = 'badge-scheduled';
+          if (t.trip_status === 'Held') badgeClass = 'badge-held';
+          else if (t.trip_status === 'Departed') badgeClass = 'badge-departed';
+          else if (t.trip_status === 'Arrived') badgeClass = 'badge-arrived';
+
+          return `
+            <tr>
+              <td><strong>${boat.name}</strong></td>
+              <td>${origin} → ${dest}</td>
+              <td>${time}</td>
+              <td><span class="badge ${badgeClass}">${t.trip_status}</span></td>
+              <td>${mCount} / ${t.required_passengers}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render Held trips
+      const heldContainer = document.getElementById('heldTripsList');
+      const heldTrips = trips.filter(t => t.trip_status === 'Held');
+      if (heldTrips.length === 0) {
+        heldContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No held trips currently.</p>';
+      } else {
+        heldContainer.innerHTML = heldTrips.map(t => {
+          const boat = boats.find(b => b.id === t.boat_id) || { name: 'Boat' };
+          const route = routes.find(r => r.id === t.route_id) || {};
+          const origin = terminals.find(term => term.id === route.origin_terminal_id)?.name || 'Origin';
+          const dest = terminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
+          const time = new Date(t.departure_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+
+          return `
+            <div style="background: white; padding: 0.875rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem;">
+                <strong>${boat.name}</strong>
+                <span class="badge badge-held">Held</span>
+              </div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">${origin} → ${dest} | ${time}</div>
+              <div style="font-size: 0.85rem; color: var(--danger); background: #fef2f2; padding: 0.375rem; border-radius: 4px;">
+                <strong>Reason:</strong> ${t.held_reason || 'No reason specified'}
+              </div>
+              <div style="margin-top: 0.5rem; text-align: right;">
+                <a href="/manager/trip-schedule.html" class="btn btn-outline btn-sm">Manage in Schedule</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    loadData();
+    ui.setupSync(loadData);
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

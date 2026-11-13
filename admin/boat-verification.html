@@ -1,0 +1,286 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boat Verification - BoatTrack Admin</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Administrator
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/admin/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/admin/accounts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts</a>
+      <a href="/admin/boat-verification.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg> Boat Verification</a>
+      <a href="/admin/crew-verification.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Crew Verification</a>
+      <a href="/admin/routes-fares.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Routes & Fares</a>
+      <a href="/admin/terminals.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/></svg> Terminals</a>
+      <a href="/admin/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Manifests</a>
+      <a href="/admin/bookings.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Bookings</a>
+      <a href="/admin/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/></svg> SOS Alerts <span class="badge badge-pending" id="sosBadge">0</span></a>
+      <a href="/admin/dev-tools.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .69.21 1.35.6 1.91z"/></svg> Dev Tools</a>
+          <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Boat Registration Verification</h2>
+      <select id="statusFilter" class="form-control" style="width: 200px;">
+        <option value="">All Statuses</option>
+        <option value="Pending" selected>Pending</option>
+        <option value="Verified">Verified</option>
+        <option value="Rejected">Rejected</option>
+      </select>
+    </header>
+
+    <div class="admin-content">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Boat Name</th>
+              <th>Type</th>
+              <th>Capacity (Pax / Cargo)</th>
+              <th>Max Load (kg)</th>
+              <th>Registration Status</th>
+              <th>Remarks</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="boatsTableBody">
+            <tr><td colspan="8" style="text-align: center;">Loading boats...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VERIFICATION MODAL -->
+  <div id="verifyModal" class="modal-backdrop" style="display: none;">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 id="modalBoatName">Verify Boat Registration</h3>
+        <button class="btn btn-outline btn-sm" id="closeModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="verifyBoatId">
+        <div id="boatDetailsSummary" style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.9rem; line-height: 1.6;"></div>
+        
+        <div class="form-group">
+          <label class="form-label">Submitted Documents</label>
+          <div id="boatDocsList" style="padding: 0.5rem; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-sm);"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Assign Boat Operator</label>
+          <select id="assignOperator" class="form-control"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Registration Type (Required for Approval)</label>
+          <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem;">
+            <label><input type="radio" name="regType" value="Franchised" checked> Franchised</label>
+            <label><input type="radio" name="regType" value="Licensed"> Licensed</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Remarks / Inspection Notes (Required if rejecting)</label>
+          <textarea id="verifyRemarks" class="form-control" rows="3" placeholder="Enter inspection remarks or reason for rejection..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="rejectBtn">Reject Boat</button>
+        <button class="btn btn-primary" id="verifyBtn">Verify & Approve</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { seedDatabase } from '/js/seed.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    await seedDatabase();
+    const session = await auth.requireAuth(['administrator']);
+    if (!session) throw new Error('Unauthorized');
+
+    let allBoats = [];
+    let allUsers = [];
+
+    async function loadBoats() {
+      allBoats = await api.boats.list();
+      allUsers = await api.users.list();
+      renderTable();
+
+      const alerts = await api.alerts.list();
+      const openAlerts = alerts.filter(a => a.status === 'Open');
+      const badge = document.getElementById('sosBadge');
+      if (openAlerts.length > 0) {
+        badge.textContent = openAlerts.length;
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function renderTable() {
+      const statusFilter = document.getElementById('statusFilter').value;
+      const filtered = allBoats.filter(b => {
+        if (statusFilter && b.registration_status !== statusFilter) return false;
+        return true;
+      });
+
+      const tbody = document.getElementById('boatsTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No boats found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const owner = allUsers.find(u => u.id === b.owner_id);
+        const operator = allUsers.find(u => u.id === b.operator_id);
+        return `
+          <tr>
+            <td>
+              <strong>${b.name}</strong><br>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Owner: ${owner ? owner.full_name : 'N/A'}</span>
+            </td>
+            <td><span class="badge" style="background:#e2e8f0; color:#334155;">${b.boat_type}</span> (${b.registration_type || 'Unregistered'})</td>
+            <td>${b.passenger_capacity} pax / ${b.cargo_capacity} kg</td>
+            <td><strong>${b.max_load_kg} kg</strong></td>
+            <td><span class="badge badge-${b.registration_status.toLowerCase()}">${b.registration_status}</span></td>
+            <td>${b.remarks || 'None'}</td>
+            <td>
+              <div class="table-actions">
+                <button class="btn btn-primary btn-sm" onclick="window.openVerifyModal('${b.id}')">Review / Verify</button>
+                <button class="btn btn-outline btn-sm" onclick="window.toggleBoatStatus('${b.id}', '${b.boat_status}')">${b.boat_status === 'Active' ? 'Suspend' : 'Activate'}</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('statusFilter').onchange = renderTable;
+
+    const modal = document.getElementById('verifyModal');
+    const closeModal = () => modal.style.display = 'none';
+    document.getElementById('closeModalBtn').onclick = closeModal;
+
+    window.openVerifyModal = async (boatId) => {
+      const boat = allBoats.find(b => b.id === boatId);
+      if (!boat) return;
+
+      document.getElementById('verifyBoatId').value = boat.id;
+      document.getElementById('modalBoatName').textContent = `Review: ${boat.name}`;
+      
+      const owner = allUsers.find(u => u.id === boat.owner_id);
+      document.getElementById('boatDetailsSummary').innerHTML = `
+        <strong>Boat Type:</strong> ${boat.boat_type} | <strong>Max Load:</strong> ${boat.max_load_kg} kg<br>
+        <strong>Passenger Capacity:</strong> ${boat.passenger_capacity} | <strong>Cargo Capacity:</strong> ${boat.cargo_capacity} kg<br>
+        <strong>Owner:</strong> ${owner ? owner.full_name : 'N/A'} | <strong>Current Status:</strong> ${boat.registration_status}
+      `;
+
+      const docs = await api.boatDocuments.listByBoat(boat.id);
+      const docsContainer = document.getElementById('boatDocsList');
+      if (docs.length === 0) {
+        docsContainer.innerHTML = '<span style="color:var(--text-muted);">No documents uploaded.</span>';
+      } else {
+        docsContainer.innerHTML = docs.map(d => `<div>Document: <strong>${d.file_name}</strong> (${d.doc_type})</div>`).join('');
+      }
+
+      const opSelect = document.getElementById('assignOperator');
+      const operators = allUsers.filter(u => u.role === 'boat_operator');
+      opSelect.innerHTML = '<option value="">-- Select Operator --</option>' + operators.map(o => `
+        <option value="${o.id}" ${o.id === boat.operator_id ? 'selected' : ''}>${o.full_name} (${o.email})${o.cluster ? ' - Cluster: ' + o.cluster : ''}</option>
+      `).join('');
+
+      document.getElementById('verifyRemarks').value = boat.remarks || '';
+      modal.style.display = 'flex';
+    };
+
+    document.getElementById('verifyBtn').onclick = async () => {
+      const id = document.getElementById('verifyBoatId').value;
+      const operator_id = document.getElementById('assignOperator').value || null;
+      const registration_type = document.querySelector('input[name="regType"]:checked').value;
+      const remarks = document.getElementById('verifyRemarks').value.trim();
+
+      await api.boats.verify(id, {
+        registration_status: 'Verified',
+        registration_type,
+        verified_by: session.full_name,
+        remarks: remarks || 'Verified and approved by Administrator.',
+        operator_id
+      });
+
+      ui.showToast('Boat successfully verified and approved.', 'success');
+      closeModal();
+      await loadBoats();
+
+    
+    };
+
+    document.getElementById('rejectBtn').onclick = async () => {
+      const id = document.getElementById('verifyBoatId').value;
+      const remarks = document.getElementById('verifyRemarks').value.trim();
+      if (!remarks) {
+        alert('Please enter remarks/reason for rejecting.');
+        return;
+      }
+
+      await api.boats.verify(id, {
+        registration_status: 'Rejected',
+        verified_by: session.full_name,
+        remarks
+      });
+
+      ui.showToast('Boat registration rejected.', 'warning');
+      closeModal();
+      await loadBoats();
+
+    
+    };
+
+    window.toggleBoatStatus = async (id, currentStatus) => {
+      const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
+      ui.confirm(`Are you sure you want to set boat status to ${newStatus}?`, async () => {
+        await api.boats.updateStatus(id, newStatus);
+        ui.showToast(`Boat status updated to ${newStatus}`, 'success');
+        await loadBoats();
+
+    
+      });
+    };
+
+    loadBoats();
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+

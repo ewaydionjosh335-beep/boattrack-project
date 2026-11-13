@@ -1,0 +1,14 @@
+{
+  "name": "boat",
+  "version": "1.0.0",
+  "description": "BSIT Capstone Project — University of Rizal System",
+  "main": "index.js",
+  "scripts": {
+    "dev": "live-server --port=5500 --open=/login.html"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}

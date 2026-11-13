@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boat Details - BoatTrack</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body class="admin-layout">
+
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">Boat Owner</div>
+    <div class="sidebar-menu">
+      <a href="/owner/dashboard.html">Dashboard</a>
+      <a href="/owner/my-boats.html">My Boats</a>
+      <a href="/owner/crew-list.html">Crew List</a>
+      <a href="/owner/register-boat.html">Register New Boat</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);">Logout</a>
+    </div>
+  </aside>
+
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2 id="boatTitle">Boat Details</h2>
+    </header>
+
+    <div class="admin-content">
+      <div class="card" id="detailsCard">
+        <div id="boatInfo"></div>
+        <div id="timeline" style="margin-top: 1.5rem;"></div>
+        <div id="actions" style="margin-top: 1.5rem;"></div>
+      </div>
+
+      <div class="card" style="margin-top: 1.5rem;">
+        <h3>Assigned Crew Members</h3>
+        <div class="table-container" style="margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Crew Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Assigned Date</th>
+              </tr>
+            </thead>
+            <tbody id="crewTableBody">
+              <tr><td colspan="4" style="text-align: center;">Loading crew roster...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT / RESUBMIT MODAL -->
+  <div id="editBoatModal" class="modal-backdrop" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit & Resubmit Boat</h3>
+        <button class="btn btn-outline btn-sm" id="closeModalBtn">✕</button>
+      </div>
+      <form id="editBoatForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Boat Name</label>
+            <input type="text" id="editName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Boat Type</label>
+            <select id="editType" class="form-control">
+              <option value="Normal">Normal</option>
+              <option value="Cargo">Cargo</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passenger Capacity</label>
+            <input type="number" id="editPax" class="form-control" min="1" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cargo Capacity (kg)</label>
+            <input type="number" id="editCargo" class="form-control" min="0" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Load (kg)</label>
+            <input type="number" id="editMaxLoad" class="form-control" min="1" required>
+          </div>
+          <div id="modalError" class="error-text"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save & Resubmit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['boat_owner']);
+    const urlParams = new URLSearchParams(window.location.search);
+    const boatId = urlParams.get('id');
+
+    async function loadBoatData() {
+      const boat = await api.boats.get(boatId);
+      if (!boat || boat.owner_id !== session.user_id) {
+        alert('Boat not found or unauthorized');
+        window.location.href = '/owner/my-boats.html';
+        return;
+      }
+
+      document.getElementById('boatTitle').textContent = boat.name;
+      document.getElementById('boatInfo').innerHTML = `
+        <p><strong>Type:</strong> ${boat.boat_type}</p>
+        <p><strong>Status:</strong> <span class="badge badge-${boat.registration_status.toLowerCase()}">${boat.registration_status}</span></p>
+        <p><strong>Passenger Capacity:</strong> ${boat.passenger_capacity}</p>
+        <p><strong>Cargo Capacity:</strong> ${boat.cargo_capacity || 0} kg</p>
+        <p><strong>Max Load:</strong> ${boat.max_load_kg} kg</p>
+        <p><strong>Resubmission Count:</strong> ${boat.resubmission_count || 0}</p>
+      `;
+
+      const actionsEl = document.getElementById('actions');
+      const timelineEl = document.getElementById('timeline');
+
+      if (boat.registration_status === 'Rejected') {
+        timelineEl.innerHTML = `
+          <div class="card" style="background: #f8d7da; border-color: #f5c6cb;">
+            <strong>Admin Remarks:</strong> ${boat.remarks || 'No remarks provided.'}
+          </div>
+        `;
+        actionsEl.innerHTML = `<button class="btn btn-primary" id="openEditBtn">Edit & Resubmit</button>`;
+      } else if (boat.registration_status === 'Pending') {
+        timelineEl.innerHTML = `<p style="color: var(--text-muted);">Your boat registration is currently pending administrator verification.</p>`;
+        actionsEl.innerHTML = `<button class="btn btn-outline" id="openEditBtn">Edit Details</button>`;
+      } else {
+        timelineEl.innerHTML = `<p style="color: var(--success);">Your boat has been successfully verified and approved.</p>`;
+        actionsEl.innerHTML = `<p><em>Verified boats are locked for editing.</em></p>`;
+      }
+
+      const modal = document.getElementById('editBoatModal');
+      const openBtn = document.getElementById('openEditBtn');
+      if (openBtn) {
+        openBtn.onclick = () => {
+          document.getElementById('editName').value = boat.name;
+          document.getElementById('editType').value = boat.boat_type;
+          document.getElementById('editPax').value = boat.passenger_capacity;
+          document.getElementById('editCargo').value = boat.cargo_capacity || 500;
+          document.getElementById('editMaxLoad').value = boat.max_load_kg;
+          document.getElementById('modalError').textContent = '';
+          modal.style.display = 'flex';
+        };
+      }
+
+      const closeModal = () => modal.style.display = 'none';
+      document.getElementById('closeModalBtn').onclick = closeModal;
+      document.getElementById('cancelModalBtn').onclick = closeModal;
+
+      document.getElementById('editBoatForm').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const name = document.getElementById('editName').value.trim();
+          const boat_type = document.getElementById('editType').value;
+          const passenger_capacity = parseInt(document.getElementById('editPax').value);
+          const cargo_capacity = parseInt(document.getElementById('editCargo').value);
+          const max_load_kg = parseInt(document.getElementById('editMaxLoad').value);
+
+          await api.boats.update(boat.id, {
+            name,
+            boat_type,
+            passenger_capacity,
+            cargo_capacity,
+            max_load_kg,
+            registration_status: 'Pending',
+            remarks: boat.registration_status === 'Rejected' ? 'Resubmitted after addressing admin remarks.' : boat.remarks,
+            resubmission_count: (boat.resubmission_count || 0) + 1
+          });
+
+          ui.showToast('Boat updated and resubmitted successfully!', 'success');
+          closeModal();
+          await loadBoatData();
+        } catch (err) {
+          document.getElementById('modalError').textContent = err.message;
+        }
+      };
+
+      const allCrew = await api.crewMembers.list();
+      const boatCrew = allCrew.filter(c => c.boat_id === boat.id);
+      const crewTableBody = document.getElementById('crewTableBody');
+      if (boatCrew.length === 0) {
+        crewTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No crew members assigned to this vessel yet.</td></tr>';
+      } else {
+        crewTableBody.innerHTML = boatCrew.map(c => `
+          <tr>
+            <td><strong>${c.full_name}</strong></td>
+            <td>${c.role}</td>
+            <td><span class="badge badge-${c.status.toLowerCase()}">${c.status}</span></td>
+            <td>${new Date(c.created_at).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    await loadBoatData();
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

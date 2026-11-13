@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Approved Bookings - BoatTrack Admin</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Administrator
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/admin/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/admin/accounts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts</a>
+      <a href="/admin/boat-verification.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg> Boat Verification</a>
+      <a href="/admin/crew-verification.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Crew Verification</a>
+      <a href="/admin/routes-fares.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Routes & Fares</a>
+      <a href="/admin/terminals.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/></svg> Terminals</a>
+      <a href="/admin/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Manifests</a>
+      <a href="/admin/bookings.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Bookings</a>
+      <a href="/admin/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/></svg> SOS Alerts <span class="badge badge-pending" id="sosBadge">0</span></a>
+      <a href="/admin/dev-tools.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .69.21 1.35.6 1.91z"/></svg> Dev Tools</a>
+          <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Approved Booking & E-Ticket Records</h2>
+      <button id="exportCsvBtn" class="btn btn-primary btn-sm">Export CSV</button>
+    </header>
+
+    <div class="admin-content">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <input type="text" id="searchInput" class="form-control" placeholder="Search passenger...">
+          <select id="typeFilter" class="form-control">
+            <option value="">All Types</option>
+            <option value="Passenger">Passenger</option>
+            <option value="Cargo">Cargo</option>
+          </select>
+          <input type="date" id="dateFilter" class="form-control">
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Passenger</th>
+              <th>Type</th>
+              <th>Pax Count / Cargo Wt</th>
+              <th>E-Ticket / Ref</th>
+              <th>Status</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody id="bookingsTableBody">
+            <tr><td colspan="6" style="text-align: center;">Loading bookings...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { seedDatabase } from '/js/seed.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    await seedDatabase();
+    const session = await auth.requireAuth(['administrator']);
+    if (!session) throw new Error('Unauthorized');
+
+    let allBookings = [];
+    let allPassengers = [];
+    let allEtickets = [];
+    let allPayments = [];
+
+    async function loadData() {
+      allBookings = await api.bookings.list();
+      allPassengers = await api.passengers.list();
+      allEtickets = api._get('etickets') || [];
+      allPayments = await api.payments.list();
+      renderTable();
+
+      const alerts = await api.alerts.list();
+      const openAlerts = alerts.filter(a => a.status === 'Open');
+      const badge = document.getElementById('sosBadge');
+      if (openAlerts.length > 0) {
+        badge.textContent = openAlerts.length;
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const typeFilter = document.getElementById('typeFilter').value;
+      const dateFilter = document.getElementById('dateFilter').value;
+
+      const filtered = allBookings.filter(b => {
+        if (b.status !== 'Approved') return false;
+        if (typeFilter && b.booking_type !== typeFilter) return false;
+        if (dateFilter && !b.created_at.startsWith(dateFilter)) return false;
+
+        const psg = allPassengers.find(p => p.id === b.passenger_id) || { full_name: '' };
+        if (search && !psg.full_name.toLowerCase().includes(search) && !b.id.toLowerCase().includes(search)) return false;
+
+        return true;
+      });
+
+      const tbody = document.getElementById('bookingsTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No approved bookings found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const psg = allPassengers.find(p => p.id === b.passenger_id) || { full_name: 'Unknown' };
+        const etk = allEtickets.find(e => e.booking_id === b.id) || { ticket_no: 'None', gcash_ref: 'N/A' };
+        const pay = allPayments.find(p => p.booking_id === b.id);
+        const payStatus = pay ? pay.status : 'Pending';
+        const gcashRef = pay && pay.reference_no ? pay.reference_no : (etk.gcash_ref || 'N/A');
+
+        return `
+          <tr>
+            <td><strong>${psg.full_name}</strong><br><small style="color:var(--text-muted);">${b.id}</small></td>
+            <td><span class="badge" style="background:#e2e8f0; color:#334155;">${b.booking_type}</span></td>
+            <td>${b.booking_type === 'Passenger' ? `${b.passenger_count} pax` : `${b.cargo_weight_kg} kg`}</td>
+            <td>
+              <div>E-Ticket: <strong>${etk.ticket_no}</strong></div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">Ref: ${gcashRef}</div>
+            </td>
+            <td>
+              <span class="badge badge-active">Approved</span><br>
+              <span class="badge ${payStatus === 'Paid' ? 'badge-active' : 'badge-pending'}" style="margin-top:2px;">Pay: ${payStatus}</span>
+            </td>
+            <td>${new Date(b.created_at).toLocaleDateString()}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('searchInput').oninput = renderTable;
+    document.getElementById('typeFilter').onchange = renderTable;
+    document.getElementById('dateFilter').onchange = renderTable;
+
+    document.getElementById('exportCsvBtn').onclick = () => {
+      const approved = allBookings.filter(b => b.status === 'Approved');
+      if (!approved.length) {
+        ui.showToast('No approved bookings to export.', 'warning');
+        return;
+      }
+      const rows = approved.map(b => {
+        const psg = allPassengers.find(p => p.id === b.passenger_id) || {};
+        const etk = allEtickets.find(e => e.booking_id === b.id) || {};
+        return {
+          booking_id: b.id,
+          passenger_name: psg.full_name || 'Unknown',
+          booking_type: b.booking_type,
+          passenger_count: b.passenger_count,
+          cargo_weight_kg: b.cargo_weight_kg,
+          ticket_no: etk.ticket_no || '',
+          gcash_ref: etk.gcash_ref || '',
+          status: b.status,
+          created_at: b.created_at
+        };
+      });
+      ui.exportToCSV('approved_bookings.csv', rows);
+    };
+
+    loadData();
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>
+
+
+
+
+
+

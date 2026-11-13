@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Booking Review - BoatTrack Receptionist</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .drawer {
+      display: none;
+      position: fixed;
+      top: 0; right: 0; width: 450px; height: 100%;
+      background: white;
+      box-shadow: var(--shadow-lg);
+      z-index: 2000;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    .drawer-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.4);
+      z-index: 1999;
+    }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Receptionist
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/receptionist/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/receptionist/register-guest.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"/></svg> Register Guest</a>
+      <a href="/receptionist/boarding.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Boarding Station</a>
+      <a href="/receptionist/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Today's Manifests</a>
+      <a href="/receptionist/remittance.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payments & Remittance</a>
+      <a href="/receptionist/booking-review.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Private Booking Review</a>
+      <a href="/receptionist/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Private Booking & Reservation Review</h2>
+      <span id="receptionistName" style="font-weight: 600;"></span>
+    </header>
+
+    <div class="admin-content">
+      <!-- FILTERS -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Status Filter</label>
+            <select id="statusFilter" class="form-control">
+              <option value="Reviewing">Reviewing (Pending)</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="">All Bookings</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Type Filter</label>
+            <select id="typeFilter" class="form-control">
+              <option value="">All Types</option>
+              <option value="Passenger">Passenger</option>
+              <option value="Cargo">Cargo</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Date Filter</label>
+            <input type="date" id="dateFilter" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <!-- BOOKINGS TABLE -->
+      <div class="card">
+        <h3 style="margin-bottom: 1rem;">Booking Requests Queue</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Booking ID</th>
+                <th>Passenger / User</th>
+                <th>Type</th>
+                <th>Trip & Vessel</th>
+                <th>Details</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsBody">
+              <tr><td colspan="7" style="text-align: center;">Loading bookings...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL DRAWER & OVERLAY -->
+  <div id="drawerOverlay" class="drawer-overlay"></div>
+  <div id="bookingDrawer" class="drawer">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h3 style="margin: 0;">Booking Review & Details</h3>
+      <button id="closeDrawerBtn" class="btn btn-outline btn-sm">Close</button>
+    </div>
+    <div id="drawerContent">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['receptionist']);
+    if (!session) throw new Error('Unauthorized');
+    document.getElementById('receptionistName').textContent = session.full_name;
+
+    async function loadBookings() {
+      const statusVal = document.getElementById('statusFilter').value;
+      const typeVal = document.getElementById('typeFilter').value;
+      const dateVal = document.getElementById('dateFilter').value;
+
+      const bookings = await api.bookings.list();
+      const passengers = await api.passengers.list();
+      const trips = await api.trips.list();
+      const boats = await api.boats.list();
+      const routes = await api.routes.list();
+      const terminals = await api.terminals.list();
+      const users = await api.users.list();
+
+      const filtered = bookings.filter(b => {
+        if (statusVal && b.status !== statusVal) return false;
+        if (typeVal && b.booking_type !== typeVal) return false;
+        const trip = trips.find(t => t.id === b.trip_id);
+        if (dateVal && trip && trip.departure_time && !trip.departure_time.startsWith(dateVal)) return false;
+        return true;
+      });
+
+      const tbody = document.getElementById('bookingsBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No booking requests found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(b => {
+        const passenger = passengers.find(p => p.id === b.passenger_id) || { full_name: 'Unknown Passenger' };
+        const trip = trips.find(t => t.id === b.trip_id) || {};
+        const boat = boats.find(boatObj => boatObj.id === trip.boat_id) || { name: 'Vessel' };
+        const timeStr = trip.departure_time ? new Date(trip.departure_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Unscheduled';
+
+        let badgeClass = 'badge-pending';
+        if (b.status === 'Approved') badgeClass = 'badge-active';
+        else if (b.status === 'Rejected') badgeClass = 'badge-danger';
+
+        const detailsText = b.booking_type === 'Cargo' ? `Cargo: ${b.cargo_weight_kg || 0} kg` : `Pax: ${b.passenger_count || 1}`;
+
+        return `
+          <tr>
+            <td><code>${b.id}</code></td>
+            <td><strong>${passenger.full_name}</strong></td>
+            <td>${b.booking_type}</td>
+            <td>${boat.name}<br><small style="color: var(--text-muted);">${timeStr}</small></td>
+            <td>${detailsText}</td>
+            <td><span class="badge ${badgeClass}">${b.status}</span></td>
+            <td>
+              <button class="btn btn-outline btn-sm review-btn" data-booking-id="${b.id}">Review & Action</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.review-btn').forEach(btn => {
+        btn.onclick = async () => {
+          const bookingId = btn.getAttribute('data-booking-id');
+          await openBookingDrawer(bookingId);
+        };
+      });
+    }
+
+    async function openBookingDrawer(bookingId) {
+      const bookings = await api.bookings.list();
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) return;
+
+      const passengers = await api.passengers.list();
+      const trips = await api.trips.list();
+      const boats = await api.boats.list();
+      const users = await api.users.list();
+      const manifests = await api.manifests.list();
+
+      const passenger = passengers.find(p => p.id === booking.passenger_id) || {};
+      const trip = trips.find(t => t.id === booking.trip_id) || {};
+      const boat = boats.find(b => b.id === trip.boat_id) || {};
+      const owner = users.find(u => u.id === boat.owner_id) || { full_name: 'Boat Owner', email: 'N/A' };
+
+      // Capacity check
+      const tripManifests = manifests.filter(m => m.trip_id === trip.id);
+      const currentPax = tripManifests.length;
+      const capacity = boat.passenger_capacity || 50;
+      const isOverCapacity = (currentPax + (booking.passenger_count || 1)) > capacity;
+
+      const drawerContent = document.getElementById('drawerContent');
+      drawerContent.innerHTML = `
+        <div style="margin-bottom: 1.25rem;">
+          <h4 style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Passenger / Booker</h4>
+          <div style="font-size: 1.1rem; font-weight: 600;">${passenger.full_name || 'N/A'}</div>
+          <div style="font-size: 0.9rem; color: var(--text-muted);">Weight: ${passenger.weight_kg || 65} kg</div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <h4 style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Trip & Vessel</h4>
+          <div style="font-size: 1.05rem; font-weight: 600;">${boat.name || 'Vessel'}</div>
+          <div style="font-size: 0.9rem; color: var(--text-muted);">Departure: ${trip.departure_time ? new Date(trip.departure_time).toLocaleString() : 'N/A'}</div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem; background: #f8fafc; padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <h4 style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.375rem;">Registered Boat Owner Contact (For Out-of-System Calling)</h4>
+          <div style="font-weight: 600;">${owner.full_name}</div>
+          <div style="font-size: 0.9rem;">Email/Contact: ${owner.email}</div>
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <h4 style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Booking Specifications</h4>
+          <div>Type: <strong>${booking.booking_type}</strong></div>
+          <div>Passengers / Cargo: <strong>${booking.booking_type === 'Cargo' ? booking.cargo_weight_kg + ' kg' : booking.passenger_count + ' passengers'}</strong></div>
+          <div style="margin-top: 0.5rem; padding: 0.5rem; background: ${isOverCapacity ? '#fef2f2' : '#f0fdf4'}; border-radius: 4px; color: ${isOverCapacity ? 'var(--danger)' : 'var(--success)'}; font-size: 0.85rem; font-weight: 600;">
+            Trip Capacity Check: ${currentPax} / ${capacity} current onboard. ${isOverCapacity ? '⚠️ Exceeds capacity!' : '✓ Within capacity limits.'}
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <h4 style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.25rem;">Current Status</h4>
+          <div><span class="badge ${booking.status === 'Approved' ? 'badge-active' : booking.status === 'Rejected' ? 'badge-danger' : 'badge-pending'}">${booking.status}</span></div>
+          ${booking.reviewed_at ? `<div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Reviewed on ${new Date(booking.reviewed_at).toLocaleString()}</div>` : ''}
+          ${booking.review_remarks ? `<div style="font-size: 0.9rem; margin-top: 0.25rem;">Remarks: ${booking.review_remarks}</div>` : ''}
+        </div>
+
+        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border);">
+
+        <form id="reviewActionForm">
+          <div class="form-group">
+            <label class="form-label">Review Remarks (Required for Rejection)</label>
+            <textarea id="reviewRemarks" class="form-control" rows="3" placeholder="Enter review notes or rejection reason...">${booking.review_remarks || ''}</textarea>
+          </div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button type="button" id="approveBtn" class="btn btn-primary" style="flex: 1;">Approve Booking</button>
+            <button type="button" id="rejectBtn" class="btn btn-outline" style="flex: 1; border-color: var(--danger); color: var(--danger);">Reject Booking</button>
+          </div>
+        </form>
+      `;
+
+      document.getElementById('bookingDrawer').style.display = 'block';
+      document.getElementById('drawerOverlay').style.display = 'block';
+
+      document.getElementById('approveBtn').onclick = async () => {
+        const remarks = document.getElementById('reviewRemarks').value;
+        await api.bookings.updateReview(booking.id, {
+          status: 'Approved',
+          reviewed_by: session.user_id,
+          review_remarks: remarks || 'Approved by receptionist.'
+        });
+        ui.showToast('Booking approved successfully!', 'success');
+        closeDrawer();
+        loadBookings();
+      };
+
+      document.getElementById('rejectBtn').onclick = async () => {
+        const remarks = document.getElementById('reviewRemarks').value;
+        if (!remarks.trim()) {
+          alert('Remarks are required when rejecting a booking.');
+          return;
+        }
+        await api.bookings.updateReview(booking.id, {
+          status: 'Rejected',
+          reviewed_by: session.user_id,
+          review_remarks: remarks
+        });
+        ui.showToast('Booking rejected.', 'error');
+        closeDrawer();
+        loadBookings();
+      };
+    }
+
+    function closeDrawer() {
+      document.getElementById('bookingDrawer').style.display = 'none';
+      document.getElementById('drawerOverlay').style.display = 'none';
+    }
+
+    document.getElementById('closeDrawerBtn').onclick = closeDrawer;
+    document.getElementById('drawerOverlay').onclick = closeDrawer;
+
+    document.getElementById('statusFilter').onchange = loadBookings;
+    document.getElementById('typeFilter').onchange = loadBookings;
+    document.getElementById('dateFilter').onchange = loadBookings;
+
+    loadBookings();
+    ui.setupSync(loadBookings);
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

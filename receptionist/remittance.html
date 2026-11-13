@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payments & Remittance - BoatTrack Receptionist</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: white; padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .stat-card h4 { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.375rem; }
+    .stat-card .val { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+
+    /* Receipt Slip Styles (~80mm thermal width) */
+    .receipt-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .receipt-card {
+      background: white;
+      width: 80mm;
+      padding: 6mm;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-lg);
+      position: relative;
+    }
+    @media print {
+      body * { visibility: hidden; }
+      .receipt-card, .receipt-card * { visibility: visible; }
+      .receipt-card {
+        position: absolute;
+        left: 0; top: 0;
+        width: 80mm;
+        border: none;
+        box-shadow: none;
+      }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Receptionist
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/receptionist/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/receptionist/register-guest.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v2"/></svg> Register Guest</a>
+      <a href="/receptionist/boarding.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> Boarding Station</a>
+      <a href="/receptionist/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Today's Manifests</a>
+      <a href="/receptionist/remittance.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payments & Remittance</a>
+      <a href="/receptionist/booking-review.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Private Booking Review</a>
+      <a href="/receptionist/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Walk-in Payments & Crew Remittance</h2>
+      <span id="receptionistName" style="font-weight: 600;"></span>
+    </header>
+
+    <div class="admin-content">
+      <!-- DATE FILTER CARD -->
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 250px;">
+            <label class="form-label">Remittance Date</label>
+            <input type="date" id="filterDate" class="form-control">
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 0.5rem; padding-top: 1.6rem;">
+            <button id="refreshBtn" class="btn btn-outline">Refresh Data</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VESSEL REMITTANCE QUEUE -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1rem;">Unremitted Payments Grouped by Vessel</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Vessel Name</th>
+                <th>Cash Total (₱)</th>
+                <th>GCash Total (₱)</th>
+                <th>Not Yet Remitted Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="vesselRemitBody">
+              <tr><td colspan="5" style="text-align: center;">Loading unremitted payments...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- REMITTANCE HISTORY -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="margin: 0;">Remittance History</h3>
+          <button id="exportCsvBtn" class="btn btn-outline btn-sm">Export CSV</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Remittance ID</th>
+                <th>Date</th>
+                <th>Vessel</th>
+                <th>Total Amount</th>
+                <th>Received By Crew</th>
+                <th>Recorded At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="7" style="text-align: center;">Loading remittance history...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REMIT CONFIRMATION MODAL -->
+  <div id="remitModal" class="receipt-modal" style="display: none;">
+    <div class="card" style="width: 100%; max-width: 500px; position: relative;">
+      <h3 style="margin-bottom: 1rem;">Confirm Vessel Remittance</h3>
+      <form id="remitForm">
+        <input type="hidden" id="modalBoatId">
+        <input type="hidden" id="modalDate">
+        <div class="form-group">
+          <label class="form-label">Vessel Name</label>
+          <input type="text" id="modalBoatName" class="form-control" disabled>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Total Amount to Remit (₱)</label>
+          <input type="text" id="modalTotalAmount" class="form-control" disabled style="font-weight: 700; color: var(--success);">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Select Receiving Crew Member</label>
+          <select id="modalCrewSelect" class="form-control" required>
+            <option value="">-- Choose authorized crew member --</option>
+          </select>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+          <button type="button" id="cancelRemitBtn" class="btn btn-outline">Cancel</button>
+          <button type="submit" class="btn btn-primary">Confirm & Remit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PRINTABLE SLIP MODAL (~80mm) -->
+  <div id="slipModal" class="receipt-modal">
+    <div class="receipt-card">
+      <div style="text-align: center; margin-bottom: 10px;">
+        <strong>BOATTRACK PORT SYSTEM</strong><br>
+        Binangonan Port, Rizal<br>
+        ----------------------------------------<br>
+        <strong>OFFICIAL REMITTANCE SLIP</strong><br>
+        ----------------------------------------
+      </div>
+      <div id="slipContent" style="margin-bottom: 15px;">
+        <!-- Filled dynamically -->
+      </div>
+      <div style="text-align: center; margin-bottom: 15px;">
+        ----------------------------------------<br>
+        Received by Crew Signature:<br><br><br>
+        ________________________________________
+      </div>
+      <div class="no-print" style="display: flex; gap: 0.5rem; justify-content: center;">
+        <button onclick="window.print()" class="btn btn-primary btn-sm">Print Slip</button>
+        <button id="closeSlipBtn" class="btn btn-outline btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['receptionist']);
+    if (!session) throw new Error('Unauthorized');
+    document.getElementById('receptionistName').textContent = session.full_name;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('filterDate');
+    dateInput.value = todayStr;
+
+    async function loadRemittancesData() {
+      const selectedDate = dateInput.value || todayStr;
+      const payments = await api.payments.list();
+      const boats = await api.boats.list();
+      const crewMembers = await api.crewMembers.list();
+      const users = await api.users.list();
+      const remittances = await api.remittances.list();
+
+      // 1. Group unremitted Paid payments by boat for selectedDate
+      // Only Paid payments, remittance_id is null/undefined
+      const unremittedPayments = payments.filter(p => {
+        if (p.status !== 'Paid') return false;
+        if (p.remittance_id) return false;
+        if (!p.created_at || !p.created_at.startsWith(selectedDate)) return false;
+        return true;
+      });
+
+      const boatMap = {}; // boat_id => { cash, gcash, total, payments: [] }
+      unremittedPayments.forEach(p => {
+        const boatId = p.boat_id || 'unknown';
+        if (!boatMap[boatId]) {
+          boatMap[boatId] = { cash: 0, gcash: 0, total: 0, payments: [] };
+        }
+        const amt = parseFloat(p.amount) || 0;
+        if (p.method === 'Cash') boatMap[boatId].cash += amt;
+        else if (p.method === 'GCash') boatMap[boatId].gcash += amt;
+        boatMap[boatId].total += amt;
+        boatMap[boatId].payments.push(p);
+      });
+
+      const vesselBody = document.getElementById('vesselRemitBody');
+      const boatEntries = Object.entries(boatMap);
+
+      if (boatEntries.length === 0) {
+        vesselBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No unremitted payments for ${selectedDate}.</td></tr>`;
+      } else {
+        vesselBody.innerHTML = boatEntries.map(([boatId, data]) => {
+          const boat = boats.find(b => b.id === boatId) || { name: 'Unknown Vessel' };
+          return `
+            <tr>
+              <td><strong>${boat.name}</strong></td>
+              <td>₱${data.cash.toFixed(2)}</td>
+              <td>₱${data.gcash.toFixed(2)}</td>
+              <td><strong style="color: var(--warning);">₱${data.total.toFixed(2)}</strong></td>
+              <td>
+                <button class="btn btn-primary btn-sm remit-action-btn" data-boat-id="${boatId}" data-boat-name="${boat.name}" data-total="${data.total}">
+                  Remit to Crew
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Attach click events to remit buttons
+      document.querySelectorAll('.remit-action-btn').forEach(btn => {
+        btn.onclick = async () => {
+          const boatId = btn.getAttribute('data-boat-id');
+          const boatName = btn.getAttribute('data-boat-name');
+          const total = parseFloat(btn.getAttribute('data-total'));
+
+          document.getElementById('modalBoatId').value = boatId;
+          document.getElementById('modalDate').value = selectedDate;
+          document.getElementById('modalBoatName').value = boatName;
+          document.getElementById('modalTotalAmount').value = total.toFixed(2);
+
+          // Populate crew members for this boat
+          const crewSelect = document.getElementById('modalCrewSelect');
+          const boatCrew = crewMembers.filter(c => c.boat_id === boatId);
+          crewSelect.innerHTML = '<option value="">-- Choose authorized crew member --</option>' +
+            boatCrew.map(c => `<option value="${c.id}">${c.full_name} (${c.role || 'Crew'})</option>`).join('');
+
+          document.getElementById('remitModal').style.display = 'flex';
+        };
+      });
+
+      // 2. Remittance History table
+      const historyBody = document.getElementById('historyBody');
+      if (remittances.length === 0) {
+        historyBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No remittance records found.</td></tr>';
+      } else {
+        historyBody.innerHTML = remittances.map(r => {
+          const boat = boats.find(b => b.id === r.boat_id) || { name: 'Vessel' };
+          const crew = crewMembers.find(c => c.id === r.received_by_crew_id) || { full_name: 'Crew Member' };
+          const timeStr = r.remitted_at ? new Date(r.remitted_at).toLocaleString() : '';
+          return `
+            <tr>
+              <td><code>${r.id}</code></td>
+              <td>${r.date}</td>
+              <td><strong>${boat.name}</strong></td>
+              <td>₱${(r.total_amount || 0).toFixed(2)}</td>
+              <td>${crew.full_name}</td>
+              <td>${timeStr}</td>
+              <td>
+                <button class="btn btn-outline btn-sm view-slip-btn" data-rem-id="${r.id}">View Slip</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        document.querySelectorAll('.view-slip-btn').forEach(btn => {
+          btn.onclick = async () => {
+            const remId = btn.getAttribute('data-rem-id');
+            const rem = await api.remittances.get(remId);
+            if (!rem) return;
+            const boat = boats.find(b => b.id === rem.boat_id) || { name: 'Vessel' };
+            const crew = crewMembers.find(c => c.id === rem.received_by_crew_id) || { full_name: 'Crew' };
+            
+            document.getElementById('slipContent').innerHTML = `
+              Remittance ID: ${rem.id}<br>
+              Date: ${rem.date}<br>
+              Vessel: ${boat.name}<br>
+              Total Remitted: ₱${(rem.total_amount || 0).toFixed(2)}<br>
+              Received By: ${crew.full_name}<br>
+              Recorded By: ${session.full_name}<br>
+              Timestamp: ${new Date(rem.remitted_at).toLocaleString()}
+            `;
+            document.getElementById('slipModal').style.display = 'flex';
+          };
+        });
+      }
+    }
+
+    dateInput.onchange = loadRemittancesData;
+    document.getElementById('refreshBtn').onclick = loadRemittancesData;
+
+    document.getElementById('cancelRemitBtn').onclick = () => {
+      document.getElementById('remitModal').style.display = 'none';
+    };
+
+    document.getElementById('closeSlipBtn').onclick = () => {
+      document.getElementById('slipModal').style.display = 'none';
+    };
+
+    // Handle Remit Submit
+    document.getElementById('remitForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const boatId = document.getElementById('modalBoatId').value;
+      const date = document.getElementById('modalDate').value;
+      const crewId = document.getElementById('modalCrewSelect').value;
+      const totalAmount = parseFloat(document.getElementById('modalTotalAmount').value);
+
+      if (!crewId) {
+        alert('Please select a receiving crew member.');
+        return;
+      }
+
+      try {
+        // 1. Create remittance record
+        const newRem = await api.remittances.create({
+          boat_id: boatId,
+          date: date,
+          total_amount: totalAmount,
+          received_by_crew_id: crewId,
+          recorded_by: session.user_id,
+          remitted_at: new Date().toISOString()
+        });
+
+        // 2. Mark all unremitted Paid payments for this boat and date as remitted
+        const payments = await api.payments.list();
+        for (const p of payments) {
+          if (p.status === 'Paid' && !p.remittance_id && p.boat_id === boatId && p.created_at && p.created_at.startsWith(date)) {
+            await api.payments.update(p.id, { remittance_id: newRem.id });
+          }
+        }
+
+        document.getElementById('remitModal').style.display = 'none';
+        ui.showToast('Remittance recorded successfully!', 'success');
+
+        // Show printable slip modal
+        const boats = await api.boats.list();
+        const crewMembers = await api.crewMembers.list();
+        const boat = boats.find(b => b.id === boatId) || { name: 'Vessel' };
+        const crew = crewMembers.find(c => c.id === crewId) || { full_name: 'Crew' };
+
+        document.getElementById('slipContent').innerHTML = `
+          Remittance ID: ${newRem.id}<br>
+          Date: ${newRem.date}<br>
+          Vessel: ${boat.name}<br>
+          Total Remitted: ₱${totalAmount.toFixed(2)}<br>
+          Received By: ${crew.full_name}<br>
+          Recorded By: ${session.full_name}<br>
+          Timestamp: ${new Date(newRem.remitted_at).toLocaleString()}
+        `;
+        document.getElementById('slipModal').style.display = 'flex';
+
+        loadRemittancesData();
+      } catch (err) {
+        ui.showToast(err.message, 'error');
+      }
+    };
+
+    // Export CSV
+    document.getElementById('exportCsvBtn').onclick = async () => {
+      const remittances = await api.remittances.list();
+      const boats = await api.boats.list();
+      const csvRows = remittances.map(r => ({
+        ID: r.id,
+        Date: r.date,
+        Vessel: boats.find(b => b.id === r.boat_id)?.name || r.boat_id,
+        'Total Amount': r.total_amount,
+        'Received By Crew': r.received_by_crew_id,
+        Timestamp: r.remitted_at
+      }));
+      ui.exportToCSV('remittances_export.csv', csvRows);
+    };
+
+    loadRemittancesData();
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

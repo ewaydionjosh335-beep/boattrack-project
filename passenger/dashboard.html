@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passenger Dashboard - BoatTrack</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .portal-layout { display: flex; min-height: 100vh; background-color: var(--bg-main); }
+    .portal-sidebar { width: 240px; background: var(--bg-sidebar); color: white; display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 200; }
+    .portal-main { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-width: 0; }
+    .portal-header { background: white; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .portal-content { padding: 1.5rem; flex: 1; }
+    
+    .bottom-tab-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); height: 60px; z-index: 1000; justify-content: space-around; align-items: center; }
+    .bottom-tab-bar a { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; font-weight: 500; gap: 2px; flex: 1; height: 100%; }
+    .bottom-tab-bar a.active, .bottom-tab-bar a:hover { color: var(--teal); }
+
+    @media (max-width: 992px) {
+      .portal-sidebar { display: none !important; }
+      .portal-main { margin-left: 0 !important; padding-bottom: 70px !important; }
+      .bottom-tab-bar { display: flex !important; }
+    }
+  </style>
+</head>
+<body class="portal-layout">
+
+  <!-- Desktop Sidebar -->
+  <aside class="portal-sidebar">
+    <div style="padding: 1.5rem; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid var(--border-dark); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/></svg>
+      Passenger Portal
+    </div>
+    <div style="padding: 1rem 0; overflow-y: auto;">
+      <a href="/passenger/dashboard.html" class="active" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: white; text-decoration: none; font-weight: 500; background: rgba(255,255,255,0.05);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/passenger/schedules.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Schedules</a>
+      <a href="/passenger/my-bookings.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> My Bookings</a>
+      <a href="/passenger/my-trips.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> My Trips</a>
+      <a href="/passenger/my-qr.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> My QR</a>
+      <a href="/passenger/sos.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Emergency</a>
+      <a href="/passenger/profile.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: var(--danger); text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="portal-main">
+    <header class="portal-header">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">Passenger Dashboard</h2>
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <a href="/passenger/notifications.html" style="position: relative; color: var(--primary); text-decoration: none; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--bg-main);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span id="notifBadge" class="badge badge-pending" style="position: absolute; top: 4px; right: 4px; font-size: 0.65rem; padding: 0.1rem 0.3rem; display: none;">0</span>
+        </a>
+        <span id="userName" style="font-weight: 600; font-size: 0.9rem;"></span>
+      </div>
+    </header>
+
+    <div class="portal-content">
+      <div id="nextTripCard" class="card" style="margin-bottom: 1.5rem; display: none;">
+        <h3>Next Upcoming Trip</h3>
+        <div id="nextTripDetails" style="margin-top: 1rem;"></div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <h3>Booking Status</h3>
+        <div id="bookingSummary" style="margin-top: 1rem; display: flex; gap: 1rem;">
+          <div style="padding: 1rem; background: var(--bg-main); border-radius: var(--radius-md); flex: 1;">
+            <div id="reviewingCount" style="font-size: 1.5rem; font-weight: 700; color: var(--amber);">0</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Reviewing</div>
+          </div>
+          <div style="padding: 1rem; background: var(--bg-main); border-radius: var(--radius-md); flex: 1;">
+            <div id="approvedUnpaidCount" style="font-size: 1.5rem; font-weight: 700; color: var(--blue);">0</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Approved (Unpaid)</div>
+          </div>
+          <div style="padding: 1rem; background: var(--bg-main); border-radius: var(--radius-md); flex: 1;">
+            <div id="approvedPaidCount" style="font-size: 1.5rem; font-weight: 700; color: var(--teal);">0</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Approved (Paid)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Quick Actions</h3>
+        <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+          <a href="/passenger/my-qr.html" class="btn btn-outline">My QR Code</a>
+          <a href="/passenger/book-trip.html" class="btn btn-primary">Book a Trip</a>
+          <button id="sosBtn" class="btn btn-danger" disabled>SOS (Only for Departed Trips)</button>
+        </div>
+        <p id="sosExplanation" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Tab Bar -->
+  <nav class="bottom-tab-bar">
+    <a href="/passenger/dashboard.html" class="active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      Dashboard
+    </a>
+    <a href="/passenger/schedules.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Schedules
+    </a>
+    <a href="/passenger/my-bookings.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Bookings
+    </a>
+    <a href="/passenger/my-qr.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      My QR
+    </a>
+    <a href="/passenger/profile.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['passenger']);
+    if (!session) throw new Error('Unauthorized');
+
+    const users = await api.users.list();
+    const user = users.find(u => u.id === session.user_id);
+    const passenger = await api.passengers.getByUserId(session.user_id);
+    if (user) document.getElementById('userName').textContent = user.full_name;
+
+    async function loadDashboard() {
+      const allTrips = await api.trips.list();
+      const allBookings = await api.bookings.list();
+      const manifests = await api.manifests.list();
+      const boats = await api.boats.list();
+      const routes = await api.routes.list();
+      const terminals = await api.terminals.list();
+
+      if (!passenger) return;
+
+      // Booking Summary
+      const myBookings = allBookings.filter(b => b.passenger_id === passenger.id);
+      document.getElementById('reviewingCount').textContent = myBookings.filter(b => b.status === 'Reviewing').length;
+      document.getElementById('approvedUnpaidCount').textContent = myBookings.filter(b => b.status === 'Approved' && b.amount_due > 0).length; // Simplified
+      document.getElementById('approvedPaidCount').textContent = myBookings.filter(b => b.status === 'Approved' && b.amount_due <= 0).length; // Placeholder logic
+
+      // Next Trip
+      const myManifests = manifests.filter(m => m.passenger_id === passenger.id);
+      const upcomingManifestTrips = allTrips.filter(t => myManifests.some(m => m.trip_id === t.id) && new Date(t.departure_time) > new Date());
+      const paidBookingsTrips = allTrips.filter(t => myBookings.some(b => b.trip_id === t.id && b.status === 'Approved') && new Date(t.departure_time) > new Date());
+      
+      const allUpcoming = [...upcomingManifestTrips, ...paidBookingsTrips].sort((a,b) => new Date(a.departure_time) - new Date(b.departure_time));
+      
+      if (allUpcoming.length > 0) {
+        const nextTrip = allUpcoming[0];
+        const boat = boats.find(b => b.id === nextTrip.boat_id);
+        const route = routes.find(r => r.id === nextTrip.route_id);
+        const orig = terminals.find(t => t.id === route.origin_terminal_id);
+        const dest = terminals.find(t => t.id === route.destination_terminal_id);
+        
+        document.getElementById('nextTripDetails').innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600;">${boat ? boat.name : 'Vessel'}</div>
+              <div style="font-size: 0.9rem; color: var(--text-muted);">${orig.name} to ${dest.name}</div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-weight: 600;">${new Date(nextTrip.departure_time).toLocaleString()}</div>
+            </div>
+          </div>
+        `;
+        document.getElementById('nextTripCard').style.display = 'block';
+
+        // SOS Button
+        const sosBtn = document.getElementById('sosBtn');
+        const sosExp = document.getElementById('sosExplanation');
+        if (nextTrip.trip_status === 'Departed') {
+          sosBtn.disabled = false;
+          sosBtn.onclick = () => ui.confirm('Trigger SOS Alert?', () => {
+             api.alerts.create({trip_id: nextTrip.id, boat_id: nextTrip.boat_id, message: 'SOS from passenger on trip ' + nextTrip.id});
+             ui.showToast('SOS Alert sent to port authority', 'danger');
+          });
+        } else {
+          sosExplanation.textContent = 'SOS is only enabled after the trip has departed.';
+        }
+      }
+    }
+
+    async function loadNotifications() {
+      const notifs = await api.notifications.listByUser(session.user_id);
+      const unread = notifs.filter(n => !n.is_read).length;
+      const badge = document.getElementById('notifBadge');
+      if (badge && unread > 0) {
+        badge.textContent = unread;
+        badge.style.display = 'inline-block';
+      } else if (badge) {
+        badge.style.display = 'none';
+      }
+    }
+
+    loadDashboard();
+    loadNotifications();
+    ui.setupSync(() => { loadDashboard(); loadNotifications(); }, 5000);
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

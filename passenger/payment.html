@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment - BoatTrack Passenger</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <style>
+    .portal-layout { display: flex; min-height: 100vh; background-color: var(--bg-main); }
+    .portal-sidebar { width: 240px; background: var(--bg-sidebar); color: white; display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 200; }
+    .portal-main { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-width: 0; }
+    .portal-header { background: white; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .portal-content { padding: 1.5rem; flex: 1; display: flex; justify-content: center; align-items: center; }
+    
+    .checkout-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); max-width: 460px; width: 100%; padding: 2rem; box-shadow: var(--shadow-sm); }
+    .gcash-header { display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .gcash-logo { background: #0070f3; color: white; font-weight: 700; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+    .bottom-tab-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); height: 60px; z-index: 1000; justify-content: space-around; align-items: center; }
+    .bottom-tab-bar a { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; font-weight: 500; gap: 2px; flex: 1; height: 100%; }
+    .bottom-tab-bar a.active, .bottom-tab-bar a:hover { color: var(--teal); }
+
+    @media (max-width: 992px) {
+      .portal-sidebar { display: none !important; }
+      .portal-main { margin-left: 0 !important; padding-bottom: 70px !important; }
+      .bottom-tab-bar { display: flex !important; }
+    }
+  </style>
+</head>
+<body class="portal-layout">
+
+  <!-- Desktop Sidebar -->
+  <aside class="portal-sidebar">
+    <div style="padding: 1.5rem; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid var(--border-dark); display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/></svg>
+      Passenger Portal
+    </div>
+    <div style="padding: 1rem 0; overflow-y: auto;">
+      <a href="/passenger/dashboard.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/passenger/schedules.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Schedules</a>
+      <a href="/passenger/my-bookings.html" class="active" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: white; text-decoration: none; font-weight: 500; background: rgba(255,255,255,0.05);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> My Bookings</a>
+      <a href="/passenger/my-trips.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> My Trips</a>
+      <a href="/passenger/my-qr.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> My QR</a>
+      <a href="/passenger/sos.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Emergency</a>
+      <a href="/passenger/profile.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: #adb5bd; text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
+      <a href="#" id="logoutBtn" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.5rem; color: var(--danger); text-decoration: none; font-weight: 500;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="portal-main">
+    <header class="portal-header">
+      <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">Secure Payment (PayMongo / GCash)</h2>
+    </header>
+
+    <div class="portal-content">
+      <div class="checkout-card" id="checkoutContainer">
+        <div class="gcash-header">
+          <div class="gcash-logo">G</div>
+          <div>
+            <div style="font-weight: 700; font-size: 1.1rem; color: #0070f3;">GCash Checkout</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Powered by PayMongo Sandbox</div>
+          </div>
+        </div>
+
+        <div id="bookingInfo" style="margin-bottom: 1.5rem;">
+          <p style="color: var(--text-muted); text-align: center;">Loading booking details...</p>
+        </div>
+
+        <div id="paymentFormArea" style="display: none;">
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label class="form-label">GCash Registered Mobile Number</label>
+            <input type="text" id="gcashNumber" class="form-control" value="+63 917 123 4567" readonly>
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Simulated payment account linked to your profile.</small>
+          </div>
+
+          <div id="errorMessage" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 1rem; display: none;"></div>
+
+          <div style="display: flex; gap: 0.75rem; flex-direction: column;">
+            <button id="simulateSuccessBtn" class="btn btn-primary" style="background: #0070f3; border-color: #0070f3;">Simulate Success (Pay)</button>
+            <button id="simulateFailedBtn" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger);">Simulate Failed</button>
+            <button id="cancelBtn" class="btn btn-outline">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Tab Bar -->
+  <nav class="bottom-tab-bar">
+    <a href="/passenger/dashboard.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      Dashboard
+    </a>
+    <a href="/passenger/schedules.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Schedules
+    </a>
+    <a href="/passenger/my-bookings.html" class="active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Bookings
+    </a>
+    <a href="/passenger/my-qr.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      My QR
+    </a>
+    <a href="/passenger/profile.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </a>
+  </nav>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['passenger']);
+    if (!session) throw new Error('Unauthorized');
+
+    const passenger = await api.passengers.getByUserId(session.user_id);
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingId = urlParams.get('booking_id');
+
+    async function initPayment() {
+      if (!bookingId) {
+        ui.showToast('No booking ID specified', 'danger');
+        window.location.href = '/passenger/my-bookings.html';
+        return;
+      }
+
+      const bookings = await api.bookings.list();
+      const booking = bookings.find(b => b.id === bookingId);
+      if (!booking) {
+        ui.showToast('Booking not found', 'danger');
+        window.location.href = '/passenger/my-bookings.html';
+        return;
+      }
+
+      if (booking.passenger_id !== passenger.id) {
+        ui.showToast('Unauthorized access to booking', 'danger');
+        window.location.href = '/passenger/my-bookings.html';
+        return;
+      }
+
+      // Check double payment: if booking status is Paid or a paid payment exists
+      const payments = await api.payments.listByBooking(booking.id);
+      const alreadyPaid = booking.status === 'Paid' || payments.some(p => p.status === 'Paid');
+      if (alreadyPaid) {
+        ui.showToast('Booking is already paid. Opening e-ticket...', 'info');
+        window.location.href = `/passenger/eticket.html?booking_id=${booking.id}`;
+        return;
+      }
+
+      const trips = await api.trips.list();
+      const boats = await api.boats.list();
+      const routes = await api.routes.list();
+      const terminals = await api.terminals.list();
+
+      const trip = trips.find(t => t.id === booking.trip_id);
+      const boat = trip ? boats.find(b => b.id === trip.boat_id) : null;
+      const route = trip ? routes.find(r => r.id === trip.route_id) : null;
+      const orig = route ? terminals.find(t => t.id === route.origin_terminal_id) : null;
+      const dest = route ? terminals.find(t => t.id === route.destination_terminal_id) : null;
+
+      document.getElementById('bookingInfo').innerHTML = `
+        <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-md); font-size: 0.9rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Booking ID:</span>
+            <code>${booking.id}</code>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Booking Type:</span>
+            <strong>${booking.booking_type}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Vessel & Route:</span>
+            <span>${boat ? boat.name : 'Vessel'} (${orig ? orig.name : 'Origin'} → ${dest ? dest.name : 'Dest'})</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="color: var(--text-muted);">Departure:</span>
+            <span>${trip ? new Date(trip.departure_time).toLocaleString() : 'N/A'}</span>
+          </div>
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 0.75rem 0;">
+          <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 700; color: var(--primary);">
+            <span>Total Amount Due:</span>
+            <span>₱${booking.amount_due.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+
+      document.getElementById('paymentFormArea').style.display = 'block';
+
+      // Simulate Success
+      document.getElementById('simulateSuccessBtn').onclick = async () => {
+        const refNo = 'GC' + Math.floor(1000000000 + Math.random() * 9000000000);
+        
+        // Create payment record
+        await api.payments.create({
+          booking_id: booking.id,
+          boat_id: trip ? trip.boat_id : null,
+          method: 'GCash',
+          amount: booking.amount_due,
+          status: 'Paid',
+          reference_no: refNo
+        });
+
+        // Update booking status
+        await api.bookings.updateStatus(booking.id, 'Paid');
+
+        // Issue e-ticket
+        const eticketNo = api.generateEticketNo();
+        await api.etickets.create({
+          booking_id: booking.id,
+          ticket_no: eticketNo,
+          passenger_name: passenger.full_name,
+          gcash_ref: refNo
+        });
+
+        // Create notification
+        await api.notifications.create({
+          user_id: session.user_id,
+          type: 'Payment',
+          message: `Your booking ${booking.id} has been successfully paid (Ref: ${refNo}). View your e-ticket.`,
+          link: `/passenger/eticket.html?booking_id=${booking.id}`
+        });
+
+        ui.showToast('Payment successful! Generating e-ticket...', 'success');
+        setTimeout(() => {
+          window.location.href = `/passenger/eticket.html?booking_id=${booking.id}`;
+        }, 1000);
+      };
+
+      // Simulate Failed
+      document.getElementById('simulateFailedBtn').onclick = async () => {
+        const refNo = 'GC_FAIL_' + Math.floor(100000 + Math.random() * 900000);
+        await api.payments.create({
+          booking_id: booking.id,
+          boat_id: trip ? trip.boat_id : null,
+          method: 'GCash',
+          amount: booking.amount_due,
+          status: 'Failed',
+          reference_no: refNo
+        });
+
+        const errEl = document.getElementById('errorMessage');
+        errEl.textContent = 'Payment failed: Transaction declined by GCash sandbox gateway. Please try again.';
+        errEl.style.display = 'block';
+        ui.showToast('Payment transaction failed', 'danger');
+      };
+
+      // Cancel
+      document.getElementById('cancelBtn').onclick = () => {
+        window.location.href = '/passenger/my-bookings.html';
+      };
+    }
+
+    initPayment();
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crew Verification - BoatTrack Admin</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/layout.css">
+</head>
+<body class="admin-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-header">
+      <span style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
+        Administrator
+      </span>
+    </div>
+    <div class="sidebar-menu">
+      <a href="/admin/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
+      <a href="/admin/accounts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts</a>
+      <a href="/admin/boat-verification.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg> Boat Verification</a>
+      <a href="/admin/crew-verification.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Crew Verification</a>
+      <a href="/admin/routes-fares.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Routes & Fares</a>
+      <a href="/admin/terminals.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/></svg> Terminals</a>
+      <a href="/admin/manifests.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Manifests</a>
+      <a href="/admin/bookings.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Bookings</a>
+      <a href="/admin/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/></svg> SOS Alerts</a>
+      <a href="/admin/dev-tools.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .69.21 1.35.6 1.91z"/></svg> Dev Tools</a>
+      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <header class="admin-header">
+      <h2>Crew Verification & Account Provisioning</h2>
+      <select id="stageFilter" class="form-control" style="width: 220px;">
+        <option value="">All Stages</option>
+        <option value="Operator Review" selected>Pending Admin Verification</option>
+        <option value="Accepted">Accepted & Verified</option>
+        <option value="Rejected">Rejected</option>
+      </select>
+    </header>
+
+    <div class="admin-content">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Applicant Name</th>
+              <th>Contact</th>
+              <th>Boat</th>
+              <th>Stage</th>
+              <th>Submitted Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="crewAppTableBody">
+            <tr><td colspan="6" style="text-align: center;">Loading crew applications...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VERIFICATION MODAL -->
+  <div id="verifyCrewModal" class="modal-backdrop" style="display:none;">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 id="modalTitle">Verify & Provision Crew Account</h3>
+      </div>
+      <form id="verifyCrewForm">
+        <div class="modal-body">
+          <input type="hidden" id="modalAppId">
+          <p id="modalAppInfo" style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.9rem;"></p>
+          
+          <div class="form-group">
+            <label class="form-label">Crew Email (Login ID)</label>
+            <input type="email" id="crewEmail" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="crewUsername" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned Role</label>
+            <select id="crewRole" class="form-control">
+              <option value="Crew" selected>Crew</option>
+              <option value="Captain">Captain</option>
+              <option value="Deckhand">Deckhand</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Initial Password</label>
+            <input type="text" id="crewPassword" class="form-control" value="123" required>
+            <small style="color: var(--text-muted);">Crew member will be required to change password on first login.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('verifyCrewModal').style.display='none'">Cancel</button>
+          <button type="submit" class="btn btn-primary">Verify & Create Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from '/js/api.js';
+    import { auth } from '/js/auth.js';
+    import { ui } from '/js/ui.js';
+
+    const session = await auth.requireAuth(['administrator']);
+    let apps = [];
+    let boats = [];
+
+    async function loadData() {
+      apps = await api.crewApplications.list();
+      boats = await api.boats.list();
+      render();
+    }
+
+    function render() {
+      const tbody = document.getElementById('crewAppTableBody');
+      const stageFilter = document.getElementById('stageFilter').value;
+
+      let filtered = apps.filter(a => {
+        if (stageFilter === 'Operator Review') {
+          return a.stage === 'Operator Review' || a.stage === 'Pending Admin Verification' || a.stage === 'Requested';
+        }
+        return stageFilter === '' || a.stage === stageFilter;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No crew applications found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(a => {
+        const boat = boats.find(b => b.id === a.boat_id) || { name: 'N/A' };
+        const canVerify = a.stage !== 'Accepted' && a.stage !== 'Rejected';
+        return `
+          <tr>
+            <td><strong>${a.full_name}</strong></td>
+            <td>${a.contact || 'N/A'}</td>
+            <td>${boat.name}</td>
+            <td><span class="badge badge-pending">${a.stage}</span></td>
+            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+            <td>
+              <div class="table-actions">
+                ${canVerify ? `
+                  <button class="btn btn-sm btn-primary" onclick="window.openVerifyModal('${a.id}')">Verify & Provision</button>
+                  <button class="btn btn-sm btn-outline" style="color: var(--danger); border-color: var(--danger);" onclick="window.rejectApp('${a.id}')">Reject</button>
+                ` : `<span style="font-size:0.85rem; color:var(--text-muted);">${a.stage}</span>`}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.openVerifyModal = (id) => {
+      const app = apps.find(a => a.id === id);
+      if (!app) return;
+      const boat = boats.find(b => b.id === app.boat_id) || { name: 'N/A' };
+
+      document.getElementById('modalAppId').value = app.id;
+      document.getElementById('modalAppInfo').textContent = `Reviewing application for ${app.full_name} on vessel "${boat.name}". Approving will create a active crew account and assign them to this vessel.`;
+      
+      const cleanName = app.full_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      document.getElementById('crewEmail').value = `${cleanName || 'crew'}@boattrack.local`;
+      document.getElementById('crewUsername').value = `crew_${Math.random().toString(36).substring(2, 7)}`;
+      document.getElementById('crewPassword').value = '123';
+
+      document.getElementById('verifyCrewModal').style.display = 'flex';
+    };
+
+    document.getElementById('verifyCrewForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('modalAppId').value;
+      const email = document.getElementById('crewEmail').value.trim();
+      const username = document.getElementById('crewUsername').value.trim();
+      const role = document.getElementById('crewRole').value;
+      const password = document.getElementById('crewPassword').value;
+
+      try {
+        await api.crewApplications.verifyAndProvision(id, { email, username, role, password });
+        document.getElementById('verifyCrewModal').style.display = 'none';
+        ui.showToast('Crew verified and account successfully provisioned!', 'success');
+        await loadData();
+      } catch (err) {
+        ui.showToast(err.message, 'error');
+      }
+    };
+
+    window.rejectApp = async (id) => {
+      if (!confirm('Are you sure you want to reject this crew application?')) return;
+      await api.crewApplications.decide(id, 'Rejected');
+      ui.showToast('Crew application rejected.', 'success');
+      await loadData();
+    };
+
+    document.getElementById('stageFilter').onchange = render;
+
+    document.getElementById('logoutBtn').onclick = async (e) => {
+      e.preventDefault();
+      await api.auth.logout();
+      window.location.href = '/login.html';
+    };
+
+    loadData();
+  </script>
+</body>
+</html>
