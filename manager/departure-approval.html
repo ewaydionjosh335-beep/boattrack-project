@@ -34,8 +34,8 @@
 
   <div class="admin-main">
     <header class="admin-header">
-      <h2>Departure Approval</h2>
-      <span id="managerName" style="font-weight: 600;"></span>
+      <h2 style="font-size: 1.5rem;">Departure Approval</h2>
+      <span id="managerName" style="font-weight: 600; font-size: 1.1rem;"></span>
     </header>
 
     <div class="admin-content">
@@ -47,25 +47,25 @@
 
   <!-- APPROVAL MODAL: evidence + coast guard remarks -->
   <div id="approvalModal" class="modal-backdrop" style="display: none;">
-    <div class="modal" style="max-width: 640px; width: 100%;">
-      <div class="modal-header">
-        <h3>Record Departure Approval</h3>
-        <button type="button" class="btn btn-outline btn-sm" id="closeApprovalModalBtn">&times;</button>
+    <div class="modal" style="max-width: 720px; width: 100%; border-radius: var(--radius-lg);">
+      <div class="modal-header" style="padding: 1.25rem 1.5rem;">
+        <h3 style="font-size: 1.25rem;">Record Departure Approval</h3>
+        <button type="button" class="btn btn-outline btn-sm" id="closeApprovalModalBtn" style="padding: 0.35rem 0.75rem;">&times;</button>
       </div>
       <form id="approvalForm">
-        <div class="modal-body" style="font-size: 0.9rem;">
+        <div class="modal-body" style="font-size: 0.95rem; padding: 1.5rem;">
           <input type="hidden" id="approvalTripId">
-          <p id="approvalSummary" style="margin-bottom: 1rem; color: var(--text-muted);"></p>
-          <div id="approvalEvidence" style="margin-bottom: 1rem;"></div>
+          <p id="approvalSummary" style="margin-bottom: 1.25rem; color: var(--text-muted); font-size: 1rem;"></p>
+          <div id="approvalEvidence" style="margin-bottom: 1.25rem;"></div>
           <div class="form-group">
-            <label class="form-label" id="approvalRemarksLabel">Remarks</label>
-            <textarea id="approvalRemarks" class="form-control" rows="3"></textarea>
+            <label class="form-label" id="approvalRemarksLabel" style="font-size: 1rem;">Remarks</label>
+            <textarea id="approvalRemarks" class="form-control" rows="4" style="font-size: 0.95rem; padding: 0.75rem;"></textarea>
           </div>
-          <div id="approvalError" class="error-text"></div>
+          <div id="approvalError" class="error-text" style="font-size: 0.9rem;"></div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline" id="cancelApprovalBtn">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="recordApprovalBtn">Record Approval</button>
+        <div class="modal-footer" style="padding: 1rem 1.5rem;">
+          <button type="button" class="btn btn-outline" id="cancelApprovalBtn" style="padding: 0.6rem 1.25rem; font-size: 1rem;">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="recordApprovalBtn" style="padding: 0.6rem 1.25rem; font-size: 1rem;">Record Approval</button>
         </div>
       </form>
     </div>
@@ -107,7 +107,7 @@
         .filter(t => (t.trip_status === 'Scheduled' || t.trip_status === 'Held') && ui.localDateStr(t.departure_time) === today)
         .sort((a, b) => new Date(a.departure_time) - new Date(b.departure_time));
       if (!pending.length) {
-        list.innerHTML = '<p style="color: var(--text-muted);">No trips departing today are awaiting departure approval.</p>';
+        list.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-muted); font-size: 1.1rem;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; opacity: 0.5;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><br>No trips departing today are awaiting departure approval.</div>';
         return;
       }
 
@@ -131,39 +131,62 @@
         const canDepart = trip.trip_status === 'Scheduled' && decision === 'Approved';
         const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
         return `
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap;">
-            <div>
-              <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}">${esc(trip.trip_status)}</span>
-              <span class="badge badge-${esc(String(decision).toLowerCase())}">${esc(decision)}</span>
-              <p style="margin-top: 0.5rem;">
-                <strong>${esc(boat?.name || 'Unknown vessel')}</strong> &middot;
+        <div class="card" style="padding: 1.5rem; margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 300px;">
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
+                <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(trip.trip_status)}</span>
+                <span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(decision)}</span>
+              </div>
+              <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: var(--primary);">
+                ${esc(boat?.name || 'Unknown vessel')}
+              </h3>
+              <p style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-main);">
                 <strong>${esc(origin?.name || 'Unknown origin')}</strong> &rarr; <strong>${esc(dest?.name || 'Unknown destination')}</strong>
-                &middot; Departure ${new Date(trip.departure_time).toLocaleString()}
+                <span style="color: var(--text-muted); margin-left: 0.5rem;">&middot; ${new Date(trip.departure_time).toLocaleString()}</span>
               </p>
-              <small style="color: var(--text-muted);">
-                ${latestDecision
-                  ? `Latest approval: ${esc(latestDecision.decision)} by ${esc(latestDecision.recorded_by || '-')} (${esc(latestDecision.coast_guard_name || 'n/a')}) at ${new Date(latestDecision.recorded_at).toLocaleString()}`
-                  : 'No coast guard record yet.'}
-              </small><br>
-              <small style="color: ${classificationColor(scan?.classification)};">
-                ${scan
-                  ? `Risk scan: <strong>${esc(scan.classification)}</strong> by ${esc(scan.scanned_by || '-')} at ${new Date(scan.scanned_at).toLocaleString()}`
-                  : 'Risk scan: none for this trip yet'}
-              </small><br>
-              <small style="color: ${!insp || insp.overall !== 'Passed' ? 'var(--danger)' : 'var(--text-muted)'};">
-                ${insp
-                  ? `Pre-departure inspection: <strong>${esc(insp.overall)}</strong> by ${esc(insp.inspected_by || '-')} at ${new Date(insp.inspected_at).toLocaleString()}`
-                  : 'Pre-departure inspection: none for this trip yet'}
-              </small>
+              <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--text-muted); min-width: 120px;">Coast Guard:</span>
+                  <span>${latestDecision
+                    ? `${esc(latestDecision.decision)} by ${esc(latestDecision.recorded_by || '-')} (${esc(latestDecision.coast_guard_name || 'n/a')})`
+                    : 'No record yet'}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--text-muted); min-width: 120px;">Risk Scan:</span>
+                  <span style="color: ${classificationColor(scan?.classification)}; font-weight: 600;">
+                    ${scan
+                      ? `${esc(scan.classification)} by ${esc(scan.scanned_by || '-')} at ${new Date(scan.scanned_at).toLocaleString()}`
+                      : 'None on record'}
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="color: var(--text-muted); min-width: 120px;">Inspection:</span>
+                  <span style="color: ${!insp || insp.overall !== 'Passed' ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: 600;">
+                    ${insp
+                      ? `${esc(insp.overall)} by ${esc(insp.inspected_by || '-')} at ${new Date(insp.inspected_at).toLocaleString()}`
+                      : 'None on record'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn-primary btn-sm approve" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'}>Approve</button>
-              <button class="btn btn-danger btn-sm hold" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'}>Hold</button>
-              <button class="btn btn-outline btn-sm depart" data-trip="${esc(trip.id)}" ${canDepart ? '' : 'disabled'}>Mark Departed</button>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; padding-top: 0.5rem;">
+              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="min-width: 120px; padding: 0.75rem 1.25rem; font-size: 1rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Approve
+              </button>
+              <button class="btn btn-danger hold" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="min-width: 120px; padding: 0.75rem 1.25rem; font-size: 1rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Hold
+              </button>
+              <button class="btn btn-outline depart" data-trip="${esc(trip.id)}" ${canDepart ? '' : 'disabled'} style="min-width: 120px; padding: 0.75rem 1.25rem; font-size: 1rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                Mark Departed
+              </button>
             </div>
           </div>
         </div>`;
+      }).join('');
       }).join('');
 
       list.querySelectorAll('.approve').forEach(b => b.onclick = () => openApprovalModal(b.dataset.trip));
@@ -227,42 +250,49 @@
       const failedItems = (insp?.items || []).filter(i => i.result === 'Fail');
 
       document.getElementById('approvalTripId').value = tripId;
-      document.getElementById('approvalSummary').innerHTML = `
-        <strong>${esc(boat?.name || 'Vessel')}</strong> &middot;
-        ${esc(origin?.name || 'Origin')} &rarr; ${esc(dest?.name || 'Destination')}<br>
-        <span style="font-size: 0.85rem;">Departure ${new Date(trip.departure_time).toLocaleString()} &middot; Status ${esc(trip.trip_status)}</span>`;
+       document.getElementById('approvalSummary').innerHTML = `
+         <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+           <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(trip.trip_status)}</span>
+           <strong style="font-size: 1.1rem; color: var(--primary);">${esc(boat?.name || 'Vessel')}</strong>
+         </div>
+         <div style="font-size: 1rem; color: var(--text-main);">
+           ${esc(origin?.name || 'Origin')} &rarr; ${esc(dest?.name || 'Destination')}
+         </div>
+         <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">
+           Departure: ${new Date(trip.departure_time).toLocaleString()} &middot; Status: ${esc(trip.trip_status)}
+         </div>`;
 
-      document.getElementById('approvalEvidence').innerHTML = `
-        <div class="table-container" style="font-size: 0.85rem;">
-          <table style="width: 100%;">
-            <tr>
-              <td style="width: 40%;"><strong>Risk scan</strong></td>
-              <td>${scan
-                ? `<span class="badge" style="background: ${classificationColor(scan.classification)}; color: white;">${esc(scan.classification)}</span>
-                   ${esc(scan.scanned_by || '-')} &middot; ${new Date(scan.scanned_at).toLocaleString()}`
-                : '<span style="color: var(--danger);">No scan on record</span>'}</td>
-            </tr>
-            ${scan ? `<tr>
-              <td><strong>Load / Capacity</strong></td>
-              <td>${Number(scan.total_load_kg || 0).toFixed(1)} / ${esc(scan.max_load_kg ?? '-')} kg &middot;
-                  ${esc(scan.passenger_count ?? '-')} / ${esc(scan.passenger_capacity ?? '-')} pax</td>
-            </tr>` : ''}
-            <tr>
-              <td><strong>Pre-departure inspection</strong></td>
-              <td>${insp
-                ? `<strong style="color: ${insp.overall === 'Passed' ? 'var(--success)' : 'var(--danger)'};">${esc(insp.overall)}</strong>
-                   by ${esc(insp.inspected_by || '-')} &middot; ${new Date(insp.inspected_at).toLocaleString()}`
-                : '<span style="color: var(--danger);">None on record</span>'}</td>
-            </tr>
-            ${failedItems.length ? `<tr>
-              <td><strong>Failed items</strong></td>
-              <td style="color: var(--danger);">${failedItems.map(i => esc(i.item) + (i.note ? ` (${esc(i.note)})` : '')).join('<br>')}</td>
-            </tr>` : ''}
-          </table>
-        </div>
-        ${needsJudgement
-          ? '<p style="color: var(--danger); font-size: 0.85rem; margin-top: 0.75rem;">The latest scan or inspection is not a clean Safe / Passed result. The coast guard still decides, so record the reason for clearing this trip.</p>'
-          : ''}`;
+       document.getElementById('approvalEvidence').innerHTML = `
+         <div class="table-container" style="font-size: 0.95rem;">
+           <table style="width: 100%;">
+             <tr>
+               <td style="width: 35%; padding: 0.75rem 1rem;"><strong>Risk scan</strong></td>
+               <td style="padding: 0.75rem 1rem;">${scan
+                 ? `<span class="badge" style="background: ${classificationColor(scan.classification)}; color: white; padding: 0.3rem 0.75rem; font-size: 0.85rem;">${esc(scan.classification)}</span>
+                    <span style="margin-left: 0.5rem;">${esc(scan.scanned_by || '-')} &middot; ${new Date(scan.scanned_at).toLocaleString()}</span>`
+                 : '<span style="color: var(--danger); font-weight: 600;">No scan on record</span>'}</td>
+             </tr>
+             ${scan ? `<tr>
+               <td style="padding: 0.75rem 1rem;"><strong>Load / Capacity</strong></td>
+               <td style="padding: 0.75rem 1rem;">${Number(scan.total_load_kg || 0).toFixed(1)} / ${esc(scan.max_load_kg ?? '-')} kg &middot;
+                   ${esc(scan.passenger_count ?? '-')} / ${esc(scan.passenger_capacity ?? '-')} pax</td>
+             </tr>` : ''}
+             <tr>
+               <td style="padding: 0.75rem 1rem;"><strong>Pre-departure inspection</strong></td>
+               <td style="padding: 0.75rem 1rem;">${insp
+                 ? `<strong style="color: ${insp.overall === 'Passed' ? 'var(--success)' : 'var(--danger)'}; font-size: 1rem;">${esc(insp.overall)}</strong>
+                    by ${esc(insp.inspected_by || '-')} &middot; ${new Date(insp.inspected_at).toLocaleString()}`
+                 : '<span style="color: var(--danger); font-weight: 600;">None on record</span>'}</td>
+             </tr>
+             ${failedItems.length ? `<tr>
+               <td style="padding: 0.75rem 1rem;"><strong>Failed items</strong></td>
+               <td style="padding: 0.75rem 1rem; color: var(--danger);">${failedItems.map(i => esc(i.item) + (i.note ? ` (${esc(i.note)})` : '')).join('<br>')}</td>
+             </tr>` : ''}
+           </table>
+         </div>
+         ${needsJudgement
+           ? '<p style="color: var(--danger); font-size: 0.9rem; margin-top: 1rem; padding: 0.75rem; background: #fef2f2; border-radius: 6px; font-weight: 600;">The latest scan or inspection is not a clean Safe / Passed result. The coast guard still decides, so record the reason for clearing this trip.</p>'
+           : ''}`;
 
       document.getElementById('approvalRemarksLabel').innerHTML = needsJudgement
         ? 'Justification for clearing (required, at least 10 characters)'
