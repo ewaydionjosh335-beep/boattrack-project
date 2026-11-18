@@ -182,8 +182,8 @@
         }
 
         return `
-          <div class="boat-card">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div class="boat-card" style="display: flex; flex-direction: column; height: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: start; flex-shrink: 0;">
               <div>
                 <h3 style="margin-bottom: 0.25rem;">${esc(boat.name)}</h3>
                 <span style="font-size: 0.85rem; color: var(--text-muted);">${esc(boat.boat_type)} | Max Cap: ${boat.passenger_capacity} Pax | Max Load: ${maxLoad} kg</span>
@@ -191,12 +191,12 @@
               <span class="badge ${isSuspended ? 'badge-suspended' : 'badge-active'}">${esc(boat.boat_status)}</span>
             </div>
 
-            <div style="font-size: 0.875rem; background: var(--bg-main); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
+            <div style="font-size: 0.875rem; background: var(--bg-main); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border); flex-shrink: 0;">
               <strong>Operator:</strong> ${esc(oper ? oper.full_name : 'None')} <br>
               <strong>Cluster:</strong> ${esc(clusterStr)}
             </div>
 
-            <div>
+            <div style="flex: 1;">
               <h4 style="font-size: 0.9rem; margin-bottom: 0.375rem; color: var(--primary);">Today's Trips (${boatTrips.length})</h4>
               ${boatTrips.length === 0 ? '<p style="font-size: 0.85rem; color: var(--text-muted);">No trips today.</p>' : `
                 <div style="display: flex; flex-direction: column; gap: 0.375rem;">
@@ -223,7 +223,7 @@
               `}
             </div>
 
-            <div>
+            <div style="flex-shrink: 0;">
               <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
                 <strong>Peak Trip Pax vs Cap:</strong>
                 <span>${peakTripPax} / ${boat.passenger_capacity} pax (All trips today: ${totalManifestPax}, Req: ${totalRequiredPax})</span>
@@ -238,7 +238,7 @@
               <div style="font-size: 0.75rem; margin-top: 0.25rem; font-weight: 600; color: ${barColor};">${statusText} (${loadPercent.toFixed(1)}%)</div>
             </div>
 
-            <div style="border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+            <div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.5rem; flex-shrink: 0;">
               ${isSuspended ? 
                 `<button class="btn btn-outline btn-sm" style="color:var(--success); border-color:var(--success);" onclick="window.reactivateBoat('${boat.id}')">Reactivate Boat</button>` :
                 `<button class="btn btn-danger btn-sm" onclick="window.openSuspendModal('${boat.id}')">Suspend Boat</button>`
