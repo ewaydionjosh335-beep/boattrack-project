@@ -184,7 +184,6 @@
           </div>
         </div>`;
       }).join('');
-        }).join('');
 
       list.querySelectorAll('.approve').forEach(b => b.onclick = () => openApprovalModal(b.dataset.trip));
 
@@ -344,8 +343,13 @@
       }
     };
 
-    await render();
-    ui.setupSync(render);
+    try {
+      await render();
+      ui.setupSync(render);
+    } catch (err) {
+      document.getElementById('approvalList').innerHTML = `<div style="color: var(--danger); padding: 2rem; text-align: center; font-size: 1rem;">Error loading trips: ${esc(err.message)}</div>`;
+      console.error('Departure Approval render error:', err);
+    }
 
     document.getElementById('logoutBtn').onclick = async (e) => {
       e.preventDefault();
