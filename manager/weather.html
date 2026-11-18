@@ -67,23 +67,23 @@
       const records = await Promise.all(terminals.map(t => weatherService.fetchForTerminal(t)));
       terminals.forEach((t, i) => {
         const rec = records[i];
-        cards.push(`
-          <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>${esc(t.name)}</h3>
-              <button class="btn btn-outline btn-sm refresh" data-term="${esc(t.id)}">Refresh</button>
-            </div>
-            <p style="color: var(--text-muted); font-size: 0.85rem;">${esc(t.location || '')}</p>
-            <p><span class="badge badge-pending">${esc(rec.source)}</span> <small style="color: var(--text-muted);">${new Date(rec.fetched_at).toLocaleString()}</small></p>
-            <table style="width: 100%; font-size: 0.9rem; margin-top: 0.5rem;">
-              <tbody>
-                <tr><td>Temperature</td><td style="text-align: right;"><strong>${fmt(rec.temperature_c)}&deg;C</strong></td></tr>
-                <tr><td>Wind / Gust</td><td style="text-align: right;"><strong>${fmt(rec.wind_speed_kmh)} / ${fmt(rec.wind_gust_kmh)} km/h</strong></td></tr>
-                <tr><td>Rain chance</td><td style="text-align: right;"><strong>${fmt(rec.precipitation_probability)}%</strong></td></tr>
-                <tr><td>Visibility</td><td style="text-align: right;"><strong>${fmt(rec.visibility_m)} m</strong></td></tr>
-              </tbody>
-            </table>
-          </div>`);
+         cards.push(`
+           <div class="card" style="padding: 1.5rem;">
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+               <h3 style="font-size: 1.15rem; color: var(--primary);">${esc(t.name)}</h3>
+               <button class="btn btn-outline btn-sm refresh" data-term="${esc(t.id)}" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Refresh</button>
+             </div>
+             <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 0.75rem;">${esc(t.location || '')}</p>
+             <p style="margin-bottom: 1rem;"><span class="badge badge-pending" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">${esc(rec.source)}</span> <small style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">${new Date(rec.fetched_at).toLocaleString()}</small></p>
+             <table style="width: 100%; font-size: 1rem; margin-top: 0.5rem;">
+               <tbody>
+                 <tr><td style="padding: 0.5rem 0;">Temperature</td><td style="text-align: right; padding: 0.5rem 0;"><strong style="font-size: 1.1rem;">${fmt(rec.temperature_c)}&deg;C</strong></td></tr>
+                 <tr><td style="padding: 0.5rem 0;">Wind / Gust</td><td style="text-align: right; padding: 0.5rem 0;"><strong style="font-size: 1.1rem;">${fmt(rec.wind_speed_kmh)} / ${fmt(rec.wind_gust_kmh)} km/h</strong></td></tr>
+                 <tr><td style="padding: 0.5rem 0;">Rain chance</td><td style="text-align: right; padding: 0.5rem 0;"><strong style="font-size: 1.1rem;">${fmt(rec.precipitation_probability)}%</strong></td></tr>
+                 <tr><td style="padding: 0.5rem 0;">Visibility</td><td style="text-align: right; padding: 0.5rem 0;"><strong style="font-size: 1.1rem;">${fmt(rec.visibility_m)} m</strong></td></tr>
+               </tbody>
+             </table>
+           </div>`);
       });
       grid.innerHTML = cards.join('') || '<p style="color: var(--text-muted);">No terminals found.</p>';
 

@@ -131,14 +131,17 @@
         const ms = manifests.filter(m => m.trip_id === trip.id);
 
         return `
-          <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <div>
-              <h4 style="margin-bottom: 0.25rem;">${esc(boat.name || 'Vessel')}</h4>
-              <p style="font-size: 0.85rem; color: var(--text-muted);">${esc(origin)} → ${esc(dest)} | Departure: ${time}</p>
-              <p style="font-size: 0.85rem; margin-top: 0.25rem;">Status: <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}">${esc(trip.trip_status)}</span> | Manifest Count: <strong>${ms.length} / ${boat.passenger_capacity || 0}</strong> max pax | Max Load: <strong>${boat.max_load_kg || 0} kg</strong></p>
+          <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1.5rem; padding: 1.5rem; margin-bottom: 1rem;">
+            <div style="flex: 1; min-width: 280px;">
+              <h3 style="margin-bottom: 0.5rem; font-size: 1.15rem; color: var(--primary);">${esc(boat.name || 'Vessel')}</h3>
+              <p style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.5rem;">${esc(origin)} &rarr; ${esc(dest)} &middot; Departure: ${time}</p>
+              <p style="font-size: 0.95rem; margin-top: 0.25rem;">Status: <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">${esc(trip.trip_status)}</span> &middot; Manifest: <strong>${ms.length} / ${boat.passenger_capacity || 0}</strong> pax &middot; Max Load: <strong>${boat.max_load_kg || 0} kg</strong></p>
             </div>
             <div>
-              <button data-trip="${trip.id}" class="btn btn-primary scan-btn">Run Risk Scan</button>
+              <button data-trip="${trip.id}" class="btn btn-primary scan-btn" style="padding: 0.75rem 1.5rem; font-size: 1rem; min-width: 160px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                Run Risk Scan
+              </button>
             </div>
           </div>
         `;
