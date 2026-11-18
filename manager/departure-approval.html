@@ -131,29 +131,29 @@
         const canDepart = trip.trip_status === 'Scheduled' && decision === 'Approved';
         const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
         return `
-        <div class="card" style="padding: 1.5rem; margin-bottom: 1rem;">
-          <div style="display: flex; justify-content: space-between; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 300px;">
-              <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap;">
-                <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(trip.trip_status)}</span>
-                <span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(decision)}</span>
+        <div class="card" style="padding: 1.25rem; margin-bottom: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 280px;">
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(trip.trip_status)}</span>
+                <span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(decision)}</span>
               </div>
-              <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: var(--primary);">
+              <h3 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; color: var(--primary);">
                 ${esc(boat?.name || 'Unknown vessel')}
               </h3>
-              <p style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-main);">
+              <p style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-main);">
                 <strong>${esc(origin?.name || 'Unknown origin')}</strong> &rarr; <strong>${esc(dest?.name || 'Unknown destination')}</strong>
                 <span style="color: var(--text-muted); margin-left: 0.5rem;">&middot; ${new Date(trip.departure_time).toLocaleString()}</span>
               </p>
-              <div style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9rem;">
+              <div style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;">
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--text-muted); min-width: 120px;">Coast Guard:</span>
+                  <span style="color: var(--text-muted); min-width: 100px;">Coast Guard:</span>
                   <span>${latestDecision
                     ? `${esc(latestDecision.decision)} by ${esc(latestDecision.recorded_by || '-')} (${esc(latestDecision.coast_guard_name || 'n/a')})`
                     : 'No record yet'}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--text-muted); min-width: 120px;">Risk Scan:</span>
+                  <span style="color: var(--text-muted); min-width: 100px;">Risk Scan:</span>
                   <span style="color: ${classificationColor(scan?.classification)}; font-weight: 600;">
                     ${scan
                       ? `${esc(scan.classification)} by ${esc(scan.scanned_by || '-')} at ${new Date(scan.scanned_at).toLocaleString()}`
@@ -161,7 +161,7 @@
                   </span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
-                  <span style="color: var(--text-muted); min-width: 120px;">Inspection:</span>
+                  <span style="color: var(--text-muted); min-width: 100px;">Inspection:</span>
                   <span style="color: ${!insp || insp.overall !== 'Passed' ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: 600;">
                     ${insp
                       ? `${esc(insp.overall)} by ${esc(insp.inspected_by || '-')} at ${new Date(insp.inspected_at).toLocaleString()}`
@@ -170,22 +170,20 @@
                 </div>
               </div>
             </div>
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; padding-top: 0.5rem;">
-              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="min-width: 120px; padding: 0.75rem 1.25rem; font-size: 1rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-start; padding-top: 0.25rem;">
+              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                 Approve
               </button>
-              <button class="btn btn-danger hold" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="min-width: 120px; padding: 0.75rem 1.25rem; font-size: 1rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              <button class="btn btn-danger hold" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                 Hold
               </button>
-              <button class="btn btn-outline depart" data-trip="${esc(trip.id)}" ${canDepart ? '' : 'disabled'} style="min-width: 120px; padding: 0.75rem 1.25rem; font-size: 1rem;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              <button class="btn btn-outline depart" data-trip="${esc(trip.id)}" ${canDepart ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                 Mark Departed
               </button>
             </div>
           </div>
         </div>`;
+      }).join('');
         }).join('');
 
       list.querySelectorAll('.approve').forEach(b => b.onclick = () => openApprovalModal(b.dataset.trip));
