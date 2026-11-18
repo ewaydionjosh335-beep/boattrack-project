@@ -76,7 +76,7 @@
   letter-spacing: 0.5px;
 }
 
-.badge-active, .badge-verified, .badge-approved, .badge-paid, .badge-arrived {
+.badge-active, .badge-verified, .badge-approved, .badge-paid, .badge-arrived, .badge-acknowledged {
   background-color: rgba(42, 157, 143, 0.15);
   color: var(--success);
 }
@@ -84,7 +84,7 @@
   background-color: rgba(244, 162, 97, 0.15);
   color: #b07d2b;
 }
-.badge-suspended, .badge-rejected, .badge-failed, .badge-departed {
+.badge-suspended, .badge-rejected, .badge-failed, .badge-departed, .badge-cancelled {
   background-color: rgba(231, 111, 81, 0.15);
   color: var(--danger);
 }

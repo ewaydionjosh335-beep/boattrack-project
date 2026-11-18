@@ -40,7 +40,8 @@
 
   <div class="admin-main">
     <header class="admin-header">
-      <h2>Boat & Trip Monitoring</h2>
+      <h2>Boat &amp; Trip Monitoring</h2>
+      <span id="managerName" style="font-weight: 600;"></span>
       <input type="text" id="searchBoatInput" class="form-control" placeholder="Search boats..." style="max-width: 250px;">
     </header>
 
@@ -85,6 +86,9 @@
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
+    document.getElementById('managerName').textContent = session.full_name;
+
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     let allBoats = [];
     let allTrips = [];
@@ -123,7 +127,7 @@
         return;
       }
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = ui.localDateStr();
 
       container.innerHTML = filtered.map(boat => {
         const oper = boat.operator_id ? allUsers.find(u => u.id === boat.operator_id) : null;
@@ -131,24 +135,23 @@
         const isSuspended = boat.boat_status === 'Suspended';
 
         // Today's trips for this boat
-        const boatTrips = allTrips.filter(t => t.boat_id === boat.id && t.departure_time.startsWith(todayStr));
+        const boatTrips = allTrips.filter(t => t.boat_id === boat.id && ui.localDateStr(t.departure_time) === todayStr);
 
-        // Load calculations for today's trips of this boat
+        // Capacity is per trip, so compare each trip's load instead of the day's total.
         let totalManifestPax = 0;
         let totalRequiredPax = 0;
-        let totalPaxWeight = 0;
-        let totalBaggageWeight = 0;
-        let totalCargoWeight = 0;
+        let peakTripPax = 0;
+        let peakTripLoad = 0;
 
         boatTrips.forEach(t => {
           totalRequiredPax += (t.required_passengers || 0);
           const manifests = allManifests.filter(m => m.trip_id === t.id);
           totalManifestPax += manifests.length;
+          let tripLoad = 0;
 
           manifests.forEach(m => {
             const psg = allPassengers.find(p => p.id === m.passenger_id) || { weight_kg: 65 };
-            totalPaxWeight += (psg.weight_kg || 65);
-            totalBaggageWeight += (m.baggage_weight_kg || 0);
+            tripLoad += (psg.weight_kg || 65) + (m.baggage_weight_kg || 0);
           });
 
           // Approved and paid cargo bookings for this trip
@@ -157,18 +160,20 @@
             // check if paid
             const pay = allPayments.find(p => p.booking_id === b.id && p.status === 'Paid');
             if (pay) {
-              totalCargoWeight += (b.cargo_weight_kg || 0);
+              tripLoad += (b.cargo_weight_kg || 0);
             }
           });
+
+          peakTripPax = Math.max(peakTripPax, manifests.length);
+          peakTripLoad = Math.max(peakTripLoad, tripLoad);
         });
 
-        const currentTotalLoad = totalPaxWeight + totalBaggageWeight + totalCargoWeight;
         const maxLoad = boat.max_load_kg || 2000;
-        const loadPercent = Math.min(100, (currentTotalLoad / maxLoad) * 100);
+        const loadPercent = Math.min(100, (peakTripLoad / maxLoad) * 100);
 
         let barColor = 'var(--success)';
         let statusText = 'Safe Load';
-        if (currentTotalLoad > maxLoad || totalManifestPax > boat.passenger_capacity) {
+        if (peakTripLoad > maxLoad || peakTripPax > boat.passenger_capacity) {
           barColor = 'var(--danger)';
           statusText = 'Capacity/Load Exceeded!';
         } else if (loadPercent >= 80) {
@@ -180,15 +185,15 @@
           <div class="boat-card">
             <div style="display: flex; justify-content: space-between; align-items: start;">
               <div>
-                <h3 style="margin-bottom: 0.25rem;">${boat.name}</h3>
-                <span style="font-size: 0.85rem; color: var(--text-muted);">${boat.boat_type} | Max Cap: ${boat.passenger_capacity} Pax | Max Load: ${maxLoad} kg</span>
+                <h3 style="margin-bottom: 0.25rem;">${esc(boat.name)}</h3>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">${esc(boat.boat_type)} | Max Cap: ${boat.passenger_capacity} Pax | Max Load: ${maxLoad} kg</span>
               </div>
-              <span class="badge ${isSuspended ? 'badge-suspended' : 'badge-active'}">${boat.boat_status}</span>
+              <span class="badge ${isSuspended ? 'badge-suspended' : 'badge-active'}">${esc(boat.boat_status)}</span>
             </div>
 
             <div style="font-size: 0.875rem; background: var(--bg-main); padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
-              <strong>Operator:</strong> ${oper ? oper.full_name : 'None'} <br>
-              <strong>Cluster:</strong> ${clusterStr}
+              <strong>Operator:</strong> ${esc(oper ? oper.full_name : 'None')} <br>
+              <strong>Cluster:</strong> ${esc(clusterStr)}
             </div>
 
             <div>
@@ -203,15 +208,15 @@
                     const tripInspecs = allInspections.filter(i => i.trip_id === t.id);
                     const preInsp = tripInspecs.find(i => i.inspection_type === 'Pre-departure');
                     const postInsp = tripInspecs.find(i => i.inspection_type === 'Post-arrival');
-                    const preBadge = preInsp ? `<span class="badge ${preInsp.overall === 'Passed' ? 'badge-active' : 'badge-danger'}" style="font-size: 0.7rem;">Pre: ${preInsp.overall}</span>` : '';
-                    const postBadge = postInsp ? `<span class="badge ${postInsp.overall === 'Passed' ? 'badge-active' : 'badge-danger'}" style="font-size: 0.7rem;">Post: ${postInsp.overall}</span>` : '';
+                    const preBadge = preInsp ? `<span class="badge ${preInsp.overall === 'Passed' ? 'badge-active' : 'badge-failed'}" style="font-size: 0.7rem;">Pre: ${esc(preInsp.overall)}</span>` : '';
+                    const postBadge = postInsp ? `<span class="badge ${postInsp.overall === 'Passed' ? 'badge-active' : 'badge-failed'}" style="font-size: 0.7rem;">Post: ${esc(postInsp.overall)}</span>` : '';
 
                     return `<div style="font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; background: white; padding: 0.375rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);">
                       <div>
-                        <span>${time} → ${dest}</span>
+                        <span>${time} → ${esc(dest)}</span>
                         <div style="display: flex; gap: 0.25rem; margin-top: 0.125rem;">${preBadge} ${postBadge}</div>
                       </div>
-                      <span class="badge ${t.trip_status === 'Scheduled' ? 'badge-scheduled' : (t.trip_status === 'Held' ? 'badge-held' : (t.trip_status === 'Departed' ? 'badge-active' : 'badge-arrived'))}">${t.trip_status}</span>
+                      <span class="badge ${t.trip_status === 'Scheduled' ? 'badge-scheduled' : (t.trip_status === 'Held' ? 'badge-held' : (t.trip_status === 'Departed' ? 'badge-departed' : 'badge-arrived'))}">${esc(t.trip_status)}</span>
                     </div>`;
                   }).join('')}
                 </div>
@@ -220,12 +225,12 @@
 
             <div>
               <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
-                <strong>Manifest Pax vs Cap:</strong>
-                <span>${totalManifestPax} / ${boat.passenger_capacity} pax (Req: ${totalRequiredPax})</span>
+                <strong>Peak Trip Pax vs Cap:</strong>
+                <span>${peakTripPax} / ${boat.passenger_capacity} pax (All trips today: ${totalManifestPax}, Req: ${totalRequiredPax})</span>
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
-                <strong>Total Load (Pax+Baggage+Cargo):</strong>
-                <span>${currentTotalLoad.toFixed(1)} / ${maxLoad} kg</span>
+                <strong>Peak Trip Load (Pax+Baggage+Cargo):</strong>
+                <span>${peakTripLoad.toFixed(1)} / ${maxLoad} kg</span>
               </div>
               <div class="progress-bar-container">
                 <div class="progress-bar" style="width: ${loadPercent}%; background-color: ${barColor};"></div>
@@ -251,6 +256,7 @@
     const closeSuspendModal = () => suspendModal.style.display = 'none';
     document.getElementById('closeSuspendModalBtn').onclick = closeSuspendModal;
     document.getElementById('cancelSuspendModalBtn').onclick = closeSuspendModal;
+    suspendModal.onclick = (e) => { if (e.target === suspendModal) closeSuspendModal(); };
 
     window.openSuspendModal = (id) => {
       document.getElementById('suspendBoatId').value = id;
@@ -284,7 +290,7 @@
           ui.showToast('Boat reactivated successfully.', 'success');
           await loadData();
         } catch (err) {
-          ui.showToast(err.message, 'danger');
+          ui.showToast(err.message, 'error');
         }
       });
     };

@@ -30,6 +30,9 @@
       <a href="/manager/monitoring.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat & Trip Monitoring</a>
       <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
       <a href="/manager/payments.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
+      <a href="/manager/departure-approval.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
+      <a href="/manager/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 7.86"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Alerts</a>
+      <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
       <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
       <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
     </div>
@@ -38,6 +41,7 @@
   <div class="admin-main">
     <header class="admin-header">
       <h2>Payment Records (Read-only)</h2>
+      <span id="managerName" style="font-weight: 600;"></span>
       <button id="exportCsvBtn" class="btn btn-primary">Export CSV</button>
     </header>
 
@@ -184,7 +188,7 @@
         <!-- Details loaded dynamically -->
       </div>
       <div class="modal-footer">
-        <button id="modalCloseBtn" class="btn btn-secondary">Close</button>
+        <button id="modalCloseBtn" class="btn btn-outline">Close</button>
       </div>
     </div>
   </div>
@@ -196,6 +200,9 @@
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
+    document.getElementById('managerName').textContent = session.full_name;
+
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     let allPayments = [];
     let allBoats = [];
@@ -218,7 +225,9 @@
 
     function populateBoatFilter() {
       const select = document.getElementById('boatFilter');
-      select.innerHTML = '<option value="">All Boats</option>' + allBoats.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+      const current = select.value; // keep the selection across the 5s sync
+      select.innerHTML = '<option value="">All Boats</option>' + allBoats.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+      select.value = current;
     }
 
     function getPaymentType(p) {
@@ -280,8 +289,9 @@
 
         if (search && !passengerName.toLowerCase().includes(search) && !(p.reference_no && p.reference_no.toLowerCase().includes(search))) return false;
         if (type && pType !== type) return false;
-        if (startDate && p.created_at.split('T')[0] < startDate) return false;
-        if (endDate && p.created_at.split('T')[0] > endDate) return false;
+        const pDate = ui.localDateStr(p.created_at);
+        if (startDate && pDate < startDate) return false;
+        if (endDate && pDate > endDate) return false;
         if (boatId && boat.id !== boatId) return false;
         if (method && p.method !== method) return false;
         if (status && p.status !== status) return false;
@@ -302,7 +312,7 @@
         <div style="display: grid; gap: 0.75rem; font-size: 0.9rem;">
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Payment ID</span>
-            <span style="font-family: monospace;">${p.id}</span>
+            <span style="font-family: monospace;">${esc(p.id)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Date / Time</span>
@@ -314,15 +324,15 @@
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Vessel / Boat</span>
-            <strong>${boat.name}</strong>
+            <strong>${esc(boat.name)}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Passenger Name</span>
-            <strong>${passengerName}</strong>
+            <strong>${esc(passengerName)}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Payment Method</span>
-            <span>${p.method}</span>
+            <span>${esc(p.method)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Amount</span>
@@ -330,15 +340,15 @@
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Reference No.</span>
-            <span>${p.reference_no || 'N/A'}</span>
+            <span>${esc(p.reference_no || 'N/A')}</span>
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Status</span>
-            <span>${p.status}</span>
+            <span>${esc(p.status)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;">
             <span style="color: var(--text-muted);">Remittance Status</span>
-            <span>${p.remittance_id ? 'Remitted (ID: ' + p.remittance_id + ')' : 'Not Remitted'}</span>
+            <span>${esc(p.remittance_id ? 'Remitted (ID: ' + p.remittance_id + ')' : 'Not Remitted')}</span>
           </div>
         </div>
       `;
@@ -356,7 +366,8 @@
     };
 
     function renderAll() {
-      const filtered = filterPayments();
+      // Newest transactions first; the summary below uses this same filtered set.
+      const filtered = filterPayments().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       // Calculate totals for paid payments in filtered set
       let totalCash = 0;
@@ -377,12 +388,9 @@
       document.getElementById('statRemitted').textContent = `₱${totalRemitted.toFixed(2)}`;
       document.getElementById('statUnremitted').textContent = `₱${totalUnremitted.toFixed(2)}`;
 
-      // Per-Vessel Summary
+      // Per-Vessel Summary follows the active filters: only vessels with matching
+      // paid transactions are listed, so a boat filter also narrows the summary.
       const vesselMap = {};
-      allBoats.forEach(b => {
-        vesselMap[b.id] = { name: b.name, total: 0, cash: 0, gcash: 0, remitted: 0, unremitted: 0 };
-      });
-      vesselMap['unknown'] = { name: 'General / Unassigned', total: 0, cash: 0, gcash: 0, remitted: 0, unremitted: 0 };
 
       filtered.forEach(p => {
         if (p.status !== 'Paid') return;
@@ -400,7 +408,7 @@
       });
 
       const summaryBody = document.getElementById('vesselSummaryBody');
-      const vesselKeys = Object.keys(vesselMap).filter(k => vesselMap[k].total > 0 || k !== 'unknown');
+      const vesselKeys = Object.keys(vesselMap).filter(k => vesselMap[k].total > 0);
       if (vesselKeys.length === 0) {
         summaryBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No payment data recorded.</td></tr>';
       } else {
@@ -408,7 +416,7 @@
           const v = vesselMap[k];
           return `
             <tr>
-              <td><strong>${v.name}</strong></td>
+              <td><strong>${esc(v.name)}</strong></td>
               <td>₱${v.total.toFixed(2)}</td>
               <td>₱${v.cash.toFixed(2)}</td>
               <td>₱${v.gcash.toFixed(2)}</td>
@@ -435,12 +443,12 @@
             <tr style="cursor: pointer;" data-id="${p.id}" class="payment-row">
               <td>${timeStr}</td>
               <td>${getPaymentTypeBadge(getPaymentType(p))}</td>
-              <td><strong>${boat.name}</strong></td>
-              <td>${passengerName}</td>
-              <td><span class="badge" style="background: #e2e8f0; color: #334155;">${p.method}</span></td>
+              <td><strong>${esc(boat.name)}</strong></td>
+              <td>${esc(passengerName)}</td>
+              <td><span class="badge" style="background: #e2e8f0; color: #334155;">${esc(p.method)}</span></td>
               <td>₱${(p.amount || 0).toFixed(2)}</td>
-              <td>${p.reference_no || '-'}</td>
-              <td><span class="badge ${statusBadge}">${p.status}</span></td>
+              <td>${esc(p.reference_no || '-')}</td>
+              <td><span class="badge ${statusBadge}">${esc(p.status)}</span></td>
               <td>${p.remittance_id ? '<span class="badge badge-verified">Remitted</span>' : '<span class="badge badge-pending">Not Remitted</span>'}</td>
             </tr>
           `;

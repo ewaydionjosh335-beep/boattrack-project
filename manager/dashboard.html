@@ -114,6 +114,8 @@
     if (!session) throw new Error('Unauthorized');
     document.getElementById('managerName').textContent = session.full_name;
 
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     async function loadData() {
       const trips = await api.trips.list();
       const boats = await api.boats.list();
@@ -122,7 +124,7 @@
       const routes = await api.routes.list();
       const terminals = await api.terminals.list();
 
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = ui.localDateStr();
       const todayTrips = trips.filter(t => t.departure_time.startsWith(todayStr));
 
       let sch = 0, held = 0, dep = 0, arr = 0;
@@ -153,7 +155,7 @@
 
       let totalColl = 0;
       payments.forEach(p => {
-        if (p.status === 'Paid' && p.created_at.startsWith(todayStr)) {
+        if (p.status === 'Paid' && ui.localDateStr(p.created_at) === todayStr) {
           totalColl += (p.amount || 0);
         }
       });
@@ -179,10 +181,10 @@
 
           return `
             <tr>
-              <td><strong>${boat.name}</strong></td>
-              <td>${origin} → ${dest}</td>
+              <td><strong>${esc(boat.name)}</strong></td>
+              <td>${esc(origin)} → ${esc(dest)}</td>
               <td>${time}</td>
-              <td><span class="badge ${badgeClass}">${t.trip_status}</span></td>
+              <td><span class="badge ${badgeClass}">${esc(t.trip_status)}</span></td>
               <td>${mCount} / ${t.required_passengers}</td>
             </tr>
           `;
@@ -205,12 +207,12 @@
           return `
             <div style="background: white; padding: 0.875rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.375rem;">
-                <strong>${boat.name}</strong>
+                <strong>${esc(boat.name)}</strong>
                 <span class="badge badge-held">Held</span>
               </div>
-              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">${origin} → ${dest} | ${time}</div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">${esc(origin)} → ${esc(dest)} | ${time}</div>
               <div style="font-size: 0.85rem; color: var(--danger); background: #fef2f2; padding: 0.375rem; border-radius: 4px;">
-                <strong>Reason:</strong> ${t.held_reason || 'No reason specified'}
+                <strong>Reason:</strong> ${esc(t.held_reason || 'No reason specified')}
               </div>
               <div style="margin-top: 0.5rem; text-align: right;">
                 <a href="/manager/trip-schedule.html" class="btn btn-outline btn-sm">Manage in Schedule</a>

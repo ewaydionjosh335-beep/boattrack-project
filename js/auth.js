@@ -50,11 +50,11 @@ export const auth = {
     const currentPath = window.location.pathname;
 
     // Step 2: forced password change (skip on the change-password page itself)
-    if (currentPath !== '/change-password.html') {
+    if (currentPath !== '/account/change-password.html') {
       const users = await api.users.list();
       const user = users.find(u => u.id === session.user_id);
       if (user && user.must_change_password) {
-        window.location.href = '/change-password.html';
+        window.location.href = '/account/change-password.html';
         return null;
       }
     }
@@ -67,7 +67,7 @@ export const auth = {
 
     // Step 4: path-prefix enforcement
     const allowedPrefix = ROLE_PREFIXES[session.role];
-    if (allowedPrefix && currentPath !== '/change-password.html') {
+    if (allowedPrefix && currentPath !== '/account/change-password.html') {
       if (!currentPath.startsWith(allowedPrefix)) {
         window.location.href = roleHome(session.role);
         return null;

@@ -63,9 +63,10 @@
     async function render() {
       const grid = document.getElementById('weatherGrid');
       const cards = [];
-      for (const t of terminals) {
-        // Terminals created via API have no lat/lng; weatherService then falls back to the offline sample.
-        const rec = await weatherService.fetchForTerminal(t);
+      // Fetch all terminals together so one slow API call does not delay the rest.
+      const records = await Promise.all(terminals.map(t => weatherService.fetchForTerminal(t)));
+      terminals.forEach((t, i) => {
+        const rec = records[i];
         cards.push(`
           <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -83,7 +84,7 @@
               </tbody>
             </table>
           </div>`);
-      }
+      });
       grid.innerHTML = cards.join('') || '<p style="color: var(--text-muted);">No terminals found.</p>';
 
       grid.querySelectorAll('.refresh').forEach(b => b.onclick = async () => {

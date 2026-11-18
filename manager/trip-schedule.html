@@ -155,12 +155,16 @@
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
 
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     let allTrips = [];
     let allBoats = [];
     let allRoutes = [];
     let allTerminals = [];
     let allUsers = [];
     let allManifests = [];
+    let allBookings = [];
+    let allApprovals = [];
     let isClusterView = false;
 
     async function loadData() {
@@ -170,6 +174,8 @@
       allTerminals = await api.terminals.list();
       allUsers = await api.users.list();
       allManifests = await api.manifests.list();
+      allBookings = await api.bookings.list();
+      allApprovals = await api.departureApprovals.list();
 
       populateFilterDropdowns();
       renderSchedule();
@@ -185,28 +191,28 @@
       routeSelect.innerHTML = '<option value="">All Routes</option>' + allRoutes.map(r => {
         const origin = allTerminals.find(t => t.id === r.origin_terminal_id)?.name || 'Origin';
         const dest = allTerminals.find(t => t.id === r.destination_terminal_id)?.name || 'Dest';
-        return `<option value="${r.id}">${origin} → ${dest}</option>`;
+        return `<option value="${esc(r.id)}">${esc(origin)} → ${esc(dest)}</option>`;
       }).join('');
       if (currentFilterRoute) routeSelect.value = currentFilterRoute;
 
       // Boats filter
       const boatSelect = document.getElementById('filterBoat');
       const currentFilterBoat = boatSelect.value;
-      boatSelect.innerHTML = '<option value="">All Boats</option>' + allBoats.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+      boatSelect.innerHTML = '<option value="">All Boats</option>' + allBoats.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
       if (currentFilterBoat) boatSelect.value = currentFilterBoat;
 
       // Clusters filter
       const clusters = [...new Set(allUsers.filter(u => u.cluster).map(u => u.cluster))];
       const clusterSelect = document.getElementById('filterCluster');
       const currentFilterCluster = clusterSelect.value;
-      clusterSelect.innerHTML = '<option value="">All Clusters</option>' + clusters.map(c => `<option value="${c}">${c}</option>`).join('');
+      clusterSelect.innerHTML = '<option value="">All Clusters</option>' + clusters.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
       if (currentFilterCluster) clusterSelect.value = currentFilterCluster;
 
       // Modal route & boat dropdowns
       document.getElementById('modalRoute').innerHTML = '<option value="">-- Select Route --</option>' + allRoutes.map(r => {
         const origin = allTerminals.find(t => t.id === r.origin_terminal_id)?.name || 'Origin';
         const dest = allTerminals.find(t => t.id === r.destination_terminal_id)?.name || 'Dest';
-        return `<option value="${r.id}">${origin} → ${dest} (₱${r.fare})</option>`;
+        return `<option value="${esc(r.id)}">${esc(origin)} → ${esc(dest)} (₱${esc(r.fare)})</option>`;
       }).join('');
       if (modalRouteVal) document.getElementById('modalRoute').value = modalRouteVal;
 
@@ -214,7 +220,7 @@
       document.getElementById('modalBoat').innerHTML = '<option value="">-- Select Boat --</option>' + verifiedActiveBoats.map(b => {
         const oper = allUsers.find(u => u.id === b.operator_id) || {};
         const cl = oper.cluster ? ` [${oper.cluster}]` : '';
-        return `<option value="${b.id}">${b.name} (${b.boat_type}, Cap: ${b.passenger_capacity}, Max: ${b.max_load_kg}kg)${cl}</option>`;
+        return `<option value="${esc(b.id)}">${esc(b.name)} (${esc(b.boat_type)}, Cap: ${b.passenger_capacity}, Max: ${b.max_load_kg}kg)${esc(cl)}</option>`;
       }).join('');
       if (modalBoatVal) document.getElementById('modalBoat').value = modalBoatVal;
     }
@@ -260,7 +266,7 @@
 
         container.innerHTML = Object.keys(clusterMap).map(cluster => `
           <div class="card" style="margin-bottom: 1.5rem;">
-            <h3 style="margin-bottom: 1rem; color: var(--teal); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Cluster: ${cluster}</h3>
+            <h3 style="margin-bottom: 1rem; color: var(--teal); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Cluster: ${esc(cluster)}</h3>
             ${renderTripTableHtml(clusterMap[cluster])}
           </div>
         `).join('');
@@ -300,33 +306,58 @@
               if (t.trip_status === 'Held') badgeClass = 'badge-held';
               else if (t.trip_status === 'Departed') badgeClass = 'badge-departed';
               else if (t.trip_status === 'Arrived') badgeClass = 'badge-arrived';
+              else if (t.trip_status === 'Cancelled') badgeClass = 'badge-cancelled';
 
                const canEditOrHold = t.trip_status === 'Scheduled' || t.trip_status === 'Held';
-               const canMarkDeparted = t.trip_status === 'Scheduled' || t.trip_status === 'Held';
+               // Departure needs a coast guard approval for the current schedule revision.
+               const latestApproval = allApprovals
+                 .filter(a => a.trip_id === t.id)
+                 .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0];
+               const approvalCurrent = !!latestApproval && latestApproval.decision === 'Approved'
+                 && (latestApproval.trip_revision || 0) === (t.approval_revision || 0);
+               const canMarkDeparted = t.trip_status === 'Scheduled' && approvalCurrent;
                const canMarkArrived = t.trip_status === 'Departed';
-               const canDelete = mCount === 0;
+               // A trip with records must not be deleted: it would orphan bookings and approvals.
+               const bCount = allBookings.filter(b => b.trip_id === t.id).length;
+               const hasApproval = allApprovals.some(a => a.trip_id === t.id);
+               const recordBlock = mCount > 0
+                 ? `${mCount} manifest entr${mCount === 1 ? 'y' : 'ies'}`
+                 : bCount > 0
+                   ? `${bCount} booking${bCount === 1 ? '' : 's'}`
+                   : hasApproval ? 'departure approval record' : '';
+               const canDelete = !recordBlock && (t.trip_status === 'Scheduled' || t.trip_status === 'Held');
 
                return `
                  <tr>
                    <td>
-                     <strong>${boat.name}</strong><br>
-                     <span style="font-size: 0.8rem; color: var(--text-muted);">${oper ? oper.full_name + (oper.cluster ? ' (' + oper.cluster + ')' : '') : 'No Operator'}</span>
+                     <strong>${esc(boat.name)}</strong><br>
+                     <span style="font-size: 0.8rem; color: var(--text-muted);">${esc(oper ? oper.full_name + (oper.cluster ? ' (' + oper.cluster + ')' : '') : 'No Operator')}</span>
                    </td>
-                   <td>${origin} → ${dest}</td>
+                   <td>${esc(origin)} → ${esc(dest)}</td>
                    <td>${timeStr}</td>
                    <td>${mCount} / ${t.required_passengers}</td>
                    <td>
-                     <span class="badge ${badgeClass}">${t.trip_status}</span>
-                     ${t.trip_status === 'Held' && t.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${t.held_reason}</span>` : ''}
+                     <span class="badge ${badgeClass}">${esc(t.trip_status)}</span>
+                     ${t.trip_status === 'Held' && t.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${esc(t.held_reason)}</span>` : ''}
                    </td>
                    <td>
                      <div class="table-actions">
                        ${canEditOrHold ? `<button class="btn btn-outline btn-sm" onclick="window.editTrip('${t.id}')">Edit</button>` : ''}
                        ${t.trip_status === 'Scheduled' ? `<button class="btn btn-outline btn-sm" style="color:var(--warning); border-color:var(--warning);" onclick="window.openHoldModal('${t.id}')">Hold</button>` : ''}
                        ${t.trip_status === 'Held' ? `<button class="btn btn-outline btn-sm" style="color:var(--success); border-color:var(--success);" onclick="window.releaseTrip('${t.id}')">Release</button>` : ''}
-                       ${canMarkDeparted ? `<button class="btn btn-outline btn-sm" style="color:var(--primary); border-color:var(--primary);" onclick="window.markDeparted('${t.id}')">Mark Departed</button>` : ''}
+                       ${canMarkDeparted
+                         ? `<button class="btn btn-outline btn-sm" style="color:var(--primary); border-color:var(--primary);" onclick="window.markDeparted('${t.id}')">Mark Departed</button>`
+                         : t.trip_status === 'Scheduled'
+                           ? `<span style="font-size:0.75rem; color:var(--text-muted);">${latestApproval ? 'Approval expired' : 'Awaiting approval'}</span>`
+                           : ''}
                        ${canMarkArrived ? `<button class="btn btn-outline btn-sm" style="color:var(--success); border-color:var(--success);" onclick="window.markArrived('${t.id}')">Mark Arrived</button>` : ''}
-                       ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="window.deleteTrip('${t.id}')">Delete</button>` : `<span style="font-size:0.75rem; color:var(--text-muted);" title="Cannot delete trip with manifest entries">Manifest locked</span>`}
+                       ${canDelete
+                         ? `<button class="btn btn-danger btn-sm" onclick="window.deleteTrip('${t.id}')">Delete</button>`
+                         : t.trip_status === 'Cancelled'
+                           ? `<span style="font-size:0.75rem; color:var(--text-muted);">Cancelled</span>`
+                           : recordBlock
+                             ? `<span style="font-size:0.75rem; color:var(--danger);" title="Cannot delete: ${esc(recordBlock)} already exist for this trip">Blocked: ${esc(recordBlock)}</span>`
+                             : `<span style="font-size:0.75rem; color:var(--text-muted);" title="Cannot delete departed/arrived trips">Locked</span>`}
                      </div>
                    </td>
                  </tr>
@@ -363,6 +394,8 @@
       document.getElementById('editTripId').value = '';
       document.getElementById('modalRoute').value = '';
       document.getElementById('modalBoat').value = '';
+      document.getElementById('modalBoat').disabled = false; // Edit blocks the boat on trips with manifests
+      document.getElementById('modalRoute').disabled = false;
       document.getElementById('modalDeparture').value = '';
       document.getElementById('modalRequiredPax').value = '15';
       document.getElementById('modalError').textContent = '';
@@ -406,14 +439,18 @@
       document.getElementById('modalError').textContent = '';
       document.getElementById('boatWarning').textContent = '';
 
-      // Check manifest entries for boat change block
+      // Manifest entries pin both boat and route: moving the trip would strand
+      // passengers on a route they did not book.
       const mEntries = allManifests.filter(m => m.trip_id === id);
       const boatSelect = document.getElementById('modalBoat');
+      const routeSelect = document.getElementById('modalRoute');
       if (mEntries.length > 0) {
         boatSelect.disabled = true;
-        document.getElementById('boatWarning').textContent = 'Note: Boat change is blocked because manifest entries already exist for this trip.';
+        routeSelect.disabled = true;
+        document.getElementById('boatWarning').textContent = 'Note: Boat and route changes are blocked because manifest entries already exist for this trip.';
       } else {
         boatSelect.disabled = false;
+        routeSelect.disabled = false;
         document.getElementById('boatWarning').textContent = '';
       }
 
@@ -432,10 +469,11 @@
 
       try {
         if (id) {
-          const updateData = { route_id, departure_time, required_passengers };
           const mEntries = allManifests.filter(m => m.trip_id === id);
+          const updateData = { departure_time, required_passengers };
           if (mEntries.length === 0) {
             updateData.boat_id = boat_id;
+            updateData.route_id = route_id;
           }
           await api.trips.update(id, updateData);
           ui.showToast('Trip updated successfully.', 'success');
@@ -502,7 +540,7 @@
     window.markDeparted = async (id) => {
       ui.confirm('Are you sure you want to mark this trip as Departed?', async () => {
         try {
-          await api.trips.updateStatus(id, 'Departed');
+          await api.trips.markDeparted(id);
           ui.showToast('Trip marked as Departed.', 'success');
           await loadData();
         } catch (err) {
@@ -514,7 +552,7 @@
     window.markArrived = async (id) => {
       ui.confirm('Are you sure you want to mark this trip as Arrived?', async () => {
         try {
-          await api.trips.updateStatus(id, 'Arrived');
+          await api.trips.markArrived(id);
           ui.showToast('Trip marked as Arrived.', 'success');
           await loadData();
         } catch (err) {
@@ -524,17 +562,20 @@
     };
 
     window.deleteTrip = async (id) => {
-      const mEntries = allManifests.filter(m => m.trip_id === id);
-      if (mEntries.length > 0) {
-        ui.showToast('Cannot delete trip: manifest entries already exist.', 'danger');
+      const bCount = allBookings.filter(b => b.trip_id === id).length;
+      const approvals = allApprovals.filter(a => a.trip_id === id).length;
+      if (bCount || approvals) {
+        ui.showToast(`Cannot delete: ${bCount} booking(s) and ${approvals} approval record(s) are linked to this trip.`, 'danger');
         return;
       }
       ui.confirm('Are you sure you want to delete this trip?', async () => {
-        let trips = api._get('trips') || [];
-        trips = trips.filter(t => t.id !== id);
-        api._set('trips', trips);
-        ui.showToast('Trip deleted successfully.', 'success');
-        await loadData();
+        try {
+          await api.trips.delete(id);
+          ui.showToast('Trip deleted successfully.', 'success');
+          await loadData();
+        } catch (err) {
+          ui.showToast(err.message, 'danger');
+        }
       });
     };
 

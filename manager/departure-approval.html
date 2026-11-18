@@ -45,6 +45,32 @@
     </div>
   </div>
 
+  <!-- APPROVAL MODAL: evidence + coast guard remarks -->
+  <div id="approvalModal" class="modal-backdrop" style="display: none;">
+    <div class="modal" style="max-width: 640px; width: 100%;">
+      <div class="modal-header">
+        <h3>Record Departure Approval</h3>
+        <button type="button" class="btn btn-outline btn-sm" id="closeApprovalModalBtn">&times;</button>
+      </div>
+      <form id="approvalForm">
+        <div class="modal-body" style="font-size: 0.9rem;">
+          <input type="hidden" id="approvalTripId">
+          <p id="approvalSummary" style="margin-bottom: 1rem; color: var(--text-muted);"></p>
+          <div id="approvalEvidence" style="margin-bottom: 1rem;"></div>
+          <div class="form-group">
+            <label class="form-label" id="approvalRemarksLabel">Remarks</label>
+            <textarea id="approvalRemarks" class="form-control" rows="3"></textarea>
+          </div>
+          <div id="approvalError" class="error-text"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelApprovalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="recordApprovalBtn">Record Approval</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script type="module">
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
@@ -56,15 +82,32 @@
 
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+    let evidenceByTrip = {};
+    let activeTripId = null;
+
+    const latest = (list, field) => list
+      .slice()
+      .sort((a, b) => new Date(b[field]) - new Date(a[field]))[0] || null;
+
+    const classificationColor = c =>
+      c === 'Not Advisable' ? 'var(--danger)' : c === 'Caution' ? 'var(--warning)' : c === 'Safe' ? 'var(--success)' : 'var(--text-muted)';
+
     async function render() {
-      const [trips, routes, terminals, approvals] = await Promise.all([
-        api.trips.list(), api.routes.list(), api.terminals.list(), api.departureApprovals.list()
+      const [trips, routes, terminals, approvals, scans, inspections, boats] = await Promise.all([
+        api.trips.list(), api.routes.list(), api.terminals.list(),
+        api.departureApprovals.list(), api.riskScans.list(), api.inspections.list(), api.boats.list()
       ]);
       const list = document.getElementById('approvalList');
+      evidenceByTrip = {};
 
-      const pending = trips.filter(t => t.trip_status === 'Scheduled' || t.trip_status === 'Held');
+      // Only today's departures are actionable; stale Scheduled/Held trips from earlier
+      // days are dropped and the list stays ordered by departure time.
+      const today = ui.localDateStr();
+      const pending = trips
+        .filter(t => (t.trip_status === 'Scheduled' || t.trip_status === 'Held') && ui.localDateStr(t.departure_time) === today)
+        .sort((a, b) => new Date(a.departure_time) - new Date(b.departure_time));
       if (!pending.length) {
-        list.innerHTML = '<p style="color: var(--text-muted);">No scheduled or held trips awaiting departure.</p>';
+        list.innerHTML = '<p style="color: var(--text-muted);">No trips departing today are awaiting departure approval.</p>';
         return;
       }
 
@@ -73,10 +116,20 @@
         // Departure is recorded at the route's origin terminal (not the first terminal in the list).
         const origin = terminals.find(t => t.id === route?.origin_terminal_id);
         const dest = terminals.find(t => t.id === route?.destination_terminal_id);
-        const latest = approvals
-          .filter(a => a.trip_id === trip.id)
-          .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0];
-        const decision = latest?.decision || 'Pending';
+        const boat = boats.find(b => b.id === trip.boat_id);
+        const latestDecision = latest(approvals.filter(a => a.trip_id === trip.id), 'recorded_at');
+        const scan = latest(scans.filter(s => s.trip_id === trip.id), 'scanned_at');
+        // Only a pre-departure inspection is relevant to clearing the trip.
+        const insp = latest(
+          inspections.filter(i => i.trip_id === trip.id && i.inspection_type === 'Pre-departure'),
+          'inspected_at'
+        );
+
+        evidenceByTrip[trip.id] = { trip, route, origin, dest, boat, scan, insp };
+
+        const decision = latestDecision?.decision || 'Pending';
+        const canDepart = trip.trip_status === 'Scheduled' && decision === 'Approved';
+        const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
         return `
         <div class="card">
           <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap;">
@@ -84,56 +137,66 @@
               <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}">${esc(trip.trip_status)}</span>
               <span class="badge badge-${esc(String(decision).toLowerCase())}">${esc(decision)}</span>
               <p style="margin-top: 0.5rem;">
+                <strong>${esc(boat?.name || 'Unknown vessel')}</strong> &middot;
                 <strong>${esc(origin?.name || 'Unknown origin')}</strong> &rarr; <strong>${esc(dest?.name || 'Unknown destination')}</strong>
                 &middot; Departure ${new Date(trip.departure_time).toLocaleString()}
               </p>
               <small style="color: var(--text-muted);">
-                ${latest
-                  ? `Latest approval: ${esc(latest.decision)} by ${esc(latest.recorded_by || '-')} (${esc(latest.coast_guard_name || 'n/a')}) at ${new Date(latest.recorded_at).toLocaleString()}`
+                ${latestDecision
+                  ? `Latest approval: ${esc(latestDecision.decision)} by ${esc(latestDecision.recorded_by || '-')} (${esc(latestDecision.coast_guard_name || 'n/a')}) at ${new Date(latestDecision.recorded_at).toLocaleString()}`
                   : 'No coast guard record yet.'}
+              </small><br>
+              <small style="color: ${classificationColor(scan?.classification)};">
+                ${scan
+                  ? `Risk scan: <strong>${esc(scan.classification)}</strong> by ${esc(scan.scanned_by || '-')} at ${new Date(scan.scanned_at).toLocaleString()}`
+                  : 'Risk scan: none for this trip yet'}
+              </small><br>
+              <small style="color: ${!insp || insp.overall !== 'Passed' ? 'var(--danger)' : 'var(--text-muted)'};">
+                ${insp
+                  ? `Pre-departure inspection: <strong>${esc(insp.overall)}</strong> by ${esc(insp.inspected_by || '-')} at ${new Date(insp.inspected_at).toLocaleString()}`
+                  : 'Pre-departure inspection: none for this trip yet'}
               </small>
             </div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button class="btn btn-primary btn-sm dec" data-trip="${esc(trip.id)}" data-dec="Approved" ${origin ? '' : 'disabled'}>Approve</button>
-              <button class="btn btn-danger btn-sm dec" data-trip="${esc(trip.id)}" data-dec="Held" ${origin ? '' : 'disabled'}>Hold</button>
-              <button class="btn btn-outline btn-sm depart" data-trip="${esc(trip.id)}">Mark Departed</button>
+              <button class="btn btn-primary btn-sm approve" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'}>Approve</button>
+              <button class="btn btn-danger btn-sm hold" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'}>Hold</button>
+              <button class="btn btn-outline btn-sm depart" data-trip="${esc(trip.id)}" ${canDepart ? '' : 'disabled'}>Mark Departed</button>
             </div>
           </div>
         </div>`;
       }).join('');
 
-      list.querySelectorAll('.dec').forEach(b => b.onclick = async () => {
-        const tripId = b.dataset.trip;
-        const dec = b.dataset.dec;
-        const trip = trips.find(t => t.id === tripId);
-        const route = routes.find(r => r.id === trip?.route_id);
-        const origin = terminals.find(t => t.id === route?.origin_terminal_id);
-        if (!origin) { ui.showToast('Route has no origin terminal configured.', 'error'); return; }
-        b.disabled = true;
-        try {
-          await api.departureApprovals.create({
-            trip_id: tripId,
-            terminal_id: origin.id,
-            coast_guard_name: origin.coast_guard_personnel,
-            decision: dec,
-            remarks: dec === 'Approved' ? 'Cleared for departure' : 'Held by coast guard',
-            risk_scan_id: null,
-            inspection_id: null,
-            recorded_by: session.full_name,
-            recorded_at: new Date().toISOString()
-          });
-          if (dec === 'Held') {
-            await api.trips.updateStatus(tripId, 'Held', 'Coast Guard decision: held');
-          } else if (trip?.trip_status === 'Held') {
-            // Clearing a held trip must return it to Scheduled, otherwise it can never depart.
-            await api.trips.updateStatus(tripId, 'Scheduled', null);
+      list.querySelectorAll('.approve').forEach(b => b.onclick = () => openApprovalModal(b.dataset.trip));
+
+      list.querySelectorAll('.hold').forEach(b => b.onclick = () => {
+        const ev = evidenceByTrip[b.dataset.trip];
+        if (!ev) return;
+        ui.confirm(`Hold this trip? The scan result (${ev.scan ? esc(ev.scan.classification) : 'none'}) and inspection (${ev.insp ? esc(ev.insp.overall) : 'none'}) stay linked to the record.`, async () => {
+          b.disabled = true;
+          try {
+            await api.departureApprovals.create({
+              trip_id: ev.trip.id,
+              terminal_id: ev.origin?.id || null,
+              coast_guard_name: ev.origin?.coast_guard_personnel || null,
+              decision: 'Held',
+              remarks: 'Held by coast guard',
+              risk_scan_id: ev.scan?.id || null,
+              inspection_id: ev.insp?.id || null,
+              advisory_result: ev.scan?.classification || null,
+              advisory_overridden: false,
+              recorded_by: session.full_name,
+              recorded_at: new Date().toISOString()
+            });
+            if (ev.trip.trip_status !== 'Held') {
+              await api.trips.updateStatus(ev.trip.id, 'Held', 'Coast Guard decision: held');
+            }
+            ui.showToast('Trip held.', 'success');
+            render();
+          } catch (err) {
+            ui.showToast(err.message, 'error');
+            b.disabled = false;
           }
-          ui.showToast(`Trip ${dec === 'Approved' ? 'approved' : 'held'}.`, 'success');
-          render();
-        } catch (err) {
-          ui.showToast(err.message, 'error');
-          b.disabled = false;
-        }
+        });
       });
 
       list.querySelectorAll('.depart').forEach(b => b.onclick = async () => {
@@ -149,7 +212,113 @@
       });
     }
 
+    const approvalModal = document.getElementById('approvalModal');
+    const closeApprovalModal = () => { approvalModal.style.display = 'none'; activeTripId = null; };
+    document.getElementById('closeApprovalModalBtn').onclick = closeApprovalModal;
+    document.getElementById('cancelApprovalBtn').onclick = closeApprovalModal;
+    approvalModal.onclick = (e) => { if (e.target === approvalModal) closeApprovalModal(); };
+
+    function openApprovalModal(tripId) {
+      const ev = evidenceByTrip[tripId];
+      if (!ev) return;
+      activeTripId = tripId;
+      const { trip, origin, dest, boat, scan, insp } = ev;
+      const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
+      const failedItems = (insp?.items || []).filter(i => i.result === 'Fail');
+
+      document.getElementById('approvalTripId').value = tripId;
+      document.getElementById('approvalSummary').innerHTML = `
+        <strong>${esc(boat?.name || 'Vessel')}</strong> &middot;
+        ${esc(origin?.name || 'Origin')} &rarr; ${esc(dest?.name || 'Destination')}<br>
+        <span style="font-size: 0.85rem;">Departure ${new Date(trip.departure_time).toLocaleString()} &middot; Status ${esc(trip.trip_status)}</span>`;
+
+      document.getElementById('approvalEvidence').innerHTML = `
+        <div class="table-container" style="font-size: 0.85rem;">
+          <table style="width: 100%;">
+            <tr>
+              <td style="width: 40%;"><strong>Risk scan</strong></td>
+              <td>${scan
+                ? `<span class="badge" style="background: ${classificationColor(scan.classification)}; color: white;">${esc(scan.classification)}</span>
+                   ${esc(scan.scanned_by || '-')} &middot; ${new Date(scan.scanned_at).toLocaleString()}`
+                : '<span style="color: var(--danger);">No scan on record</span>'}</td>
+            </tr>
+            ${scan ? `<tr>
+              <td><strong>Load / Capacity</strong></td>
+              <td>${Number(scan.total_load_kg || 0).toFixed(1)} / ${esc(scan.max_load_kg ?? '-')} kg &middot;
+                  ${esc(scan.passenger_count ?? '-')} / ${esc(scan.passenger_capacity ?? '-')} pax</td>
+            </tr>` : ''}
+            <tr>
+              <td><strong>Pre-departure inspection</strong></td>
+              <td>${insp
+                ? `<strong style="color: ${insp.overall === 'Passed' ? 'var(--success)' : 'var(--danger)'};">${esc(insp.overall)}</strong>
+                   by ${esc(insp.inspected_by || '-')} &middot; ${new Date(insp.inspected_at).toLocaleString()}`
+                : '<span style="color: var(--danger);">None on record</span>'}</td>
+            </tr>
+            ${failedItems.length ? `<tr>
+              <td><strong>Failed items</strong></td>
+              <td style="color: var(--danger);">${failedItems.map(i => esc(i.item) + (i.note ? ` (${esc(i.note)})` : '')).join('<br>')}</td>
+            </tr>` : ''}
+          </table>
+        </div>
+        ${needsJudgement
+          ? '<p style="color: var(--danger); font-size: 0.85rem; margin-top: 0.75rem;">The latest scan or inspection is not a clean Safe / Passed result. The coast guard still decides, so record the reason for clearing this trip.</p>'
+          : ''}`;
+
+      document.getElementById('approvalRemarksLabel').innerHTML = needsJudgement
+        ? 'Justification for clearing (required, at least 10 characters)'
+        : 'Remarks';
+      document.getElementById('approvalRemarks').value = '';
+      document.getElementById('approvalError').textContent = '';
+      document.getElementById('recordApprovalBtn').disabled = false;
+      approvalModal.style.display = 'flex';
+    }
+
+    document.getElementById('approvalForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('approvalError');
+      errBox.textContent = '';
+      const ev = evidenceByTrip[activeTripId];
+      if (!ev) { errBox.textContent = 'Trip no longer available. Close and reload.'; return; }
+
+      const remarks = document.getElementById('approvalRemarks').value.trim();
+      const needsJudgement = !ev.scan || ev.scan.classification !== 'Safe' || !ev.insp || ev.insp.overall !== 'Passed';
+      if (!ev.origin) { errBox.textContent = 'Route has no origin terminal configured.'; return; }
+      if (needsJudgement && remarks.length < 10) {
+        errBox.textContent = 'Record at least 10 characters explaining why this trip is cleared despite the advisory.';
+        return;
+      }
+
+      const btn = document.getElementById('recordApprovalBtn');
+      btn.disabled = true;
+      try {
+        await api.departureApprovals.create({
+          trip_id: ev.trip.id,
+          terminal_id: ev.origin.id,
+          coast_guard_name: ev.origin.coast_guard_personnel || null,
+          decision: 'Approved',
+          remarks: remarks || 'Cleared for departure',
+          risk_scan_id: ev.scan?.id || null,
+          inspection_id: ev.insp?.id || null,
+          advisory_result: ev.scan?.classification || null,
+          advisory_overridden: needsJudgement,
+          recorded_by: session.full_name,
+          recorded_at: new Date().toISOString()
+        });
+        if (ev.trip.trip_status === 'Held') {
+          // Clearing a held trip must return it to Scheduled, otherwise it can never depart.
+          await api.trips.updateStatus(ev.trip.id, 'Scheduled', null);
+        }
+        ui.showToast('Trip approved.', 'success');
+        closeApprovalModal();
+        render();
+      } catch (err) {
+        errBox.textContent = err.message;
+        btn.disabled = false;
+      }
+    };
+
     await render();
+    ui.setupSync(render);
 
     document.getElementById('logoutBtn').onclick = async (e) => {
       e.preventDefault();

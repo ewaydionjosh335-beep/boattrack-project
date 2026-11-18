@@ -57,24 +57,33 @@
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     async function load() {
-      const alerts = await api.alerts.list();
+      // Poll and react to storage so a new SOS appears without reloading.
+      const [alerts, boats] = await Promise.all([api.alerts.list(), api.boats.list()]);
       const list = document.getElementById('alertList');
+      // Open alerts first, then newest.
+      alerts.sort((a, b) =>
+        (b.status === 'Open' ? 1 : 0) - (a.status === 'Open' ? 1 : 0) ||
+        new Date(b.created_at) - new Date(a.created_at));
       if (!alerts.length) {
         list.innerHTML = '<p style="color: var(--text-muted);">No SOS alerts.</p>';
         return;
       }
-      list.innerHTML = alerts.map(a => `
+      list.innerHTML = alerts.map(a => {
+        const boat = boats.find(b => b.id === a.boat_id);
+        return `
         <div class="card">
           <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap;">
             <div>
               <span class="badge badge-${esc(String(a.status).toLowerCase())}">${esc(a.status)}</span>
               <strong style="margin-left: 0.5rem;">${esc(a.sender_role)}</strong>
+              ${boat ? `<span style="margin-left: 0.25rem; color: var(--text-muted);">&middot; ${esc(boat.name)}</span>` : ''}
               <p style="margin-top: 0.5rem;">${esc(a.message)}</p>
               <small style="color: var(--text-muted);">${new Date(a.created_at).toLocaleString()}${a.acknowledged_by ? ` &middot; Acknowledged by ${esc(a.acknowledged_by)}` : ''}</small>
             </div>
             ${a.status === 'Open' ? `<button class="btn btn-danger btn-sm ack" data-id="${esc(a.id)}">Acknowledge</button>` : ''}
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
 
       list.querySelectorAll('.ack').forEach(b => b.onclick = async () => {
         try {
@@ -88,6 +97,7 @@
     }
 
     await load();
+    ui.setupSync(load);
 
     document.getElementById('logoutBtn').onclick = async (e) => {
       e.preventDefault();

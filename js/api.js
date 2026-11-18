@@ -332,6 +332,7 @@ export const api = {
             t.trip_status = 'Held';
             t.held_reason = reason || 'Boat suspended';
             t.updated_at = new Date().toISOString();
+            t.approval_revision = (t.approval_revision || 0) + 1;
             updated = true;
           }
         });
@@ -478,6 +479,9 @@ export const api = {
 
     const newTime = new Date(departureTime).getTime();
     if (isNaN(newTime)) throw new Error('Invalid departure time.');
+    // Same rule the booking API enforces: no trips scheduled in the past
+    // (one minute of clock skew tolerated).
+    if (newTime < Date.now() - 60 * 1000) throw new Error('Cannot schedule a trip in the past.');
 
     const trips = api._get('trips') || [];
     for (const t of trips) {
@@ -526,6 +530,10 @@ export const api = {
       if (held_reason !== undefined) {
         trips[idx].held_reason = held_reason;
       }
+      // A hold invalidates any earlier coast guard clearance.
+      if (trip_status === 'Held') {
+        trips[idx].approval_revision = (trips[idx].approval_revision || 0) + 1;
+      }
       if (trip_status === 'Departed') {
         trips[idx].departed_at = new Date().toISOString();
         const manifests = api._get('manifests') || [];
@@ -558,9 +566,51 @@ export const api = {
         api._validateTrip(targetBoatId, targetTime, id);
       }
 
+      const scheduleChanged =
+        (data.boat_id !== undefined && data.boat_id !== trips[idx].boat_id) ||
+        (data.route_id !== undefined && data.route_id !== trips[idx].route_id) ||
+        (data.departure_time !== undefined && data.departure_time !== trips[idx].departure_time);
+      if (scheduleChanged) trips[idx].approval_revision = (trips[idx].approval_revision || 0) + 1;
+
       trips[idx] = { ...trips[idx], ...data, updated_at: new Date().toISOString() };
       api._set('trips', trips);
       return trips[idx];
+    },
+    async delete(id) {
+      // FUTURE: DELETE /api/trips/:id
+      api._requireRole('port_manager');
+      const trips = api._get('trips') || [];
+      const idx = trips.findIndex(t => t.id === id);
+      if (idx === -1) throw new Error('Trip not found.');
+      if (trips[idx].trip_status !== 'Scheduled' && trips[idx].trip_status !== 'Held') {
+        throw new Error('Cannot delete a trip that has already departed or arrived.');
+      }
+      const manifests = api._get('manifests') || [];
+      const manifestIds = manifests.filter(m => m.trip_id === id).map(m => m.id);
+      if (manifests.some(m => m.trip_id === id)) {
+        throw new Error('Cannot delete trip: manifest entries already exist.');
+      }
+      // Deleting would orphan the passengers who booked it and the coast guard record.
+      const bookings = api._get('bookings') || [];
+      const bookingIds = bookings.filter(b => b.trip_id === id).map(b => b.id);
+      if (bookings.some(b => b.trip_id === id)) {
+        throw new Error('Cannot delete trip: passengers already have bookings for it.');
+      }
+      const payments = api._get('payments') || [];
+      if (payments.some(p => (p.booking_id && bookingIds.includes(p.booking_id)) || (p.manifest_id && manifestIds.includes(p.manifest_id)))) {
+        throw new Error('Cannot delete trip: payment records exist for bookings or manifest entries.');
+      }
+      const etickets = api._get('etickets') || [];
+      if (etickets.some(e => e.booking_id && bookingIds.includes(e.booking_id))) {
+        throw new Error('Cannot delete trip: e-tickets have been issued for bookings.');
+      }
+      const approvals = api._get('departure_approvals') || [];
+      if (approvals.some(a => a.trip_id === id)) {
+        throw new Error('Cannot delete trip: it has departure approval records.');
+      }
+      trips.splice(idx, 1);
+      api._set('trips', trips);
+      return true;
     },
     async markDeparted(id) {
       api._requireRole('port_manager');
@@ -571,6 +621,10 @@ export const api = {
       const approvals = api._get('departure_approvals') || [];
       const latest = approvals.filter(a=>a.trip_id===id).sort((a,b)=>new Date(b.recorded_at)-new Date(a.recorded_at))[0];
       if (!latest || latest.decision !== 'Approved') throw new Error('Departure approval required.');
+      // Approval must belong to the current schedule version (a hold or schedule change bumps it).
+      if ((latest.trip_revision || 0) !== (trips[idx].approval_revision || 0)) {
+        throw new Error('Departure approval is no longer valid. Get a new coast guard approval.');
+      }
       trips[idx].trip_status = 'Departed';
       trips[idx].departed_at = new Date().toISOString();
       trips[idx].updated_at = new Date().toISOString();
@@ -592,6 +646,10 @@ export const api = {
       const idx = trips.findIndex(t=>t.id===id);
       if (idx === -1) throw new Error('Trip not found.');
       if (trips[idx].trip_status !== 'Departed') throw new Error('Trip must be Departed.');
+      const departedAt = trips[idx].departed_at ? new Date(trips[idx].departed_at).getTime() : 0;
+      if (departedAt && Date.now() - departedAt < 10 * 1000) {
+        throw new Error('Trip cannot arrive immediately after departure. Please allow transit time.');
+      }
       trips[idx].trip_status = 'Arrived';
       trips[idx].arrived_at = new Date().toISOString();
       trips[idx].updated_at = new Date().toISOString();
@@ -1023,17 +1081,26 @@ export const api = {
   // --- GPS Logs ---
   gpsLogs: {
     async list() { return api._get('gps_logs') || []; },
+    // Demo water box west of Talim Island; random positions used to land on shore.
+    demoPosition() {
+      return {
+        lat: parseFloat((14.395 + Math.random() * 0.018).toFixed(4)),
+        lng: parseFloat((121.195 + Math.random() * 0.015).toFixed(4))
+      };
+    },
+    safePosition(log) {
+      const p = log || api.gpsLogs.demoPosition();
+      const inWater = p.lat >= 14.395 && p.lat <= 14.413 && p.lng >= 121.195 && p.lng <= 121.210;
+      return inWater ? p : api.gpsLogs.demoPosition();
+    },
     async simulateMovement() {
       const trips = api._get('trips') || [];
       const departedBoatIds = trips.filter(t=>t.trip_status==='Departed').map(t=>t.boat_id);
       const boats = (api._get('boats') || []).filter(b=>departedBoatIds.includes(b.id));
       const logs = api._get('gps_logs') || [];
       boats.forEach(boat => {
-        const t = trips.find(x=>x.boat_id===boat.id && x.trip_status==='Departed');
         // move proportionally not implemented; simple jitter toward destination
-        const lat = 14.38 + Math.random() * 0.08;
-        const lng = 121.16 + Math.random() * 0.10;
-        logs.push({ id:'gps_'+Math.random().toString(36).substring(2,9), boat_id:boat.id, lat:parseFloat(lat.toFixed(4)), lng:parseFloat(lng.toFixed(4)), recorded_at:new Date().toISOString() });
+        logs.push({ id:'gps_'+Math.random().toString(36).substring(2,9), boat_id:boat.id, ...api.gpsLogs.demoPosition(), recorded_at:new Date().toISOString() });
       });
       api._set('gps_logs', logs);
       return logs;
@@ -1163,12 +1230,15 @@ export const api = {
         const email = data.email || `${app.full_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@boattrack.local`;
         const username = data.username || `crew_${Math.random().toString(36).substring(2, 7)}`;
         const password = data.password || '123';
+        // Store a real hash: login and change-password compare hashes only, so a
+        // plaintext value here would lock the crew member out of the forced change.
+        const { hashPassword } = await import('./auth.js');
         const newUser = await api.users.create({
           full_name: app.full_name,
           email,
           username,
           password,
-          password_hash: password,
+          password_hash: await hashPassword(password),
           role: 'crew',
           must_change_password: true
         });
@@ -1330,7 +1400,8 @@ export const api = {
     async listByTrip(tripId) { return (api._get('departure_approvals')||[]).filter(a=>a.trip_id===tripId); },
     async create(data) {
       const recs = api._get('departure_approvals') || [];
-      const r = { id: 'da_' + Math.random().toString(36).substring(2,9), ...data };
+      const trip = (api._get('trips') || []).find(t => t.id === data.trip_id);
+      const r = { id: 'da_' + Math.random().toString(36).substring(2,9), ...data, trip_revision: trip ? (trip.approval_revision || 0) : 0 };
       recs.push(r); api._set('departure_approvals', recs); return r;
     },
     async update(id,data){ const recs=api._get('departure_approvals')||[]; const i=recs.findIndex(a=>a.id===id); if(i>-1){recs[i]={...recs[i],...data};api._set('departure_approvals',recs);return recs[i];} return null;}

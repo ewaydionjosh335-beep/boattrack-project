@@ -1,6 +1,14 @@
 import { api } from './api.js';
 import { hashPassword } from './auth.js';
 
+// Port positions shared by the seed data and the localStorage sync below.
+const TERMINAL_COORDS = {
+  term_binangonan: { lat: 14.4619, lng: 121.1914 },
+  term_talim_bubukal: { lat: 14.3633, lng: 121.2198 },
+  term_talim_libtong: { lat: 14.4048, lng: 121.2258 },
+  term_cardona: { lat: 14.4769, lng: 121.2252 }
+};
+
 export async function seedDatabase(force = false) {
   const existingUsers = api._get('users');
   const existingTrips = api._get('trips');
@@ -8,14 +16,21 @@ export async function seedDatabase(force = false) {
   const existingCrew = api._get('crew_members');
   const COMMON_HASH = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
   if (!force && existingUsers && existingUsers.length > 0 && existingTrips && existingTrips.length > 0 && existingBoats && existingBoats.length > 0 && existingCrew && existingCrew.length > 0) {
-    let changed = false;
-    existingUsers.forEach(u => {
-      if (u.role === 'crew' && u.must_change_password) return;
-      u.password_hash = COMMON_HASH;
-      u.password = '123';
-      changed = true;
+    // Existing accounts keep their stored credentials: every seed run used to reset
+    // password_hash to the demo hash, which undid any password the user had changed.
+
+    // Older seeds stored port markers in the lake; correct them in saved data too.
+    const existingTerminals = api._get('terminals') || [];
+    let terminalsChanged = false;
+    existingTerminals.forEach(t => {
+      const coords = TERMINAL_COORDS[t.id];
+      if (coords && (t.lat !== coords.lat || t.lng !== coords.lng)) {
+        t.lat = coords.lat;
+        t.lng = coords.lng;
+        terminalsChanged = true;
+      }
     });
-    if (changed) api._set('users', existingUsers);
+    if (terminalsChanged) api._set('terminals', existingTerminals);
     return;
   }
 
@@ -267,10 +282,10 @@ export async function seedDatabase(force = false) {
   api._set('passengers', passengers);
 
   const terminals = [
-    { id: 'term_binangonan', name: 'Binangonan Main Port', location: 'Binangonan, Rizal (Main Terminal)', coast_guard_personnel: 'PCG Cdr. Edgardo Mendoza', lat: 14.4645, lng: 121.1918 },
-    { id: 'term_talim_bubukal', name: 'Talim Island - Bubukal Wharf', location: 'Cardona/Binangonan, Talim Island', coast_guard_personnel: 'PCG PO2 Ronald Gomez', lat: 14.3650, lng: 121.2140 },
-    { id: 'term_talim_libtong', name: 'Talim Island - Libtong Landing', location: 'Binangonan, Talim Island', coast_guard_personnel: 'PCG PO1 Jojo Alcantara', lat: 14.4050, lng: 121.2050 },
-    { id: 'term_cardona', name: 'Cardona Port', location: 'Cardona, Rizal', coast_guard_personnel: 'PCG Cpl. Ramil Santos', lat: 14.4815, lng: 121.2285 }
+    { id: 'term_binangonan', name: 'Binangonan Main Port', location: 'Binangonan, Rizal (Main Terminal)', coast_guard_personnel: 'PCG Cdr. Edgardo Mendoza', ...TERMINAL_COORDS.term_binangonan },
+    { id: 'term_talim_bubukal', name: 'Talim Island - Bubukal Wharf', location: 'Cardona/Binangonan, Talim Island', coast_guard_personnel: 'PCG PO2 Ronald Gomez', ...TERMINAL_COORDS.term_talim_bubukal },
+    { id: 'term_talim_libtong', name: 'Talim Island - Libtong Landing', location: 'Binangonan, Talim Island', coast_guard_personnel: 'PCG PO1 Jojo Alcantara', ...TERMINAL_COORDS.term_talim_libtong },
+    { id: 'term_cardona', name: 'Cardona Port', location: 'Cardona, Rizal', coast_guard_personnel: 'PCG Cpl. Ramil Santos', ...TERMINAL_COORDS.term_cardona }
   ];
   api._set('terminals', terminals);
 
@@ -333,14 +348,17 @@ export async function seedDatabase(force = false) {
   ];
   api._set('boats', boats);
 
+  // Local calendar dates: toISOString() is UTC, so between 00:00 and 08:00 PHT the
+  // seeded "today" trips landed on yesterday and the dashboard looked empty.
+  const localDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = localDateStr(today);
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const tomorrowStr = localDateStr(tomorrow);
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = localDateStr(yesterday);
   const todayNoHyphen = todayStr.replace(/-/g, '');
 
   const trips = [

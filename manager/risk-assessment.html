@@ -41,10 +41,31 @@
     <div class="admin-content">
       <div class="card" style="margin-bottom: 1.5rem;">
         <h3>Scheduled Trips Risk Evaluation</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Run automated maritime risk scans based on live weather forecasts, vessel capacity, passenger weights, baggage, and approved cargo loads.</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Run automated maritime risk scans based on live weather forecasts, vessel capacity, passenger weights, baggage, and approved cargo loads. Scheduled and held trips can both be scanned.</p>
       </div>
       <div id="tripsRiskContainer" style="display: flex; flex-direction: column; gap: 1rem;">
         <p style="color: var(--text-muted);">Loading scheduled trips...</p>
+      </div>
+
+      <div class="card" style="margin-top: 1.5rem;">
+        <h3>Recent Risk Scans</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Audit trail of the last 10 scans, including trips that were later held or departed.</p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Scanned At</th>
+                <th>Vessel</th>
+                <th>Trip Route</th>
+                <th>Result</th>
+                <th>Scanned By</th>
+              </tr>
+            </thead>
+            <tbody id="recentScansBody">
+              <tr><td colspan="5" style="text-align: center;">Loading scans...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -76,6 +97,8 @@
     if (!session) throw new Error('Unauthorized');
     document.getElementById('managerName').textContent = session.full_name;
 
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
     // Modal handlers
     const riskScanModal = document.getElementById('riskScanModal');
     const closeRiskModal = () => riskScanModal.style.display = 'none';
@@ -93,14 +116,11 @@
       const payments = await api.payments.list();
       const terminals = await api.terminals.list();
       const routes = await api.routes.list();
+      const scans = await api.riskScans.list();
 
-      const scheduledTrips = trips.filter(t => t.trip_status === 'Scheduled');
+      // Held trips still need a scan: they can be released and depart later.
+      const scheduledTrips = trips.filter(t => t.trip_status === 'Scheduled' || t.trip_status === 'Held');
       const container = document.getElementById('tripsRiskContainer');
-
-      if (scheduledTrips.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-muted);">No scheduled trips available for risk assessment.</p>';
-        return;
-      }
 
       container.innerHTML = scheduledTrips.map(trip => {
         const boat = boats.find(b => b.id === trip.boat_id) || {};
@@ -113,9 +133,9 @@
         return `
           <div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
             <div>
-              <h4 style="margin-bottom: 0.25rem;">${boat.name || 'Vessel'}</h4>
-              <p style="font-size: 0.85rem; color: var(--text-muted);">${origin} → ${dest} | Departure: ${time}</p>
-              <p style="font-size: 0.85rem; margin-top: 0.25rem;">Manifest Count: <strong>${ms.length} / ${boat.passenger_capacity || 0}</strong> max pax | Max Load: <strong>${boat.max_load_kg || 0} kg</strong></p>
+              <h4 style="margin-bottom: 0.25rem;">${esc(boat.name || 'Vessel')}</h4>
+              <p style="font-size: 0.85rem; color: var(--text-muted);">${esc(origin)} → ${esc(dest)} | Departure: ${time}</p>
+              <p style="font-size: 0.85rem; margin-top: 0.25rem;">Status: <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}">${esc(trip.trip_status)}</span> | Manifest Count: <strong>${ms.length} / ${boat.passenger_capacity || 0}</strong> max pax | Max Load: <strong>${boat.max_load_kg || 0} kg</strong></p>
             </div>
             <div>
               <button data-trip="${trip.id}" class="btn btn-primary scan-btn">Run Risk Scan</button>
@@ -124,13 +144,24 @@
         `;
       }).join('');
 
+      if (scheduledTrips.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No scheduled or held trips available for risk assessment.</p>';
+      }
+
+      renderRecentScans(scans, trips, boats, routes, terminals);
+
       document.querySelectorAll('.scan-btn').forEach(btn => btn.addEventListener('click', async e => {
         const tripId = e.target.dataset.trip;
         const trip = trips.find(t => t.id === tripId);
+        if (!trip) { ui.showToast('Trip not found.', 'error'); return; }
         const boat = boats.find(b => b.id === trip.boat_id);
         const route = routes.find(r => r.id === trip.route_id);
-        const term = terminals.find(t => t.id === route.origin_terminal_id);
-        const origin = term?.name || 'Origin';
+        const term = route ? terminals.find(t => t.id === route.origin_terminal_id) : null;
+        if (!boat || !route || !term) {
+          ui.showToast('Trip is missing boat, route, or origin terminal data.', 'error');
+          return;
+        }
+        const origin = term.name || 'Origin';
         const dest = terminals.find(t => t.id === route.destination_terminal_id)?.name || 'Destination';
 
         ui.showToast('Fetching weather forecast and computing load totals...', 'info');
@@ -142,7 +173,7 @@
         const passengers = await api.passengers.list();
         const totalPaxWeight = ms.reduce((s, m) => {
           const p = passengers.find(x => x.id === m.passenger_id);
-          return s + (p ? p.weight_kg : 0);
+          return s + (p?.weight_kg || 65);
         }, 0);
         const totalBaggage = ms.reduce((s, m) => s + (m.baggage_weight_kg || 0), 0);
         const approvedBookings = bookings.filter(b => b.trip_id === trip.id && b.status === 'Approved' && b.booking_type === 'Cargo');
@@ -197,11 +228,9 @@
 
         document.getElementById('riskModalBody').innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-            <h4 style="margin: 0; color: var(--primary);">Vessel: ${boat.name} <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-muted);">(${origin} → ${dest})</span></h4>
-            <span class="badge" style="background: ${badgeColor}; color: white; padding: 0.25rem 0.75rem; border-radius: 999px;">${r.classification}</span>
+            <h4 style="margin: 0; color: var(--primary);">Vessel: ${esc(boat.name)} <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-muted);">(${esc(origin)} → ${esc(dest)})</span></h4>
+            <span class="badge" style="background: ${badgeColor}; color: white; padding: 0.25rem 0.75rem; border-radius: 999px;">${esc(r.classification)}</span>
           </div>
-          <p style="margin-bottom: 1.25rem; color: var(--text-main); line-height: 1.5; font-size: 0.95rem;">${r.explanation}</p>
-          
           <div style="margin-bottom: 1.25rem;">
             <h5 style="margin-bottom: 0.5rem; color: var(--primary); font-size: 0.9rem;">Weather Forecast Metrics</h5>
             <div class="table-container" style="font-size: 0.85rem;">
@@ -232,6 +261,38 @@
         riskScanModal.style.display = 'flex';
         ui.showToast('Risk scan completed and recorded successfully.', 'success');
       }));
+    }
+
+    function renderRecentScans(scans, trips, boats, routes, terminals) {
+      const body = document.getElementById('recentScansBody');
+      const recent = scans
+        .slice()
+        .sort((a, b) => new Date(b.scanned_at) - new Date(a.scanned_at))
+        .slice(0, 10);
+
+      if (!recent.length) {
+        body.innerHTML = '<tr><td colspan="5" style="text-align: center;">No risk scans recorded yet.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = recent.map(scan => {
+        const boat = boats.find(b => b.id === scan.boat_id) || {};
+        const trip = trips.find(t => t.id === scan.trip_id);
+        const route = routes.find(r => r.id === trip?.route_id);
+        const origin = terminals.find(t => t.id === route?.origin_terminal_id)?.name || 'Origin';
+        const dest = terminals.find(t => t.id === route?.destination_terminal_id)?.name || 'Destination';
+        let color = 'var(--success)';
+        if (scan.classification === 'Caution') color = 'var(--warning)';
+        else if (scan.classification === 'Not Advisable') color = 'var(--danger)';
+        return `
+          <tr>
+            <td>${new Date(scan.scanned_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+            <td><strong>${esc(boat.name || 'Unknown vessel')}</strong></td>
+            <td>${esc(origin)} → ${esc(dest)}${trip ? ` <span style="font-size:0.75rem; color:var(--text-muted);">(${esc(trip.trip_status)})</span>` : ''}</td>
+            <td><span class="badge" style="background: ${color}; color: white;">${esc(scan.classification)}</span></td>
+            <td>${esc(scan.scanned_by || '-')}</td>
+          </tr>`;
+      }).join('');
     }
 
     loadRiskData();

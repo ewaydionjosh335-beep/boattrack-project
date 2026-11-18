@@ -8,13 +8,18 @@ export const weatherService = {
     } catch(e){}
     let source = 'Open-Meteo';
     let data = null;
+    // A hanging weather API used to leave scans with no result at all.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${terminal.lat}&longitude=${terminal.lng}&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,visibility&forecast_days=3&timezone=Asia%2FManila`);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${terminal.lat}&longitude=${terminal.lng}&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,visibility&forecast_days=3&timezone=Asia%2FManila`, { signal: controller.signal });
       if (!res.ok) throw new Error('bad');
       data = await res.json();
     } catch (e) {
       source = 'Offline sample';
       data = null;
+    } finally {
+      clearTimeout(timer);
     }
     const record = buildRecord(terminal, source, data);
     try { localStorage.setItem(cacheKey, JSON.stringify({ ...record, fetched_at: Date.now() })); } catch(e){}

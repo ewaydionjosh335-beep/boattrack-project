@@ -8,6 +8,11 @@ export const ui = {
     });
   },
 
+  localDateStr(value = new Date()) {
+    const d = value instanceof Date ? value : new Date(value);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
   showToast(message, type = 'info') {
     let container = document.querySelector('.toast-container');
     if (!container) {

@@ -206,7 +206,7 @@
 
       boats.forEach(boat => {
         if (boat.registration_status !== 'Verified' || boat.boat_status !== 'Active') return;
-        const lastLog = gpsLogs.filter(l => l.boat_id === boat.id).pop() || { lat: 14.41 + Math.random()*0.05, lng: 121.18 + Math.random()*0.08 };
+        const lastLog = api.gpsLogs.safePosition(gpsLogs.filter(l => l.boat_id === boat.id).pop());
 
         const marker = L.marker([lastLog.lat, lastLog.lng], {
           icon: L.divIcon({
