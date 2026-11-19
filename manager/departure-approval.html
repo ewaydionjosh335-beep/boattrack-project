@@ -25,7 +25,6 @@
       <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
       <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
       <a href="/manager/departure-approval.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
-      <a href="/manager/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 7.86"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Alerts</a>
       <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
       <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
       <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
@@ -35,13 +34,37 @@
   <div class="admin-main">
     <header class="admin-header">
       <h2>Departure Approval</h2>
-      <span id="managerName" style="font-weight: 600;"></span>
     </header>
 
     <div class="admin-content">
       <div id="approvalList" style="display: flex; flex-direction: column; gap: 0.75rem;">
         <p style="color: var(--text-muted);">Loading trips...</p>
       </div>
+    </div>
+  </div>
+
+  <!-- HOLD REMARKS MODAL -->
+  <div id="holdRemarksModal" class="modal-backdrop" style="display: none;">
+    <div class="modal" style="max-width: 480px; width: 100%; border-radius: var(--radius-lg);">
+      <div class="modal-header" style="padding: 1.25rem 1.5rem;">
+        <h3 style="color: var(--danger); font-size: 1.15rem;">Hold Trip</h3>
+        <button type="button" class="btn btn-outline btn-sm" id="closeHoldRemarksModalBtn" style="padding: 0.35rem 0.75rem;">&times;</button>
+      </div>
+      <form id="holdRemarksForm">
+        <div class="modal-body" style="padding: 1.5rem;">
+          <input type="hidden" id="holdRemarksTripId">
+          <p id="holdRemarksSummary" style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;"></p>
+          <div class="form-group">
+            <label class="form-label">Coast Guard Hold Reason (required)</label>
+            <textarea id="holdRemarksInput" class="form-control" rows="3" placeholder="e.g. Weather advisory, safety inspection pending, coast guard order..."></textarea>
+          </div>
+          <div id="holdRemarksError" class="error-text"></div>
+        </div>
+        <div class="modal-footer" style="padding: 1rem 1.5rem;">
+          <button type="button" class="btn btn-outline" id="cancelHoldRemarksBtn" style="padding: 0.6rem 1.25rem;">Cancel</button>
+          <button type="submit" class="btn btn-danger" style="padding: 0.6rem 1.25rem;">Confirm Hold</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -78,12 +101,12 @@
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
-    document.getElementById('managerName').textContent = session.full_name;
 
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     let evidenceByTrip = {};
     let activeTripId = null;
+    let activeEvidence = null;
 
     const latest = (list, field) => list
       .slice()
@@ -93,6 +116,9 @@
       c === 'Not Advisable' ? 'var(--danger)' : c === 'Caution' ? 'var(--warning)' : c === 'Safe' ? 'var(--success)' : 'var(--text-muted)';
 
     async function render() {
+      // Prevent background 5s refresh from replacing evidence while modal is open
+      if (activeTripId) return;
+
       const [trips, routes, terminals, approvals, scans, inspections, boats] = await Promise.all([
         api.trips.list(), api.routes.list(), api.terminals.list(),
         api.departureApprovals.list(), api.riskScans.list(), api.inspections.list(), api.boats.list()
@@ -118,25 +144,36 @@
         const dest = terminals.find(t => t.id === route?.destination_terminal_id);
         const boat = boats.find(b => b.id === trip.boat_id);
         const latestDecision = latest(approvals.filter(a => a.trip_id === trip.id), 'recorded_at');
-        const scan = latest(scans.filter(s => s.trip_id === trip.id), 'scanned_at');
+        // Evidence must belong to this trip's current vessel, otherwise a boat change
+        // would show (and re-approve with) the previous boat's scan/inspection.
+        const scan = latest(scans.filter(s => s.trip_id === trip.id && s.boat_id === trip.boat_id), 'scanned_at');
         // Only a pre-departure inspection is relevant to clearing the trip.
         const insp = latest(
-          inspections.filter(i => i.trip_id === trip.id && i.inspection_type === 'Pre-departure'),
+          inspections.filter(i =>
+            i.trip_id === trip.id &&
+            i.boat_id === trip.boat_id &&
+            i.inspection_type === 'Pre-departure'),
           'inspected_at'
         );
 
-        evidenceByTrip[trip.id] = { trip, route, origin, dest, boat, scan, insp };
-
         const decision = latestDecision?.decision || 'Pending';
-        const canDepart = trip.trip_status === 'Scheduled' && decision === 'Approved';
-        const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
+        // Mark Departed needs an approval for the current schedule revision; a schedule
+        // edit or hold bumps approval_revision and invalidates the old clearance.
+        const approvalCurrent = !!latestDecision && decision === 'Approved'
+          && (latestDecision.trip_revision || 0) === (trip.approval_revision || 0);
+        const approvalExpired = !!latestDecision && decision === 'Approved' && !approvalCurrent;
+        const canDepart = trip.trip_status === 'Scheduled' && approvalCurrent;
+        const isHeld = decision === 'Held' && trip.trip_status === 'Held';
+
+        evidenceByTrip[trip.id] = { trip, route, origin, dest, boat, scan, insp, decision, approvalCurrent, isHeld, latestDecision };
+
         return `
         <div class="card" style="padding: 1.25rem; margin-bottom: 0.75rem;">
           <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap;">
             <div style="flex: 1; min-width: 280px;">
               <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
                 <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(trip.trip_status)}</span>
-                <span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(decision)}</span>
+                <span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(decision)} ${approvalExpired ? '(approval expired for this schedule)' : ''}</span>
               </div>
               <h3 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; color: var(--primary);">
                 ${esc(boat?.name || 'Unknown vessel')}
@@ -171,11 +208,11 @@
               </div>
             </div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-start; padding-top: 0.25rem;">
-              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
-                Approve
+              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin && !approvalCurrent ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                ${approvalCurrent ? 'Approved' : 'Approve'}
               </button>
-              <button class="btn btn-danger hold" data-trip="${esc(trip.id)}" ${origin ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
-                Hold
+              <button class="btn btn-danger hold" data-trip="${esc(trip.id)}" ${origin && !isHeld ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                ${isHeld ? 'Held' : 'Hold'}
               </button>
               <button class="btn btn-outline depart" data-trip="${esc(trip.id)}" ${canDepart ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;">
                 Mark Departed
@@ -190,32 +227,11 @@
       list.querySelectorAll('.hold').forEach(b => b.onclick = () => {
         const ev = evidenceByTrip[b.dataset.trip];
         if (!ev) return;
-        ui.confirm(`Hold this trip? The scan result (${ev.scan ? esc(ev.scan.classification) : 'none'}) and inspection (${ev.insp ? esc(ev.insp.overall) : 'none'}) stay linked to the record.`, async () => {
-          b.disabled = true;
-          try {
-            await api.departureApprovals.create({
-              trip_id: ev.trip.id,
-              terminal_id: ev.origin?.id || null,
-              coast_guard_name: ev.origin?.coast_guard_personnel || null,
-              decision: 'Held',
-              remarks: 'Held by coast guard',
-              risk_scan_id: ev.scan?.id || null,
-              inspection_id: ev.insp?.id || null,
-              advisory_result: ev.scan?.classification || null,
-              advisory_overridden: false,
-              recorded_by: session.full_name,
-              recorded_at: new Date().toISOString()
-            });
-            if (ev.trip.trip_status !== 'Held') {
-              await api.trips.updateStatus(ev.trip.id, 'Held', 'Coast Guard decision: held');
-            }
-            ui.showToast('Trip held.', 'success');
-            render();
-          } catch (err) {
-            ui.showToast(err.message, 'error');
-            b.disabled = false;
-          }
-        });
+        if (ev.isHeld || (ev.trip.trip_status === 'Held' && ev.decision === 'Held')) {
+          ui.showToast('Trip is already held.', 'warning');
+          return;
+        }
+        openHoldRemarksModal(b.dataset.trip);
       });
 
       list.querySelectorAll('.depart').forEach(b => b.onclick = async () => {
@@ -232,16 +248,107 @@
     }
 
     const approvalModal = document.getElementById('approvalModal');
-    const closeApprovalModal = () => { approvalModal.style.display = 'none'; activeTripId = null; };
+    const closeApprovalModal = () => {
+      approvalModal.style.display = 'none';
+      activeTripId = null;
+      activeEvidence = null;
+      render();
+    };
     document.getElementById('closeApprovalModalBtn').onclick = closeApprovalModal;
     document.getElementById('cancelApprovalBtn').onclick = closeApprovalModal;
     approvalModal.onclick = (e) => { if (e.target === approvalModal) closeApprovalModal(); };
 
+    // Hold Remarks Modal
+    let holdTarget = null;
+    const holdRemarksModal = document.getElementById('holdRemarksModal');
+    const closeHoldRemarksModal = () => {
+      holdRemarksModal.style.display = 'none';
+      holdTarget = null;
+    };
+    document.getElementById('closeHoldRemarksModalBtn').onclick = closeHoldRemarksModal;
+    document.getElementById('cancelHoldRemarksBtn').onclick = closeHoldRemarksModal;
+    holdRemarksModal.onclick = (e) => { if (e.target === holdRemarksModal) closeHoldRemarksModal(); };
+
+    function openHoldRemarksModal(tripId) {
+      const ev = evidenceByTrip[tripId];
+      if (!ev) return;
+      holdTarget = { tripId, ev };
+      document.getElementById('holdRemarksTripId').value = tripId;
+      document.getElementById('holdRemarksSummary').innerHTML =
+        `<strong>${esc(ev.boat?.name || 'Vessel')}</strong> &middot; ` +
+        `Scan: <strong>${ev.scan ? esc(ev.scan.classification) : 'None'}</strong> &middot; ` +
+        `Inspection: <strong>${ev.insp ? esc(ev.insp.overall) : 'None'}</strong>`;
+      document.getElementById('holdRemarksInput').value = '';
+      document.getElementById('holdRemarksError').textContent = '';
+      holdRemarksModal.style.display = 'flex';
+    }
+
+    document.getElementById('holdRemarksForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const errBox = document.getElementById('holdRemarksError');
+      errBox.textContent = '';
+      const remarks = document.getElementById('holdRemarksInput').value.trim();
+      if (!remarks) { errBox.textContent = 'A hold reason is required.'; return; }
+      if (!holdTarget) return;
+      const { ev } = holdTarget;
+      const submitBtn = e.submitter;
+      submitBtn.disabled = true;
+      try {
+        const curApprovals = await api.departureApprovals.listByTrip(ev.trip.id);
+        const curLatest = latest(curApprovals, 'recorded_at');
+        const curTrip = (await api.trips.list()).find(t => t.id === ev.trip.id);
+        if (curLatest?.decision === 'Held' && curTrip?.trip_status === 'Held') {
+          ui.showToast('Trip is already held.', 'warning');
+          closeHoldRemarksModal();
+          render();
+          return;
+        }
+        await api.departureApprovals.create({
+          trip_id: ev.trip.id,
+          terminal_id: ev.origin?.id || null,
+          coast_guard_name: ev.origin?.coast_guard_personnel || null,
+          decision: 'Held',
+          remarks,
+          risk_scan_id: ev.scan?.id || null,
+          inspection_id: ev.insp?.id || null,
+          advisory_result: ev.scan?.classification || null,
+          advisory_overridden: false,
+          recorded_by: session.full_name,
+          recorded_at: new Date().toISOString()
+        });
+        if (ev.trip.trip_status !== 'Held') {
+          await api.trips.updateStatus(ev.trip.id, 'Held', remarks);
+        }
+        ui.showToast('Trip held.', 'success');
+        closeHoldRemarksModal();
+        render();
+      } catch (err) {
+        errBox.textContent = err.message;
+        submitBtn.disabled = false;
+      }
+    };
+
     function openApprovalModal(tripId) {
       const ev = evidenceByTrip[tripId];
       if (!ev) return;
+      if (ev.approvalCurrent) {
+        ui.showToast('Trip has already been approved for this schedule.', 'warning');
+        return;
+      }
       activeTripId = tripId;
-      const { trip, origin, dest, boat, scan, insp } = ev;
+      // Freeze the exact evidence the approver inspects in the modal so submit
+      // records only this evidence, even if background state changes.
+      activeEvidence = {
+        trip: { ...ev.trip },
+        origin: ev.origin ? { ...ev.origin } : null,
+        dest: ev.dest ? { ...ev.dest } : null,
+        boat: ev.boat ? { ...ev.boat } : null,
+        scan: ev.scan ? { ...ev.scan } : null,
+        insp: ev.insp ? { ...ev.insp } : null,
+        decision: ev.decision,
+        approvalCurrent: ev.approvalCurrent
+      };
+      const { trip, origin, dest, boat, scan, insp } = activeEvidence;
       const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
       const failedItems = (insp?.items || []).filter(i => i.result === 'Fail');
 
@@ -303,8 +410,8 @@
       e.preventDefault();
       const errBox = document.getElementById('approvalError');
       errBox.textContent = '';
-      const ev = evidenceByTrip[activeTripId];
-      if (!ev) { errBox.textContent = 'Trip no longer available. Close and reload.'; return; }
+      const ev = activeEvidence;
+      if (!ev || ev.trip.id !== activeTripId) { errBox.textContent = 'Trip no longer available. Close and reload.'; return; }
 
       const remarks = document.getElementById('approvalRemarks').value.trim();
       const needsJudgement = !ev.scan || ev.scan.classification !== 'Safe' || !ev.insp || ev.insp.overall !== 'Passed';
@@ -317,6 +424,16 @@
       const btn = document.getElementById('recordApprovalBtn');
       btn.disabled = true;
       try {
+        const curApprovals = await api.departureApprovals.listByTrip(ev.trip.id);
+        const curLatest = latest(curApprovals, 'recorded_at');
+        const curTrip = (await api.trips.list()).find(t => t.id === ev.trip.id);
+        const curRev = curTrip ? (curTrip.approval_revision || 0) : 0;
+        if (curLatest?.decision === 'Approved' && (curLatest.trip_revision || 0) === curRev) {
+          errBox.textContent = 'Trip has already been approved for this schedule.';
+          btn.disabled = false;
+          return;
+        }
+
         await api.departureApprovals.create({
           trip_id: ev.trip.id,
           terminal_id: ev.origin.id,
@@ -336,7 +453,6 @@
         }
         ui.showToast('Trip approved.', 'success');
         closeApprovalModal();
-        render();
       } catch (err) {
         errBox.textContent = err.message;
         btn.disabled = false;

@@ -25,7 +25,6 @@
       <a href="/manager/risk-assessment.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
       <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
       <a href="/manager/departure-approval.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
-      <a href="/manager/sos-alerts.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 7.86"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> SOS Alerts</a>
       <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
       <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
       <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
@@ -35,14 +34,9 @@
   <div class="admin-main">
     <header class="admin-header">
       <h2>Risk Assessment & AI Risk Scan</h2>
-      <span id="managerName" style="font-weight: 600;"></span>
     </header>
 
     <div class="admin-content">
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <h3>Scheduled Trips Risk Evaluation</h3>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Run automated maritime risk scans based on live weather forecasts, vessel capacity, passenger weights, baggage, and approved cargo loads. Scheduled and held trips can both be scanned.</p>
-      </div>
       <div id="tripsRiskContainer" style="display: flex; flex-direction: column; gap: 1rem;">
         <p style="color: var(--text-muted);">Loading scheduled trips...</p>
       </div>
@@ -92,16 +86,23 @@
     import { ui } from '/js/ui.js';
     import { weatherService } from '/js/services/weatherService.js';
     import { riskAiService } from '/js/services/riskAiService.js';
+    import { loadService } from '/js/services/loadService.js';
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
-    document.getElementById('managerName').textContent = session.full_name;
 
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     // Modal handlers
     const riskScanModal = document.getElementById('riskScanModal');
-    const closeRiskModal = () => riskScanModal.style.display = 'none';
+    let scanJustPerformed = false;
+    const closeRiskModal = () => {
+      riskScanModal.style.display = 'none';
+      if (scanJustPerformed) {
+        scanJustPerformed = false;
+        loadRiskData();
+      }
+    };
     document.getElementById('closeRiskModalBtn').onclick = closeRiskModal;
     document.getElementById('riskModalCloseBtn').onclick = closeRiskModal;
     riskScanModal.onclick = (e) => {
@@ -113,7 +114,7 @@
       const boats = await api.boats.list();
       const manifests = await api.manifests.list();
       const bookings = await api.bookings.list();
-      const payments = await api.payments.list();
+      const passengers = await api.passengers.list();
       const terminals = await api.terminals.list();
       const routes = await api.routes.list();
       const scans = await api.riskScans.list();
@@ -138,8 +139,8 @@
               <p style="font-size: 0.95rem; margin-top: 0.25rem;">Status: <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">${esc(trip.trip_status)}</span> &middot; Manifest: <strong>${ms.length} / ${boat.passenger_capacity || 0}</strong> pax &middot; Max Load: <strong>${boat.max_load_kg || 0} kg</strong></p>
             </div>
             <div>
-              <button data-trip="${trip.id}" class="btn btn-primary scan-btn" style="padding: 0.75rem 1.5rem; font-size: 1rem; min-width: 160px;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.5rem;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <button data-trip="${trip.id}" class="btn btn-primary scan-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
                 Run Risk Scan
               </button>
             </div>
@@ -154,7 +155,8 @@
       renderRecentScans(scans, trips, boats, routes, terminals);
 
       document.querySelectorAll('.scan-btn').forEach(btn => btn.addEventListener('click', async e => {
-        const tripId = e.target.dataset.trip;
+        // The click can land on the button's <svg>/<path>, so read the dataset from the button.
+        const tripId = btn.dataset.trip;
         const trip = trips.find(t => t.id === tripId);
         if (!trip) { ui.showToast('Trip not found.', 'error'); return; }
         const boat = boats.find(b => b.id === trip.boat_id);
@@ -169,20 +171,12 @@
 
         ui.showToast('Fetching weather forecast and computing load totals...', 'info');
 
-        const rec = await weatherService.fetchForTerminal(term);
-        await api.weatherRecords.create(rec);
+        const rec = await weatherService.fetchForTerminal(term, trip.departure_time);
+        const weatherRecord = await api.weatherRecords.create(rec);
 
-        const ms = manifests.filter(m => m.trip_id === trip.id);
-        const passengers = await api.passengers.list();
-        const totalPaxWeight = ms.reduce((s, m) => {
-          const p = passengers.find(x => x.id === m.passenger_id);
-          return s + (p?.weight_kg || 65);
-        }, 0);
-        const totalBaggage = ms.reduce((s, m) => s + (m.baggage_weight_kg || 0), 0);
-        const approvedBookings = bookings.filter(b => b.trip_id === trip.id && b.status === 'Approved' && b.booking_type === 'Cargo');
-        const paidIds = new Set(payments.filter(p => p.status === 'Paid').map(p => p.booking_id));
-        const cargoWeight = approvedBookings.filter(b => paidIds.has(b.id)).reduce((s, b) => s + (b.cargo_weight_kg || 0), 0);
-        const totalLoad = totalPaxWeight + totalBaggage + cargoWeight;
+        const load = loadService.computeTripLoad({
+          manifests, passengers, bookings, tripId: trip.id
+        });
 
         const forecast = {
           wind_speed_kmh: rec.wind_speed_kmh,
@@ -192,13 +186,13 @@
           visibility_m: rec.visibility_m
         };
         const totals = {
-          total_load_kg: totalLoad,
+          total_load_kg: load.total_load_kg,
           max_load_kg: boat.max_load_kg,
-          passenger_count: ms.length,
+          passenger_count: load.passenger_count,
           passenger_capacity: boat.passenger_capacity,
-          total_passenger_weight_kg: totalPaxWeight,
-          total_baggage_kg: totalBaggage,
-          total_cargo_kg: cargoWeight
+          total_passenger_weight_kg: load.passenger_weight_kg,
+          total_baggage_kg: load.baggage_weight_kg,
+          total_cargo_kg: load.cargo_weight_kg
         };
 
         const r = riskAiService.classify({ forecast, totals });
@@ -207,13 +201,13 @@
         await api.riskScans.create({
           trip_id: tripId,
           boat_id: boat.id,
-          weather_record_id: rec.id || null,
-          passenger_count: ms.length,
+          weather_record_id: weatherRecord.id,
+          passenger_count: load.passenger_count,
           passenger_capacity: boat.passenger_capacity,
-          total_passenger_weight_kg: totalPaxWeight,
-          total_baggage_kg: totalBaggage,
-          total_cargo_kg: cargoWeight,
-          total_load_kg: totalLoad,
+          total_passenger_weight_kg: load.passenger_weight_kg,
+          total_baggage_kg: load.baggage_weight_kg,
+          total_cargo_kg: load.cargo_weight_kg,
+          total_load_kg: load.total_load_kg,
           max_load_kg: boat.max_load_kg,
           classification: r.classification,
           explanation: r.explanation,
@@ -262,6 +256,7 @@
         `;
 
         riskScanModal.style.display = 'flex';
+        scanJustPerformed = true;
         ui.showToast('Risk scan completed and recorded successfully.', 'success');
       }));
     }

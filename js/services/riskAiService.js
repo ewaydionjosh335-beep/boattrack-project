@@ -14,6 +14,11 @@ export const riskAiService = {
     let classification = 'Safe';
     const loadPct = totals.max_load_kg ? (totals.total_load_kg / totals.max_load_kg * 100) : 0;
     const paxPct = totals.passenger_capacity ? (totals.passenger_count / totals.passenger_capacity * 100) : 0;
+    const visibilityRaw = forecast.visibility_m;
+    const visibilityM = (visibilityRaw === undefined || visibilityRaw === null || visibilityRaw === '')
+      ? 10000
+      : Number(visibilityRaw);
+    const lowVisibility = Number.isFinite(visibilityM) && visibilityM < r.caution.visibilityKm * 1000;
 
     const notAdv =
       totals.total_load_kg > totals.max_load_kg ||
@@ -38,7 +43,7 @@ export const riskAiService = {
         forecast.wind_speed_kmh >= r.caution.wind ||
         forecast.wind_gust_kmh >= r.caution.gust ||
         forecast.precipitation_probability >= r.caution.rainProb ||
-        (forecast.visibility_m || 10000) < r.caution.visibilityKm*1000;
+        lowVisibility;
       if (caution) {
         classification = 'Caution';
         if (loadPct >= 85) reasons.push('load is at least 85% of maximum');
@@ -46,7 +51,7 @@ export const riskAiService = {
         if (forecast.wind_speed_kmh >= 25) reasons.push('moderate wind');
         if (forecast.wind_gust_kmh >= 35) reasons.push('wind gusts elevated');
         if (forecast.precipitation_probability >= 50) reasons.push('rain likely');
-        if ((forecast.visibility_m||10000) < 2000) reasons.push('low visibility');
+        if (lowVisibility) reasons.push('low visibility');
       } else {
         reasons.push('conditions within safe limits');
       }

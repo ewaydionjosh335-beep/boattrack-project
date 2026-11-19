@@ -189,7 +189,7 @@
           <td>${new Date(trip.departure_time).toLocaleString()}</td>
           <td>₱${parseFloat(manifest.fare || 100).toFixed(2)}</td>
           <td><span class="badge badge-info">${manifest.discount_type || 'None'}</span></td>
-          <td><span class="badge badge-${(trip.trip_status || 'scheduled').toLowerCase()}">${trip.trip_status}</span></td>
+          <td><span class="badge badge-${(trip.trip_status || 'scheduled').toLowerCase()}">${trip.trip_status}</span>${trip.trip_status === 'Held' && trip.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${trip.held_reason}</span>` : ''}</td>
         </tr>
       `).join('');
     }

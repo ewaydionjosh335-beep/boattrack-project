@@ -205,7 +205,7 @@
     if (!session) throw new Error('Unauthorized');
     document.getElementById('receptionistName').textContent = session.full_name;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = ui.localDateStr();
     const dateInput = document.getElementById('filterDate');
     dateInput.value = todayStr;
 
@@ -222,7 +222,7 @@
       const unremittedPayments = payments.filter(p => {
         if (p.status !== 'Paid') return false;
         if (p.remittance_id) return false;
-        if (!p.created_at || !p.created_at.startsWith(selectedDate)) return false;
+        if (!p.created_at || ui.localDateStr(p.created_at) !== selectedDate) return false;
         return true;
       });
 

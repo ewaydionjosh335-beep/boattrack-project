@@ -12,6 +12,12 @@ const STORAGE_KEYS = [
   'weather_records', 'risk_scans', 'departure_approvals'
 ];
 
+// Local date helper (PHT timezone) - returns YYYY-MM-DD in local time
+function uiLocalDateStr(d = new Date()) {
+  const date = d instanceof Date ? d : new Date(d);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export const api = {
   // Helper for reading/writing storage
   _get(key) {
@@ -318,6 +324,7 @@ export const api = {
     },
     async updateStatus(id, boat_status, reason = null) {
       // FUTURE: PATCH /api/boats/:id/status
+      api._requireRole('port_manager');
       const boats = api._get('boats') || [];
       const idx = boats.findIndex(b => b.id === id);
       if (idx === -1) throw new Error('Boat not found.');
@@ -396,7 +403,9 @@ export const api = {
         id: 'term_' + Math.random().toString(36).substring(2, 9),
         name: data.name,
         location: data.location,
-        coast_guard_personnel: data.coast_guard_personnel || 'PCG Officer'
+        coast_guard_personnel: data.coast_guard_personnel || 'PCG Officer',
+        lat: data.lat ? parseFloat(data.lat) : null,
+        lng: data.lng ? parseFloat(data.lng) : null
       };
       terminals.push(newTerm);
       api._set('terminals', terminals);
@@ -502,7 +511,14 @@ export const api = {
     },
     async create(data) {
       // FUTURE: POST /api/trips
+      api._requireRole('port_manager');
       api._validateTrip(data.boat_id, data.departure_time);
+      const boats = api._get('boats') || [];
+      const boat = boats.find(b => b.id === data.boat_id);
+      const requiredPassengers = parseInt(data.required_passengers) || 10;
+      if (boat && requiredPassengers > boat.passenger_capacity) {
+        throw new Error(`Required passengers (${requiredPassengers}) exceeds boat capacity (${boat.passenger_capacity}).`);
+      }
       const trips = api._get('trips') || [];
       const newTrip = {
         id: 'trp_' + Math.random().toString(36).substring(2, 9),
@@ -523,19 +539,23 @@ export const api = {
     },
     async updateStatus(id, trip_status, held_reason = null) {
       // FUTURE: PATCH /api/trips/:id/status
+      api._requireRole('port_manager');
       const trips = api._get('trips') || [];
       const idx = trips.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Trip not found.');
-      trips[idx].trip_status = trip_status;
+      
+      const trip = trips[idx];
+      const previousStatus = trip.trip_status;
+      trip.trip_status = trip_status;
       if (held_reason !== undefined) {
-        trips[idx].held_reason = held_reason;
+        trip.held_reason = held_reason;
       }
       // A hold invalidates any earlier coast guard clearance.
       if (trip_status === 'Held') {
-        trips[idx].approval_revision = (trips[idx].approval_revision || 0) + 1;
+        trip.approval_revision = (trip.approval_revision || 0) + 1;
       }
       if (trip_status === 'Departed') {
-        trips[idx].departed_at = new Date().toISOString();
+        trip.departed_at = new Date().toISOString();
         const manifests = api._get('manifests') || [];
         const passengers = api._get('passengers') || [];
         const notifs = api._get('notifications') || [];
@@ -545,25 +565,71 @@ export const api = {
         });
         api._set('notifications', notifs);
       } else if (trip_status === 'Arrived') {
-        trips[idx].arrived_at = new Date().toISOString();
+        trip.arrived_at = new Date().toISOString();
       } else if (trip_status === 'Scheduled') {
-        trips[idx].held_reason = null;
+        // Trip released from hold - notify with previous hold reason
+        if (previousStatus === 'Held') {
+          const manifests = api._get('manifests') || [];
+          const passengers = api._get('passengers') || [];
+          const notifs = api._get('notifications') || [];
+          const reason = trip.held_reason || 'No reason provided';
+          manifests.filter(m => m.trip_id === id).forEach(m => {
+            const p = passengers.find(x => x.id === m.passenger_id);
+            if (p && p.user_id) notifs.push({ id: 'notif_' + Math.random().toString(36).substring(2, 9), user_id: p.user_id, type: 'Trip', message: 'Your trip has been released from hold. Reason for hold: ' + reason, link: '/passenger/my-trips.html', is_read: false, created_at: new Date().toISOString() });
+          });
+          api._set('notifications', notifs);
+        }
+        trip.held_reason = null;
       }
-      trips[idx].updated_at = new Date().toISOString();
+      // Notify on hold
+      if (trip_status === 'Held' && previousStatus !== 'Held') {
+        const manifests = api._get('manifests') || [];
+        const passengers = api._get('passengers') || [];
+        const notifs = api._get('notifications') || [];
+        const reason = held_reason || 'No reason provided';
+        manifests.filter(m => m.trip_id === id).forEach(m => {
+          const p = passengers.find(x => x.id === m.passenger_id);
+          if (p && p.user_id) notifs.push({ id: 'notif_' + Math.random().toString(36).substring(2, 9), user_id: p.user_id, type: 'Trip', message: 'Your trip has been placed on hold. Reason: ' + reason, link: '/passenger/my-trips.html', is_read: false, created_at: new Date().toISOString() });
+        });
+        // Also notify boat operator/crew if possible
+        const boats = api._get('boats') || [];
+        const boat = boats.find(b => b.id === trip.boat_id);
+        if (boat && boat.operator_id) {
+          const users = api._get('users') || [];
+          const operator = users.find(u => u.id === boat.operator_id);
+          if (operator) {
+            notifs.push({ id: 'notif_' + Math.random().toString(36).substring(2, 9), user_id: operator.id, type: 'Trip', message: 'Trip ' + trip.id + ' has been placed on hold. Reason: ' + reason, link: '/operator/trips.html', is_read: false, created_at: new Date().toISOString() });
+          }
+        }
+        api._set('notifications', notifs);
+      }
+      trip.updated_at = new Date().toISOString();
       api._set('trips', trips);
-      return trips[idx];
+      return trip;
     },
     async update(id, data) {
       // FUTURE: PUT /api/trips/:id
+      api._requireRole('port_manager');
       const trips = api._get('trips') || [];
       const idx = trips.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Trip not found.');
 
       const targetBoatId = data.boat_id !== undefined ? data.boat_id : trips[idx].boat_id;
-      const targetTime = data.departure_time !== undefined ? data.departure_time : trips[idx].departure_time;
 
-      if (data.boat_id !== undefined || data.departure_time !== undefined) {
-        api._validateTrip(targetBoatId, targetTime, id);
+      if (data.boat_id !== undefined) {
+        api._validateTrip(targetBoatId, trips[idx].departure_time, id);
+      }
+      if (data.departure_time !== undefined) {
+        api._validateTrip(targetBoatId, data.departure_time, id);
+      }
+      // Validate required_passengers against boat capacity
+      if (data.required_passengers !== undefined) {
+        const boats = api._get('boats') || [];
+        const boat = boats.find(b => b.id === targetBoatId);
+        const requiredPassengers = parseInt(data.required_passengers) || 10;
+        if (boat && requiredPassengers > boat.passenger_capacity) {
+          throw new Error(`Required passengers (${requiredPassengers}) exceeds boat capacity (${boat.passenger_capacity}).`);
+        }
       }
 
       const scheduleChanged =
@@ -607,6 +673,17 @@ export const api = {
       const approvals = api._get('departure_approvals') || [];
       if (approvals.some(a => a.trip_id === id)) {
         throw new Error('Cannot delete trip: it has departure approval records.');
+      }
+      // Delete associated inspections and risk scans to avoid orphaned records
+      const inspections = api._get('inspections') || [];
+      const filteredInspections = inspections.filter(i => i.trip_id !== id);
+      if (filteredInspections.length !== inspections.length) {
+        api._set('inspections', filteredInspections);
+      }
+      const riskScans = api._get('risk_scans') || [];
+      const filteredRiskScans = riskScans.filter(s => s.trip_id !== id);
+      if (filteredRiskScans.length !== riskScans.length) {
+        api._set('risk_scans', filteredRiskScans);
       }
       trips.splice(idx, 1);
       api._set('trips', trips);
@@ -788,7 +865,7 @@ export const api = {
       const newRem = {
         id: 'rem_' + Math.random().toString(36).substring(2, 9),
         boat_id: data.boat_id || null,
-        date: data.date || new Date().toISOString().split('T')[0],
+        date: data.date || uiLocalDateStr(),
         total_amount: parseFloat(data.total_amount) || 0.0,
         received_by_crew_id: data.received_by_crew_id || null,
         recorded_by: data.recorded_by || null,
@@ -1026,58 +1103,6 @@ export const api = {
     }
   },
 
-  // --- Payment Gateway Adapter (Mock PayMongo) ---
-  paymentGateway: {
-    async createPayment(booking) {
-      // FUTURE: POST /api/payment-gateway/create-payment
-      // REAL PAYMONGO INTEGRATION NOTE (REPLACE MOCK HERE):
-      // 1. Replace this mock implementation with a fetch() call to backend POST /api/payment-gateway/create-checkout-session
-      //    or PayMongo Sources API (e.g. GCash source creation returning checkout_url).
-      // 2. Webhook handling: Configure a backend webhook endpoint (POST /api/webhooks/paymongo) listening for
-      //    'payment.intent.succeeded' or 'source.chargeable' / 'payment.paid' events. Upon receiving the webhook event,
-      //    the backend server automatically updates the payment status to 'Paid', generates the e-ticket (ET-YYYYMMDD-XXXX),
-      //    updates the booking status, and issues a notification to the passenger.
-      // 3. Client-side polling or redirect: Redirect the browser to the returned PayMongo checkout URL or handle success/failure return URLs.
-
-      const gatewayRecords = api._get('payment_gateway') || [];
-      const payId = 'pgw_' + Math.random().toString(36).substring(2, 9);
-      const referenceNo = 'PAY_REF_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-      
-      const gatewayRecord = {
-        id: payId,
-        booking_id: booking.id,
-        amount: booking.amount_due || 0,
-        method: 'GCash',
-        status: 'Pending',
-        reference_no: referenceNo,
-        checkout_url: `https://checkout.paymongo.com/mock/${payId}`,
-        created_at: new Date().toISOString()
-      };
-      gatewayRecords.push(gatewayRecord);
-      api._set('payment_gateway', gatewayRecords);
-
-      // Create corresponding payment record in payments table
-      await api.payments.create({
-        booking_id: booking.id,
-        boat_id: null,
-        method: 'GCash',
-        amount: booking.amount_due || 0,
-        status: 'Pending',
-        reference_no: referenceNo
-      });
-
-      return gatewayRecord;
-    },
-    async getPaymentStatus(id) {
-      // FUTURE: GET /api/payment-gateway/status/:id
-      // REAL PAYMONGO INTEGRATION NOTE:
-      // Replace with fetch() to backend checking PayMongo payment intent / source status.
-      const gatewayRecords = api._get('payment_gateway') || [];
-      const record = gatewayRecords.find(g => g.id === id || g.booking_id === id);
-      return record || { status: 'Pending' };
-    }
-  },
-
   // --- GPS Logs ---
   gpsLogs: {
     async list() { return api._get('gps_logs') || []; },
@@ -1132,7 +1157,7 @@ export const api = {
       return newAlert;
     },
     async acknowledge(id, acknowledgedBy = null) {
-      api._requireRole('port_manager');
+      api._requireRole('administrator');
       const alerts = api._get('alerts') || [];
       const idx = alerts.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Alert not found.');
@@ -1141,9 +1166,6 @@ export const api = {
       alerts[idx].acknowledged_by = acknowledgedBy;
       alerts[idx].acknowledged_at = new Date().toISOString();
       api._set('alerts', alerts);
-      // notify sender
-      const users = api._get('users') || [];
-      // no-op mapping; sender notified via status change
       return alerts[idx];
     }
   },
@@ -1388,6 +1410,7 @@ export const api = {
     async list() { return api._get('risk_scans') || []; },
     async listByTrip(tripId) { return (api._get('risk_scans')||[]).filter(r=>r.trip_id===tripId); },
     async create(data) {
+      api._requireRole('port_manager');
       const recs = api._get('risk_scans') || [];
       const r = { id: 'rs_' + Math.random().toString(36).substring(2,9), ...data };
       recs.push(r); api._set('risk_scans', recs); return r;
@@ -1399,9 +1422,20 @@ export const api = {
     async list() { return api._get('departure_approvals') || []; },
     async listByTrip(tripId) { return (api._get('departure_approvals')||[]).filter(a=>a.trip_id===tripId); },
     async create(data) {
+      api._requireRole('port_manager');
       const recs = api._get('departure_approvals') || [];
       const trip = (api._get('trips') || []).find(t => t.id === data.trip_id);
-      const r = { id: 'da_' + Math.random().toString(36).substring(2,9), ...data, trip_revision: trip ? (trip.approval_revision || 0) : 0 };
+      const tripRev = trip ? (trip.approval_revision || 0) : 0;
+      // Idempotency check: avoid appending duplicate identical decisions for the same trip revision
+      const tripApprovals = recs.filter(a => a.trip_id === data.trip_id);
+      if (tripApprovals.length > 0) {
+        tripApprovals.sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at));
+        const last = tripApprovals[0];
+        if (last.decision === data.decision && (last.trip_revision || 0) === tripRev) {
+          return last;
+        }
+      }
+      const r = { id: 'da_' + Math.random().toString(36).substring(2,9), ...data, trip_revision: tripRev };
       recs.push(r); api._set('departure_approvals', recs); return r;
     },
     async update(id,data){ const recs=api._get('departure_approvals')||[]; const i=recs.findIndex(a=>a.id===id); if(i>-1){recs[i]={...recs[i],...data};api._set('departure_approvals',recs);return recs[i];} return null;}
@@ -1409,6 +1443,11 @@ export const api = {
   // --- Role guard helper ---
   _requireRole(role) {
     const s = JSON.parse(localStorage.getItem('session')||'null');
-    if (!s || s.role !== role) throw new Error('Forbidden: ' + role + ' only.');
+    if (!s) throw new Error('Unauthorized: login required.');
+    if (s.expires_at && new Date(s.expires_at) < new Date()) {
+      localStorage.removeItem('session');
+      throw new Error('Session expired. Please log in again.');
+    }
+    if (s.role !== role) throw new Error('Forbidden: ' + role + ' only.');
   }
 };

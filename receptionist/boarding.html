@@ -311,6 +311,7 @@
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
+    import { loadService } from '/js/services/loadService.js';
 
     const session = await auth.requireAuth(['receptionist']);
     if (!session) throw new Error('Unauthorized');
@@ -539,25 +540,15 @@
       const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
 
       // Calculate current passengers & load on this trip
-      const tripManifests = allManifests.filter(m => m.trip_id === selectedTrip.id);
-      const paxCount = tripManifests.length;
-
-      let paxWt = 0;
-      let bagWt = 0;
-      tripManifests.forEach(m => {
-        const psg = allPassengers.find(p => p.id === m.passenger_id) || { weight_kg: 65 };
-        paxWt += (psg.weight_kg || 65);
-        bagWt += (m.baggage_weight_kg || 0);
+      const load = loadService.computeTripLoad({
+        manifests: allManifests,
+        passengers: allPassengers,
+        bookings: allBookings,
+        tripId: selectedTrip.id
       });
 
-      let cargoWt = 0;
-      allBookings.forEach(b => {
-        if (b.trip_id === selectedTrip.id && b.status === 'Approved' && b.booking_type === 'Cargo') {
-          cargoWt += (b.cargo_weight_kg || 0);
-        }
-      });
-
-      const currentLoad = paxWt + bagWt + cargoWt;
+      const paxCount = load.passenger_count;
+      const currentLoad = load.total_load_kg;
       const candidateWeight = (selectedPassenger?.weight_kg || 65);
       const newTotalLoad = currentLoad + candidateWeight;
 
@@ -580,7 +571,7 @@
         blockReason = `Error: Max load capacity exceeded (${newTotalLoad.toFixed(1)} kg > ${boat.max_load_kg} kg).`;
       } else {
         // Check duplicate passenger on this trip
-        const isDuplicate = tripManifests.some(m => m.passenger_id === selectedPassenger.id);
+        const isDuplicate = load.manifests.some(m => m.passenger_id === selectedPassenger.id);
         if (isDuplicate) {
           blockReason = 'Error: This passenger is already manifested on this trip (duplicate boarding).';
         }
@@ -606,17 +597,13 @@
       const route = allRoutes.find(r => r.id === selectedTrip.route_id) || { fare: 100.00 };
 
       // Calculate current load + candidate
-      const tripManifests = allManifests.filter(m => m.trip_id === selectedTrip.id);
-      let loadSum = (selectedPassenger?.weight_kg || 65) + baggageKg;
-      tripManifests.forEach(m => {
-        const psg = allPassengers.find(p => p.id === m.passenger_id) || { weight_kg: 65 };
-        loadSum += (psg.weight_kg || 65) + (m.baggage_weight_kg || 0);
+      const load = loadService.computeTripLoad({
+        manifests: allManifests,
+        passengers: allPassengers,
+        bookings: allBookings,
+        tripId: selectedTrip.id
       });
-      allBookings.forEach(b => {
-        if (b.trip_id === selectedTrip.id && b.status === 'Approved' && b.booking_type === 'Cargo') {
-          loadSum += (b.cargo_weight_kg || 0);
-        }
-      });
+      const loadSum = load.total_load_kg + (selectedPassenger?.weight_kg || 65) + baggageKg;
 
       document.getElementById('loadSummaryBox').innerHTML = `
         <div><strong>Candidate Passenger Weight:</strong> ${selectedPassenger?.weight_kg || 65} kg</div>

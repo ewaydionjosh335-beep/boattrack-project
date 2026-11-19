@@ -1,6 +1,6 @@
 // js/services/weatherService.js
 export const weatherService = {
-  async fetchForTerminal(terminal) {
+  async fetchForTerminal(terminal, targetTime = null) {
     const cacheKey = 'weather_cache_' + terminal.id;
     try {
       const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
@@ -21,13 +21,13 @@ export const weatherService = {
     } finally {
       clearTimeout(timer);
     }
-    const record = buildRecord(terminal, source, data);
+    const record = buildRecord(terminal, source, data, targetTime);
     try { localStorage.setItem(cacheKey, JSON.stringify({ ...record, fetched_at: Date.now() })); } catch(e){}
     return record;
   }
 };
 
-function buildRecord(terminal, source, data) {
+function buildRecord(terminal, source, data, targetTime = null) {
   const now = new Date();
   const hourly = [];
   if (data && data.hourly) {
@@ -50,19 +50,29 @@ function buildRecord(terminal, source, data) {
     }
     source = source === 'Open-Meteo' ? 'Offline sample' : source;
   }
-  const first = hourly[0] || {};
+  // Find the hourly entry closest to targetTime (or now if not provided)
+  const target = targetTime ? new Date(targetTime).getTime() : now.getTime();
+  let best = hourly[0];
+  let bestDiff = Infinity;
+  for (const h of hourly) {
+    const diff = Math.abs(new Date(h.for_time).getTime() - target);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = h;
+    }
+  }
   return {
     terminal_id: terminal.id,
     source,
     fetched_at: now.toISOString(),
-    for_time: first.for_time || now.toISOString(),
-    temperature_c: first.temperature_c,
-    wind_speed_kmh: first.wind_speed_kmh,
-    wind_gust_kmh: first.wind_gust_kmh,
-    precipitation_probability: first.precipitation_probability,
-    precipitation_mm: first.precipitation_mm,
-    weather_code: first.weather_code,
-    visibility_m: first.visibility_m,
+    for_time: best.for_time,
+    temperature_c: best.temperature_c,
+    wind_speed_kmh: best.wind_speed_kmh,
+    wind_gust_kmh: best.wind_gust_kmh,
+    precipitation_probability: best.precipitation_probability,
+    precipitation_mm: best.precipitation_mm,
+    weather_code: best.weather_code,
+    visibility_m: best.visibility_m,
     hourly
   };
 }

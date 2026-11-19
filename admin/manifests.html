@@ -61,7 +61,7 @@
             <div class="val" id="statPaxCount">0 / 0</div>
           </div>
           <div class="stat-card" style="background:white; padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border);">
-            <h4>Total Load (Pax + Baggage)</h4>
+            <h4>Total Load (Pax + Baggage + Cargo)</h4>
             <div class="val" id="statTotalLoad">0 kg</div>
           </div>
           <div class="stat-card" style="background:white; padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--border);">
@@ -76,6 +76,7 @@
             <div id="loadProgressBar" style="background: var(--success); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
           </div>
           <div id="loadWarning" style="font-size: 0.85rem; margin-top: 0.375rem; font-weight: 600;"></div>
+          <div id="loadBreakdown" style="font-size: 0.8rem; margin-top: 0.25rem; color: var(--text-muted);"></div>
         </div>
 
         <div class="table-container">
@@ -108,6 +109,7 @@
     import { seedDatabase } from '/js/seed.js';
     import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
+    import { loadService } from '/js/services/loadService.js';
 
     await seedDatabase();
     const session = await auth.requireAuth(['administrator']);
@@ -118,6 +120,7 @@
     let allRoutes = [];
     let allTerminals = [];
     let allPassengers = [];
+    let allBookings = [];
     let currentManifests = [];
     let currentTrip = null;
     let currentBoat = null;
@@ -128,6 +131,7 @@
       allRoutes = await api.routes.list();
       allTerminals = await api.terminals.list();
       allPassengers = await api.passengers.list();
+      allBookings = await api.bookings.list();
 
       const tripSelect = document.getElementById('tripSelect');
       tripSelect.innerHTML = '<option value="">-- Select Trip --</option>' + allTrips.map(trip => {
@@ -168,8 +172,12 @@
       document.getElementById('noTripSelectedState').style.display = 'none';
       document.getElementById('manifestContentArea').style.display = 'block';
 
-      let totalPaxWeight = 0;
-      let totalBaggageWeight = 0;
+      const load = loadService.computeTripLoad({
+        manifests: currentManifests,
+        passengers: allPassengers,
+        bookings: allBookings,
+        tripId: currentTrip.id
+      });
 
       const tbody = document.getElementById('manifestTableBody');
       if (currentManifests.length === 0) {
@@ -177,8 +185,6 @@
       } else {
         tbody.innerHTML = currentManifests.map(m => {
           const psg = allPassengers.find(p => p.id === m.passenger_id) || { full_name: 'Guest Passenger', weight_kg: 65 };
-          totalPaxWeight += (psg.weight_kg || 65);
-          totalBaggageWeight += (m.baggage_weight_kg || 0);
 
           return `
             <tr>
@@ -193,8 +199,8 @@
         }).join('');
       }
 
-      const totalLoad = totalPaxWeight + totalBaggageWeight;
-      const paxCount = currentManifests.length;
+      const totalLoad = load.total_load_kg;
+      const paxCount = load.passenger_count;
       const maxPax = currentBoat.passenger_capacity;
       const maxLoad = currentBoat.max_load_kg;
 
@@ -220,6 +226,9 @@
         warningBox.style.color = 'var(--success)';
         warningBox.textContent = 'Weight load within safe operational limits.';
       }
+
+      document.getElementById('loadBreakdown').textContent =
+        `Passengers ${load.passenger_weight_kg.toFixed(1)} kg · Baggage ${load.baggage_weight_kg.toFixed(1)} kg · Cargo ${load.cargo_weight_kg.toFixed(1)} kg`;
     }
 
     document.getElementById('exportCsvBtn').onclick = () => {

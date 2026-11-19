@@ -74,9 +74,17 @@
             <label class="form-label">Terminal Name</label>
             <input type="text" id="termName" class="form-control" required placeholder="Binangonan Main Port">
           </div>
-          <div class="form-group">
+<div class="form-group">
             <label class="form-label">Location / Address</label>
             <input type="text" id="termLocation" class="form-control" required placeholder="Binangonan, Rizal">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Latitude</label>
+            <input type="number" step="any" id="termLat" class="form-control" placeholder="14.3950" title="Required for weather and risk assessment">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Longitude</label>
+            <input type="number" step="any" id="termLng" class="form-control" placeholder="121.1950" title="Required for weather and risk assessment">
           </div>
           <div class="form-group">
             <label class="form-label">Coast Guard Personnel Name</label>
@@ -146,11 +154,13 @@
     document.getElementById('closeModalBtn').onclick = closeModal;
     document.getElementById('cancelModalBtn').onclick = closeModal;
 
-    document.getElementById('openAddModalBtn').onclick = () => {
+document.getElementById('openAddModalBtn').onclick = () => {
       document.getElementById('modalTitle').textContent = 'Add Terminal';
       document.getElementById('editTermId').value = '';
       document.getElementById('termName').value = '';
       document.getElementById('termLocation').value = '';
+      document.getElementById('termLat').value = '';
+      document.getElementById('termLng').value = '';
       document.getElementById('termCoastGuard').value = '';
       document.getElementById('modalError').textContent = '';
       modal.style.display = 'flex';
@@ -163,6 +173,8 @@
       document.getElementById('editTermId').value = term.id;
       document.getElementById('termName').value = term.name;
       document.getElementById('termLocation').value = term.location;
+      document.getElementById('termLat').value = term.lat ?? '';
+      document.getElementById('termLng').value = term.lng ?? '';
       document.getElementById('termCoastGuard').value = term.coast_guard_personnel;
       document.getElementById('modalError').textContent = '';
       modal.style.display = 'flex';
@@ -182,21 +194,26 @@
       });
     };
 
-    document.getElementById('termForm').onsubmit = async (e) => {
+document.getElementById('termForm').onsubmit = async (e) => {
       e.preventDefault();
       const id = document.getElementById('editTermId').value;
       const name = document.getElementById('termName').value.trim();
       const location = document.getElementById('termLocation').value.trim();
+      const lat = document.getElementById('termLat').value.trim();
+      const lng = document.getElementById('termLng').value.trim();
       const coast_guard_personnel = document.getElementById('termCoastGuard').value.trim();
       const errBox = document.getElementById('modalError');
       errBox.textContent = '';
 
       try {
+        const data = { name, location, coast_guard_personnel };
+        if (lat) data.lat = lat;
+        if (lng) data.lng = lng;
         if (id) {
-          await api.terminals.update(id, { name, location, coast_guard_personnel });
+          await api.terminals.update(id, data);
           ui.showToast('Terminal updated successfully.', 'success');
         } else {
-          await api.terminals.create({ name, location, coast_guard_personnel });
+          await api.terminals.create(data);
           ui.showToast('Terminal created successfully.', 'success');
         }
         closeModal();

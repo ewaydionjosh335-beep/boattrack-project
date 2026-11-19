@@ -1,4 +1,4 @@
-﻿.btn {
+.btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -236,7 +236,7 @@ tr:last-child td {
   animation: slideIn 0.3s ease;
 }
 .toast.success { background: var(--success); }
-.toast.error { background: var(--danger); }
+.toast.error, .toast.danger { background: var(--danger); }
 .toast.warning { background: var(--warning); color: #212529; }
 
 @keyframes slideIn {

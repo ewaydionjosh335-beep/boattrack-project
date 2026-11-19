@@ -181,7 +181,7 @@
             <td>${origin} → <strong>${dest}</strong></td>
             <td>${timeStr}</td>
             <td>${t.required_passengers || 0} passengers</td>
-            <td><span class="badge badge-${t.trip_status.toLowerCase()}">${t.trip_status}</span></td>
+            <td><span class="badge badge-${t.trip_status.toLowerCase()}">${t.trip_status}</span>${t.trip_status === 'Held' && t.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${t.held_reason}</span>` : ''}</td>
             <td>
               <div class="table-actions">
                 <a href="/crew/passenger-list.html?trip_id=${t.id}" class="btn btn-outline btn-sm">Manifest</a>

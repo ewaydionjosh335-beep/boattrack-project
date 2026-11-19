@@ -90,7 +90,7 @@
                     <td><strong>${boat.name}</strong></td>
                     <td>${origin} → ${dest}</td>
                     <td>${new Date(t.departure_time).toLocaleString()}</td>
-                    <td><span class="badge badge-${t.trip_status.toLowerCase()}">${t.trip_status}</span></td>
+                    <td><span class="badge badge-${t.trip_status.toLowerCase()}">${t.trip_status}</span>${t.trip_status === 'Held' && t.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${t.held_reason}</span>` : ''}</td>
                     <td>${crew.length > 0 ? crew.map(c => c.full_name).join(', ') : '<span style="color:var(--text-muted);">No crew assigned</span>'}</td>
                 </tr>
             `;
