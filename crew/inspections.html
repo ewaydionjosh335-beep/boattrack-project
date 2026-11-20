@@ -125,7 +125,7 @@
       try {
         crewMember = await api.crewMembers.getByUser(session.user_id);
         boats = await api.boats.list();
-        assignedBoat = (crewMember ? boats.find(b => b.id === crewMember.boat_id) : null) || boats[0];
+        assignedBoat = crewMember ? boats.find(b => b.id === crewMember.boat_id) || null : null;
 
         allTrips = await api.trips.list();
         allRoutes = await api.routes.list();

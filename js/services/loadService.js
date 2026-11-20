@@ -8,7 +8,7 @@ export const DEFAULT_PASSENGER_WEIGHT_KG = 65;
 export const loadService = {
   approvedCargo(bookings, tripId) {
     return (bookings || []).filter(b =>
-      b.trip_id === tripId && b.status === 'Approved' && b.booking_type === 'Cargo');
+      b.trip_id === tripId && (b.status === 'Approved' || b.status === 'Paid') && b.booking_type === 'Cargo');
   },
 
   computeTripLoad({ manifests = [], passengers = [], bookings = [], tripId, defaultPassengerWeightKg = DEFAULT_PASSENGER_WEIGHT_KG }) {

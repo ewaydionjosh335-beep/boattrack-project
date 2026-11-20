@@ -3,6 +3,13 @@
  * FUTURE: Replace internal implementations with fetch() calls to Node/Express/Prisma backend.
  */
 
+// localStorage is per-origin: http://localhost:5500 and http://127.0.0.1:5500 keep
+// separate copies of the demo data, so a password/account saved in one looks "lost"
+// when the other is opened. Canonicalise to 127.0.0.1 so every tab shares one store.
+if (typeof location !== 'undefined' && location.hostname === 'localhost') {
+  location.replace(location.href.replace('//localhost', '//127.0.0.1'));
+}
+
 const STORAGE_KEYS = [
   'users', 'passengers', 'boats', 'boat_documents', 'terminals',
   'routes', 'trips', 'manifests', 'payments', 'bookings',
@@ -27,6 +34,58 @@ export const api = {
 
   _set(key, val) {
     localStorage.setItem(key, JSON.stringify(val));
+  },
+
+  // Keep the role-specific record in sync with its user account. Admins create and
+  // edit users directly, so without this a new passenger has no passengers row and
+  // a new crew member has no crew_members row.
+  _ensureRoleRecord(user, extra = {}) {
+    if (user.role === 'passenger') {
+      const passengers = api._get('passengers') || [];
+      let passenger = passengers.find(p => p.user_id === user.id);
+      if (passenger) {
+        passenger.full_name = user.full_name;
+      } else {
+        passenger = {
+          id: 'psg_' + Math.random().toString(36).substring(2, 9),
+          user_id: user.id,
+          full_name: user.full_name,
+          weight_kg: extra.weight_kg || 65,
+          created_at: new Date().toISOString()
+        };
+        passenger.qr_code = JSON.stringify({
+          passenger_id: passenger.id,
+          full_name: passenger.full_name,
+          weight_kg: passenger.weight_kg
+        });
+        passengers.push(passenger);
+      }
+      api._set('passengers', passengers);
+      return passenger;
+    }
+
+    if (user.role === 'crew') {
+      const members = api._get('crew_members') || [];
+      let member = members.find(m => m.user_id === user.id);
+      if (member) {
+        member.full_name = user.full_name;
+      } else {
+        member = {
+          id: 'cm_' + Math.random().toString(36).substring(2, 9),
+          user_id: user.id,
+          boat_id: extra.boat_id || null,
+          full_name: user.full_name,
+          role: 'Crew',
+          status: 'Active',
+          created_at: new Date().toISOString()
+        };
+        members.push(member);
+      }
+      api._set('crew_members', members);
+      return member;
+    }
+
+    return null;
   },
 
   // Ticket Number Generator Helper (unique and sequential per day, e.g., BT-20261017-0001)
@@ -80,7 +139,7 @@ export const api = {
   },
 
   // Amount Due Calculation Helper
-  _calculateAmountDue(tripId, bookingType, passengerCount, cargoWeightKg) {
+  _calculateAmountDue(tripId, bookingType, passengerCount, cargoWeightKg, discountType = 'Adult') {
     const settings = api._get('settings') || { cargo_rate_per_kg: 2.00 };
     const ratePerKg = settings.cargo_rate_per_kg !== undefined ? settings.cargo_rate_per_kg : 2.00;
 
@@ -90,16 +149,49 @@ export const api = {
     } else {
       const trips = api._get('trips') || [];
       const routes = api._get('routes') || [];
+      const boats = api._get('boats') || [];
       const trip = trips.find(t => t.id === tripId);
       let fare = 100.00;
+      let routeDiscountRates = null;
+      let boatDiscountRates = null;
       if (trip) {
         const route = routes.find(r => r.id === trip.route_id);
         if (route && route.fare) {
           fare = parseFloat(route.fare);
         }
+        if (route && route.discount_rates) {
+          routeDiscountRates = route.discount_rates;
+        }
+        const boat = boats.find(b => b.id === trip.boat_id);
+        if (boat && boat.discount_rates) {
+          boatDiscountRates = boat.discount_rates;
+        }
       }
       const count = parseInt(passengerCount) || 1;
-      return parseFloat((fare * count).toFixed(2));
+      const discountKey = {
+        'Senior': 'senior',
+        'Senior Citizen': 'senior',
+        'PWD': 'pwd',
+        'Student': 'student'
+      }[discountType];
+      
+      // Priority: boat override > route override > global settings
+      let discountRate = 0;
+      if (discountKey) {
+        if (boatDiscountRates && boatDiscountRates[discountKey] !== undefined) {
+          discountRate = boatDiscountRates[discountKey];
+        } else if (routeDiscountRates && routeDiscountRates[discountKey] !== undefined) {
+          discountRate = routeDiscountRates[discountKey];
+        } else {
+          const globalKey = {
+            'senior': 'discount_rate_senior',
+            'pwd': 'discount_rate_pwd',
+            'student': 'discount_rate_student'
+          }[discountKey];
+          discountRate = globalKey ? (settings[globalKey] ?? 20) : 0;
+        }
+      }
+      return parseFloat((fare * count * (100 - discountRate) / 100).toFixed(2));
     }
   },
 
@@ -157,6 +249,16 @@ export const api = {
         localStorage.removeItem('session');
         return null;
       }
+      const user = (api._get('users') || []).find(u => u.id === session.user_id);
+      if (!user || user.status !== 'Active') {
+        localStorage.removeItem('session');
+        return null;
+      }
+      if (session.role !== user.role || session.full_name !== user.full_name) {
+        session.role = user.role;
+        session.full_name = user.full_name;
+        api._set('session', session);
+      }
       return session;
     },
 
@@ -171,7 +273,7 @@ export const api = {
         full_name: userData.full_name,
         email: userData.email,
         username: userData.username,
-        password: userData.password || null,
+        password: null,
         password_hash: userData.password_hash,
         role: userData.role || 'passenger',
         status: 'Active',
@@ -180,28 +282,10 @@ export const api = {
       users.push(newUser);
       api._set('users', users);
 
-      if (newUser.role === 'passenger') {
-        const passengers = api._get('passengers') || [];
-        const passengerId = 'psg_' + Math.random().toString(36).substring(2, 9);
-        const qrPayload = JSON.stringify({
-          passenger_id: passengerId,
-          full_name: newUser.full_name,
-          weight_kg: userData.weight_kg || 65
-        });
-        const newPassenger = {
-          id: passengerId,
-          user_id: newUser.id,
-          full_name: newUser.full_name,
-          weight_kg: userData.weight_kg || 65,
-          qr_code: qrPayload,
-          created_at: new Date().toISOString()
-        };
-        passengers.push(newPassenger);
-        api._set('passengers', passengers);
-        return { user: newUser, passenger: newPassenger };
-      }
-
-      return { user: newUser };
+      const linked = api._ensureRoleRecord(newUser, userData);
+      return linked && newUser.role === 'passenger'
+        ? { user: newUser, passenger: linked }
+        : { user: newUser };
     }
   },
 
@@ -213,6 +297,7 @@ export const api = {
     },
     async create(data) {
       // FUTURE: POST /api/users
+      api._requireRole('administrator');
       const users = api._get('users') || [];
       if (users.some(u => u.email === data.email)) throw new Error('Email already exists.');
       if (users.some(u => u.username === data.username)) throw new Error('Username already exists.');
@@ -221,7 +306,7 @@ export const api = {
         full_name: data.full_name,
         email: data.email,
         username: data.username,
-        password: data.password || null,
+        password: null,
         password_hash: data.password_hash || 'hashed_default',
         role: data.role,
         status: data.status || 'Active',
@@ -231,6 +316,7 @@ export const api = {
       };
       users.push(newUser);
       api._set('users', users);
+      api._ensureRoleRecord(newUser, data);
       return newUser;
     },
     async update(id, data) {
@@ -238,15 +324,121 @@ export const api = {
       const users = api._get('users') || [];
       const idx = users.findIndex(u => u.id === id);
       if (idx === -1) throw new Error('User not found.');
-      users[idx] = { ...users[idx], ...data };
+      if (data.email && users.some(u => u.id !== id && u.email === data.email)) throw new Error('Email already exists.');
+      if (data.username && users.some(u => u.id !== id && u.username === data.username)) throw new Error('Username already exists.');
+
+      const session = api._get('session');
+      if (data.status === 'Suspended' && session && session.user_id === id) {
+        throw new Error('You cannot suspend your own account.');
+      }
+      const activeAdmins = users.filter(u => u.role === 'administrator' && u.status === 'Active');
+      const losingAdmin = users[idx].role === 'administrator' &&
+        ((data.role && data.role !== 'administrator') || data.status === 'Suspended');
+      if (losingAdmin && activeAdmins.length <= 1) {
+        throw new Error('Cannot remove or suspend the last active administrator.');
+      }
+
+      users[idx] = { ...users[idx], ...data, password: null };
       api._set('users', users);
+      api._ensureRoleRecord(users[idx], data);
       return users[idx];
     },
     async delete(id) {
       // FUTURE: DELETE /api/users/:id
-      let users = api._get('users') || [];
-      users = users.filter(u => u.id !== id);
-      api._set('users', users);
+      api._requireRole('administrator');
+      const users = api._get('users') || [];
+      const user = users.find(u => u.id === id);
+      if (!user) return false;
+
+      const session = api._get('session');
+      if (session && session.user_id === id) {
+        throw new Error('You cannot delete your own account.');
+      }
+      const activeAdmins = users.filter(u => u.role === 'administrator' && u.status === 'Active');
+      if (user.role === 'administrator' && activeAdmins.length <= 1) {
+        throw new Error('Cannot delete the last active administrator.');
+      }
+
+      // Detach the account from operational records, keeping history intact.
+      const boats = api._get('boats') || [];
+      let boatsChanged = false;
+      boats.forEach(b => {
+        if (b.owner_id === id) { b.owner_id = null; boatsChanged = true; }
+        if (b.operator_id === id) { b.operator_id = null; boatsChanged = true; }
+      });
+      if (boatsChanged) api._set('boats', boats);
+
+      const crewMembers = api._get('crew_members') || [];
+      const crewIds = crewMembers.filter(m => m.user_id === id).map(m => m.id);
+      if (crewIds.length) {
+        api._set('crew_members', crewMembers.filter(m => m.user_id !== id));
+
+        const attendance = api._get('crew_attendance') || [];
+        const keptAttendance = attendance.filter(a => !crewIds.includes(a.crew_member_id));
+        if (keptAttendance.length !== attendance.length) api._set('crew_attendance', keptAttendance);
+
+        const linkedApps = api._get('crew_applications') || [];
+        let linkedAppsChanged = false;
+        linkedApps.forEach(a => {
+          if (crewIds.includes(a.crew_member_id)) { a.crew_member_id = null; linkedAppsChanged = true; }
+        });
+        if (linkedAppsChanged) api._set('crew_applications', linkedApps);
+
+        const crewRemittances = api._get('remittances') || [];
+        let crewRemittancesChanged = false;
+        crewRemittances.forEach(r => {
+          if (crewIds.includes(r.received_by_crew_id)) { r.received_by_crew_id = null; crewRemittancesChanged = true; }
+        });
+        if (crewRemittancesChanged) api._set('remittances', crewRemittances);
+      }
+
+      const apps = api._get('crew_applications') || [];
+      const keptApps = apps.filter(a => a.applicant_user_id !== id);
+      if (keptApps.length !== apps.length) api._set('crew_applications', keptApps);
+
+      const alerts = api._get('alerts') || [];
+      let alertsChanged = false;
+      alerts.forEach(a => {
+        if (a.sent_by_user_id === id) { a.sent_by_user_id = null; alertsChanged = true; }
+        if (a.acknowledged_by === id) { a.acknowledged_by = null; alertsChanged = true; }
+      });
+      if (alertsChanged) api._set('alerts', alerts);
+
+      const payments = api._get('payments') || [];
+      let paymentsChanged = false;
+      payments.forEach(p => {
+        if (p.recorded_by === id) { p.recorded_by = null; paymentsChanged = true; }
+      });
+      if (paymentsChanged) api._set('payments', payments);
+
+      const remittances = api._get('remittances') || [];
+      let remittancesChanged = false;
+      remittances.forEach(r => {
+        if (r.recorded_by === id) { r.recorded_by = null; remittancesChanged = true; }
+      });
+      if (remittancesChanged) api._set('remittances', remittances);
+
+      // Keep passenger booking history; just detach the deleted login.
+      const passengers = api._get('passengers') || [];
+      let passengersChanged = false;
+      passengers.forEach(p => {
+        if (p.user_id === id) { p.user_id = null; passengersChanged = true; }
+      });
+      if (passengersChanged) api._set('passengers', passengers);
+
+      const notifications = api._get('notifications') || [];
+      const keptNotifs = notifications.filter(n => n.user_id !== id);
+      if (keptNotifs.length !== notifications.length) api._set('notifications', keptNotifs);
+
+      // Clean up trips created by this user - nullify created_by
+      const trips = api._get('trips') || [];
+      let tripsChanged = false;
+      trips.forEach(t => {
+        if (t.created_by === id) { t.created_by = null; tripsChanged = true; }
+      });
+      if (tripsChanged) api._set('trips', trips);
+
+      api._set('users', users.filter(u => u.id !== id));
       return true;
     }
   },
@@ -283,6 +475,13 @@ export const api = {
     async create(data) {
       // FUTURE: POST /api/boats
       const boats = api._get('boats') || [];
+      const passengerCapacity = parseInt(data.passenger_capacity) || 20;
+      const maxLoadKg = parseInt(data.max_load_kg) || 2000;
+      const avgPassengerWeightKg = 65; // DEFAULT_PASSENGER_WEIGHT_KG from loadService
+      const minRequiredLoadKg = passengerCapacity * avgPassengerWeightKg;
+      if (maxLoadKg < minRequiredLoadKg) {
+        throw new Error(`Max load (${maxLoadKg} kg) must be at least passenger capacity (${passengerCapacity}) × avg weight (${avgPassengerWeightKg} kg) = ${minRequiredLoadKg} kg.`);
+      }
       const newBoat = {
         id: 'boat_' + Math.random().toString(36).substring(2, 9),
         name: data.name,
@@ -299,6 +498,8 @@ export const api = {
         boat_status: data.boat_status || 'Active',
         submitted_at: data.submitted_at || null,
         resubmission_count: parseInt(data.resubmission_count) || 0,
+        home_terminal_id: data.home_terminal_id || null,
+        discount_rates: data.discount_rates || null,
         created_at: new Date().toISOString()
       };
       boats.push(newBoat);
@@ -307,9 +508,41 @@ export const api = {
     },
     async verify(id, data) {
       // FUTURE: PATCH /api/boats/:id/verify
+      api._requireRole('administrator');
       const boats = api._get('boats') || [];
       const idx = boats.findIndex(b => b.id === id);
       if (idx === -1) throw new Error('Boat not found.');
+
+      if (data.registration_status === 'Rejected' && !String(data.remarks || '').trim()) {
+        throw new Error('A reason is required when rejecting a boat registration.');
+      }
+
+      if (data.registration_status === 'Verified') {
+        const docs = (api._get('boat_documents') || []).filter(d => d.boat_id === id);
+        if (docs.length === 0) throw new Error('Cannot approve a boat with no submitted documents.');
+
+        // Validate required fields for approval
+        const boat = boats[idx];
+        if (!boat.boat_type || boat.boat_type.trim() === '') {
+          throw new Error('Boat type is required before approval.');
+        }
+        if (!boat.passenger_capacity || boat.passenger_capacity <= 0) {
+          throw new Error('Passenger capacity must be greater than 0.');
+        }
+        if (!boat.max_load_kg || boat.max_load_kg <= 0) {
+          throw new Error('Maximum load (kg) must be greater than 0.');
+        }
+        if (!boat.registration_type || boat.registration_type.trim() === '') {
+          throw new Error('Registration type (Franchised/Licensed) is required before approval.');
+        }
+
+        const operatorId = data.operator_id !== undefined ? data.operator_id : boats[idx].operator_id;
+        const operator = (api._get('users') || []).find(u => u.id === operatorId);
+        if (!operator || operator.role !== 'boat_operator' || operator.status !== 'Active') {
+          throw new Error('Assign an active boat operator before approving.');
+        }
+      }
+
       boats[idx] = {
         ...boats[idx],
         registration_status: data.registration_status,
@@ -317,7 +550,10 @@ export const api = {
         verified_by: data.verified_by,
         remarks: data.remarks || '',
         operator_id: data.operator_id !== undefined ? data.operator_id : boats[idx].operator_id,
-        boat_status: data.registration_status === 'Verified' ? 'Active' : boats[idx].boat_status
+        // Approving must not silently lift an existing suspension.
+        boat_status: data.registration_status === 'Verified' && boats[idx].boat_status !== 'Suspended'
+          ? 'Active'
+          : boats[idx].boat_status
       };
       api._set('boats', boats);
       return boats[idx];
@@ -331,22 +567,61 @@ export const api = {
       boats[idx].boat_status = boat_status;
       api._set('boats', boats);
 
+      const trips = api._get('trips') || [];
+      const manifests = api._get('manifests') || [];
+      const passengers = api._get('passengers') || [];
+      const notifs = api._get('notifications') || [];
+      let tripsChanged = false;
+      let notified = false;
+
+      const notify = (userId, message, link) => {
+        if (!userId) return;
+        notifs.push({ id: 'notif_' + Math.random().toString(36).substring(2, 9), user_id: userId, type: 'Trip', message, link, is_read: false, created_at: new Date().toISOString() });
+        notified = true;
+      };
+
       if (boat_status === 'Suspended') {
-        const trips = api._get('trips') || [];
-        let updated = false;
+        const holdReason = reason || 'Boat suspended';
         trips.forEach(t => {
           if (t.boat_id === id && t.trip_status === 'Scheduled') {
             t.trip_status = 'Held';
-            t.held_reason = reason || 'Boat suspended';
+            t.held_reason = holdReason;
+            // Marker so reactivation releases only trips this suspension held.
+            t.held_by_boat_suspension = true;
             t.updated_at = new Date().toISOString();
             t.approval_revision = (t.approval_revision || 0) + 1;
-            updated = true;
+            tripsChanged = true;
+
+            manifests.filter(m => m.trip_id === t.id).forEach(m => {
+              const p = passengers.find(x => x.id === m.passenger_id);
+              notify(p && p.user_id, `Your trip on ${boats[idx].name} has been placed on hold because the boat was suspended. Reason: ${holdReason}`, '/passenger/my-trips.html');
+            });
+            notify(boats[idx].operator_id, `Trip ${t.id} on ${boats[idx].name} has been placed on hold because the boat was suspended. Reason: ${holdReason}`, '/operator/trips.html');
           }
         });
-        if (updated) {
-          api._set('trips', trips);
-        }
+      } else if (boat_status === 'Active') {
+        // Reactivating releases only trips this suspension held; manually held
+        // trips (no marker) stay held for the manager to review.
+        trips.forEach(t => {
+          if (t.boat_id === id && t.trip_status === 'Held' && t.held_by_boat_suspension) {
+            t.trip_status = 'Scheduled';
+            t.held_reason = null;
+            t.held_by_boat_suspension = false;
+            t.updated_at = new Date().toISOString();
+            t.approval_revision = (t.approval_revision || 0) + 1;
+            tripsChanged = true;
+
+            manifests.filter(m => m.trip_id === t.id).forEach(m => {
+              const p = passengers.find(x => x.id === m.passenger_id);
+              notify(p && p.user_id, `Your trip on ${boats[idx].name} is scheduled again now that the boat is active.`, '/passenger/my-trips.html');
+            });
+            notify(boats[idx].operator_id, `Trip ${t.id} on ${boats[idx].name} is scheduled again — the boat is active.`, '/operator/trips.html');
+          }
+        });
       }
+
+      if (tripsChanged) api._set('trips', trips);
+      if (notified) api._set('notifications', notifs);
       return boats[idx];
     },
     async update(id, data) {
@@ -354,12 +629,21 @@ export const api = {
       const boats = api._get('boats') || [];
       const idx = boats.findIndex(b => b.id === id);
       if (idx === -1) throw new Error('Boat not found.');
+      const passengerCapacity = data.passenger_capacity !== undefined ? parseInt(data.passenger_capacity) : boats[idx].passenger_capacity;
+      const maxLoadKg = data.max_load_kg !== undefined ? parseInt(data.max_load_kg) : boats[idx].max_load_kg;
+      const avgPassengerWeightKg = 65;
+      const minRequiredLoadKg = passengerCapacity * avgPassengerWeightKg;
+      if (maxLoadKg < minRequiredLoadKg) {
+        throw new Error(`Max load (${maxLoadKg} kg) must be at least passenger capacity (${passengerCapacity}) × avg weight (${avgPassengerWeightKg} kg) = ${minRequiredLoadKg} kg.`);
+      }
       boats[idx] = {
         ...boats[idx],
         ...data,
         passenger_capacity: data.passenger_capacity !== undefined ? parseInt(data.passenger_capacity) : boats[idx].passenger_capacity,
         cargo_capacity: data.cargo_capacity !== undefined ? parseInt(data.cargo_capacity) : boats[idx].cargo_capacity,
         max_load_kg: data.max_load_kg !== undefined ? parseInt(data.max_load_kg) : boats[idx].max_load_kg,
+        home_terminal_id: data.home_terminal_id !== undefined ? data.home_terminal_id : boats[idx].home_terminal_id,
+        discount_rates: data.discount_rates !== undefined ? data.discount_rates : boats[idx].discount_rates,
         resubmission_count: data.resubmission_count !== undefined ? parseInt(data.resubmission_count) : (boats[idx].resubmission_count || 0)
       };
       api._set('boats', boats);
@@ -392,20 +676,44 @@ export const api = {
 
   // --- Terminals ---
   terminals: {
+    // Missing coordinates are allowed, but partial or out-of-range ones break Leaflet.
+    // Returns null to indicate "don't update coordinates", or {lat, lng} if both provided and valid.
+    _coords(lat, lng) {
+      const hasLat = lat !== undefined && lat !== null && String(lat).trim() !== '';
+      const hasLng = lng !== undefined && lng !== null && String(lng).trim() !== '';
+      if (!hasLat && !hasLng) return { lat: null, lng: null }; // Explicitly clear both
+      if (!hasLat || !hasLng) return null; // Partial - don't update
+      const latNum = parseFloat(lat);
+      const lngNum = parseFloat(lng);
+      if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
+        throw new Error('Latitude must be a number between -90 and 90.');
+      }
+      if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
+        throw new Error('Longitude must be a number between -180 and 180.');
+      }
+      return { lat: latNum, lng: lngNum };
+    },
     async list() {
       // FUTURE: GET /api/terminals
       return api._get('terminals') || [];
     },
+    async listBoats(terminalId) {
+      // FUTURE: GET /api/terminals/:id/boats
+      const boats = api._get('boats') || [];
+      return boats.filter(b => b.home_terminal_id === terminalId);
+    },
     async create(data) {
       // FUTURE: POST /api/terminals
+      api._requireRole('administrator');
       const terminals = api._get('terminals') || [];
+      const coords = api.terminals._coords(data.lat, data.lng);
       const newTerm = {
         id: 'term_' + Math.random().toString(36).substring(2, 9),
         name: data.name,
         location: data.location,
         coast_guard_personnel: data.coast_guard_personnel || 'PCG Officer',
-        lat: data.lat ? parseFloat(data.lat) : null,
-        lng: data.lng ? parseFloat(data.lng) : null
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null
       };
       terminals.push(newTerm);
       api._set('terminals', terminals);
@@ -413,18 +721,46 @@ export const api = {
     },
     async update(id, data) {
       // FUTURE: PUT /api/terminals/:id
+      api._requireRole('administrator');
       const terminals = api._get('terminals') || [];
       const idx = terminals.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Terminal not found.');
+      if (data.lat !== undefined || data.lng !== undefined) {
+        const coords = api.terminals._coords(data.lat, data.lng);
+        if (coords) {
+          data = { ...data, lat: coords.lat, lng: coords.lng };
+        } else {
+          // Partial coordinates provided - don't update them
+          delete data.lat;
+          delete data.lng;
+        }
+      }
       terminals[idx] = { ...terminals[idx], ...data };
       api._set('terminals', terminals);
       return terminals[idx];
     },
     async delete(id) {
       // FUTURE: DELETE /api/terminals/:id
+      api._requireRole('administrator');
       const routes = api._get('routes') || [];
-      if (routes.some(r => r.origin_terminal_id === id || r.destination_terminal_id === id)) {
+      const routeIds = routes
+        .filter(r => r.origin_terminal_id === id || r.destination_terminal_id === id)
+        .map(r => r.id);
+      if (routeIds.length > 0) {
         throw new Error('Cannot delete terminal associated with active routes.');
+      }
+      const trips = api._get('trips') || [];
+      if (trips.some(t => routeIds.includes(t.route_id))) {
+        throw new Error('Cannot delete terminal: trips are using routes that reference it.');
+      }
+      const manifests = api._get('manifests') || [];
+      const tripIds = trips.filter(t => routeIds.includes(t.route_id)).map(t => t.id);
+      if (manifests.some(m => tripIds.includes(m.trip_id))) {
+        throw new Error('Cannot delete terminal: manifests exist for trips using routes that reference it.');
+      }
+      const boats = api._get('boats') || [];
+      if (boats.some(b => b.home_terminal_id === id)) {
+        throw new Error('Cannot delete terminal: boats are assigned to it.');
       }
       let terminals = api._get('terminals') || [];
       terminals = terminals.filter(t => t.id !== id);
@@ -441,19 +777,30 @@ export const api = {
     },
     async create(data) {
       // FUTURE: POST /api/routes
+      api._requireRole('administrator');
       if (data.origin_terminal_id === data.destination_terminal_id) {
         throw new Error('Origin and destination terminals must be different.');
       }
+      const terminals = api._get('terminals') || [];
+      const originTerm = terminals.find(t => t.id === data.origin_terminal_id);
+      const destTerm = terminals.find(t => t.id === data.destination_terminal_id);
+      if (!originTerm) throw new Error('Origin terminal not found.');
+      if (!destTerm) throw new Error('Destination terminal not found.');
       const routes = api._get('routes') || [];
-      if (routes.some(r => r.origin_terminal_id === data.origin_terminal_id && r.destination_terminal_id === data.destination_terminal_id)) {
-        throw new Error('Route already exists.');
+      if (routes.some(r =>
+        (r.origin_terminal_id === data.origin_terminal_id && r.destination_terminal_id === data.destination_terminal_id) ||
+        (r.origin_terminal_id === data.destination_terminal_id && r.destination_terminal_id === data.origin_terminal_id)
+      )) {
+        throw new Error('Route already exists (including reverse direction).');
       }
       const newRoute = {
         id: 'rte_' + Math.random().toString(36).substring(2, 9),
         origin_terminal_id: data.origin_terminal_id,
         destination_terminal_id: data.destination_terminal_id,
+        route_type: data.route_type || 'Passenger',
         fare: parseFloat(data.fare) || 100.00,
-        est_duration_min: parseInt(data.est_duration_min) || 30
+        est_duration_min: parseInt(data.est_duration_min) || 30,
+        discount_rates: data.discount_rates || null
       };
       routes.push(newRoute);
       api._set('routes', routes);
@@ -461,15 +808,83 @@ export const api = {
     },
     async update(id, data) {
       // FUTURE: PUT /api/routes/:id
+      api._requireRole('administrator');
       const routes = api._get('routes') || [];
       const idx = routes.findIndex(r => r.id === id);
       if (idx === -1) throw new Error('Route not found.');
-      routes[idx] = { ...routes[idx], ...data, fare: parseFloat(data.fare) };
+      const origin = data.origin_terminal_id !== undefined ? data.origin_terminal_id : routes[idx].origin_terminal_id;
+      const destination = data.destination_terminal_id !== undefined ? data.destination_terminal_id : routes[idx].destination_terminal_id;
+      if (origin === destination) {
+        throw new Error('Origin and destination terminals must be different.');
+      }
+      // Validate terminals exist
+      const terminals = api._get('terminals') || [];
+      if (!terminals.find(t => t.id === origin)) throw new Error('Origin terminal not found.');
+      if (!terminals.find(t => t.id === destination)) throw new Error('Destination terminal not found.');
+      if (routes.some(r =>
+        r.id !== id && (
+          (r.origin_terminal_id === origin && r.destination_terminal_id === destination) ||
+          (r.origin_terminal_id === destination && r.destination_terminal_id === origin)
+        )
+      )) {
+        throw new Error('Route already exists (including reverse direction).');
+      }
+      const fare = data.fare !== undefined ? parseFloat(data.fare) : routes[idx].fare;
+      if (!Number.isFinite(fare) || fare <= 0) throw new Error('Fare must be a positive number.');
+      const validRouteTypes = ['Passenger', 'Cargo', 'Mixed'];
+      const routeType = data.route_type !== undefined ? data.route_type : routes[idx].route_type;
+      if (!validRouteTypes.includes(routeType)) {
+        throw new Error('Route type must be Passenger, Cargo, or Mixed.');
+      }
+      // If route_type is changing, validate against existing trips' boats
+      if (data.route_type !== undefined && data.route_type !== routes[idx].route_type) {
+        const trips = api._get('trips') || [];
+        const boats = api._get('boats') || [];
+        const affectedTrips = trips.filter(t => t.route_id === id && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived');
+        for (const trip of affectedTrips) {
+          const boat = boats.find(b => b.id === trip.boat_id);
+          if (boat) {
+            const boatType = boat.boat_type || 'Normal';
+            // Cargo boats can only go on Cargo or Mixed routes
+            if (boatType === 'Cargo' && routeType === 'Passenger') {
+              throw new Error(`Cannot change route to Passenger-only: trip ${trip.id} uses cargo boat "${boat.name}".`);
+            }
+            // Passenger-only boats (Normal) cannot go on Cargo-only routes
+            if (boatType === 'Normal' && routeType === 'Cargo') {
+              throw new Error(`Cannot change route to Cargo-only: trip ${trip.id} uses passenger boat "${boat.name}".`);
+            }
+            // Fast craft typically for passenger routes
+            if (boatType === 'Fast Craft' && routeType === 'Cargo') {
+              throw new Error(`Cannot change route to Cargo-only: trip ${trip.id} uses fast craft "${boat.name}".`);
+            }
+          }
+        }
+      }
+      // Validate discount_rates if provided
+      const discountRates = data.discount_rates !== undefined ? data.discount_rates : routes[idx].discount_rates;
+      if (discountRates !== null && discountRates !== undefined) {
+        const validKeys = ['senior', 'pwd', 'student'];
+        for (const key of Object.keys(discountRates)) {
+          if (!validKeys.includes(key)) {
+            throw new Error(`Invalid discount key: ${key}. Valid keys: senior, pwd, student`);
+          }
+          const val = discountRates[key];
+          if (typeof val !== 'number' || val < 0 || val > 100) {
+            throw new Error(`Discount rate for ${key} must be a number between 0 and 100.`);
+          }
+        }
+      }
+      routes[idx] = { ...routes[idx], ...data, origin_terminal_id: origin, destination_terminal_id: destination, route_type: routeType, discount_rates: discountRates, fare };
       api._set('routes', routes);
       return routes[idx];
     },
     async delete(id) {
       // FUTURE: DELETE /api/routes/:id
+      api._requireRole('administrator');
+      const trips = api._get('trips') || [];
+      if (trips.some(t => t.route_id === id)) {
+        throw new Error('Cannot delete route: trips are still using it.');
+      }
       let routes = api._get('routes') || [];
       routes = routes.filter(r => r.id !== id);
       api._set('routes', routes);
@@ -488,9 +903,8 @@ export const api = {
 
     const newTime = new Date(departureTime).getTime();
     if (isNaN(newTime)) throw new Error('Invalid departure time.');
-    // Same rule the booking API enforces: no trips scheduled in the past
-    // (one minute of clock skew tolerated).
-    if (newTime < Date.now() - 60 * 1000) throw new Error('Cannot schedule a trip in the past.');
+    // No trips scheduled in the past (matching booking validation).
+    if (newTime < Date.now()) throw new Error('Cannot schedule a trip in the past.');
 
     const trips = api._get('trips') || [];
     for (const t of trips) {
@@ -504,15 +918,52 @@ export const api = {
     }
   },
 
-  trips: {
+  _validateBoatRouteCompatibility(boatId, routeId) {
+    const boats = api._get('boats') || [];
+    const routes = api._get('routes') || [];
+    const boat = boats.find(b => b.id === boatId);
+    const route = routes.find(r => r.id === routeId);
+    if (!boat || !route) return; // Will be caught by other validation
+
+    const boatType = boat.boat_type || 'Normal';
+    const routeType = route.route_type || 'Passenger';
+
+    // Cargo boats can only go on Cargo or Mixed routes
+    if (boatType === 'Cargo' && routeType === 'Passenger') {
+      throw new Error(`Cargo boat "${boat.name}" cannot be assigned to a Passenger-only route.`);
+    }
+    // Passenger-only boats (Normal) cannot go on Cargo-only routes
+    if (boatType === 'Normal' && routeType === 'Cargo') {
+      throw new Error(`Passenger boat "${boat.name}" cannot be assigned to a Cargo-only route.`);
+    }
+    // Fast craft typically for passenger routes
+    if (boatType === 'Fast Craft' && routeType === 'Cargo') {
+      throw new Error(`Fast Craft "${boat.name}" cannot be assigned to a Cargo-only route.`);
+    }
+},
+  // --- Users & Accounts ---
+  users: {
     async list() {
-      // FUTURE: GET /api/trips
-      return api._get('trips') || [];
+      // FUTURE: GET /api/users
+      return api._get('users') || [];
+    },
+    async generateUniqueEmail(baseName) {
+      // FUTURE: POST /api/users/generate-email (atomic)
+      const users = api._get('users') || [];
+      const cleanBase = (baseName || 'crew').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let email = `${cleanBase}@boattrack.local`;
+      let counter = 1;
+      while (users.some(u => u.email === email)) {
+        counter++;
+        email = `${cleanBase}${counter}@boattrack.local`;
+      }
+      return email;
     },
     async create(data) {
       // FUTURE: POST /api/trips
       api._requireRole('port_manager');
       api._validateTrip(data.boat_id, data.departure_time);
+      api._validateBoatRouteCompatibility(data.boat_id, data.route_id);
       const boats = api._get('boats') || [];
       const boat = boats.find(b => b.id === data.boat_id);
       const requiredPassengers = parseInt(data.required_passengers) || 10;
@@ -529,6 +980,7 @@ export const api = {
         eta: data.eta || data.departure_time,
         trip_status: data.trip_status || 'Scheduled',
         held_reason: data.held_reason || null,
+        crew_member_ids: data.crew_member_ids || [],
         created_by: data.created_by || null,
         created_at: data.created_at || new Date().toISOString(),
         updated_at: data.updated_at || new Date().toISOString()
@@ -615,12 +1067,17 @@ export const api = {
       if (idx === -1) throw new Error('Trip not found.');
 
       const targetBoatId = data.boat_id !== undefined ? data.boat_id : trips[idx].boat_id;
+      const targetRouteId = data.route_id !== undefined ? data.route_id : trips[idx].route_id;
 
       if (data.boat_id !== undefined) {
         api._validateTrip(targetBoatId, trips[idx].departure_time, id);
       }
       if (data.departure_time !== undefined) {
         api._validateTrip(targetBoatId, data.departure_time, id);
+      }
+      // Validate boat-route compatibility if either changes
+      if (data.boat_id !== undefined || data.route_id !== undefined) {
+        api._validateBoatRouteCompatibility(targetBoatId, targetRouteId);
       }
       // Validate required_passengers against boat capacity
       if (data.required_passengers !== undefined) {
@@ -637,6 +1094,18 @@ export const api = {
         (data.route_id !== undefined && data.route_id !== trips[idx].route_id) ||
         (data.departure_time !== undefined && data.departure_time !== trips[idx].departure_time);
       if (scheduleChanged) trips[idx].approval_revision = (trips[idx].approval_revision || 0) + 1;
+
+      // Validate crew members belong to the boat if provided
+      if (data.crew_member_ids !== undefined) {
+        const crewMembers = api._get('crew_members') || [];
+        const validCrewIds = crewMembers
+          .filter(m => m.boat_id === targetBoatId && m.status === 'Active')
+          .map(m => m.id);
+        const invalidIds = data.crew_member_ids.filter(id => !validCrewIds.includes(id));
+        if (invalidIds.length > 0) {
+          throw new Error(`Invalid crew member(s) for this boat: ${invalidIds.join(', ')}`);
+        }
+      }
 
       trips[idx] = { ...trips[idx], ...data, updated_at: new Date().toISOString() };
       api._set('trips', trips);
@@ -749,6 +1218,29 @@ export const api = {
     async create(data) {
       // FUTURE: POST /api/manifests
       const manifests = api._get('manifests') || [];
+      const trips = api._get('trips') || [];
+      const trip = trips.find(t => t.id === data.trip_id);
+      if (!trip) throw new Error('Trip not found.');
+
+      // Require booking_id unless explicitly marked as walk-in
+      const isWalkIn = data.is_walk_in === true;
+      if (!isWalkIn && !data.booking_id) {
+        throw new Error('booking_id is required for non-walk-in manifests. Use is_walk_in: true for walk-in passengers.');
+      }
+
+      // If booking_id provided, validate it matches the trip
+      if (data.booking_id) {
+        const bookings = api._get('bookings') || [];
+        const booking = bookings.find(b => b.id === data.booking_id);
+        if (!booking) throw new Error('Booking not found.');
+        if (booking.trip_id !== data.trip_id) {
+          throw new Error('Booking does not belong to this trip.');
+        }
+        if (booking.status !== 'Approved' && booking.status !== 'Paid') {
+          throw new Error('Booking must be approved or paid to create manifest.');
+        }
+      }
+
       const newMan = {
         id: 'mnf_' + Math.random().toString(36).substring(2, 9),
         trip_id: data.trip_id,
@@ -759,6 +1251,7 @@ export const api = {
         fare: parseFloat(data.fare) || 100.00,
         baggage_weight_kg: parseFloat(data.baggage_weight_kg) || 0.0,
         booking_id: data.booking_id || null,
+        is_walk_in: isWalkIn,
         recorded_by: data.recorded_by || null,
         created_at: data.created_at || new Date().toISOString()
       };
@@ -900,6 +1393,10 @@ export const api = {
       // FUTURE: GET /api/bookings
       return api._get('bookings') || [];
     },
+    // Payment moves a booking from 'Approved' to 'Paid'; both are approved records.
+    isApproved(booking) {
+      return !!booking && (booking.status === 'Approved' || booking.status === 'Paid');
+    },
     async create(data) {
       // FUTURE: POST /api/bookings
       const trips = api._get('trips') || [];
@@ -907,6 +1404,10 @@ export const api = {
       if (!trip) throw new Error('Trip not found.');
       if (trip.trip_status !== 'Scheduled') throw new Error('Trip is not available for booking.');
       if (new Date(trip.departure_time) < new Date()) throw new Error('Cannot book past trips.');
+      const routes = api._get('routes') || [];
+      if (!routes.some(r => r.id === trip.route_id)) {
+        throw new Error('This trip has no valid route. Please contact the operator.');
+      }
 
       const bookings = api._get('bookings') || [];
       const duplicate = bookings.find(b => b.passenger_id === data.passenger_id && b.trip_id === data.trip_id && b.booking_type === data.booking_type && (b.status === 'Reviewing' || b.status === 'Approved'));
@@ -915,7 +1416,8 @@ export const api = {
       const bookingType = data.booking_type || 'Passenger';
       const passengerCount = parseInt(data.passenger_count) || 1;
       const cargoWeightKg = parseFloat(data.cargo_weight_kg) || 0;
-      const amountDue = api._calculateAmountDue(data.trip_id, bookingType, passengerCount, cargoWeightKg);
+      const discountType = data.discount_type || 'Adult';
+      const amountDue = api._calculateAmountDue(data.trip_id, bookingType, passengerCount, cargoWeightKg, discountType);
 
       const newBook = {
         id: 'bok_' + Math.random().toString(36).substring(2, 9),
@@ -924,6 +1426,7 @@ export const api = {
         booking_type: bookingType,
         passenger_count: passengerCount,
         cargo_weight_kg: cargoWeightKg,
+        discount_type: discountType,
         cargo_area_sqm: parseFloat(data.cargo_area_sqm) || 0,
         cargo_crowding: data.cargo_crowding || 'Low',
         notes: data.notes || '',
@@ -960,7 +1463,8 @@ export const api = {
         bookings[idx].trip_id,
         bookings[idx].booking_type,
         bookings[idx].passenger_count,
-        bookings[idx].cargo_weight_kg
+        bookings[idx].cargo_weight_kg,
+        bookings[idx].discount_type
       );
 
       bookings[idx] = {
@@ -1120,8 +1624,11 @@ export const api = {
     },
     async simulateMovement() {
       const trips = api._get('trips') || [];
-      const departedBoatIds = trips.filter(t=>t.trip_status==='Departed').map(t=>t.boat_id);
-      const boats = (api._get('boats') || []).filter(b=>departedBoatIds.includes(b.id));
+      // Move boats on Scheduled and Departed trips (not Held, Arrived, Cancelled)
+      const activeBoatIds = trips
+        .filter(t => t.trip_status === 'Scheduled' || t.trip_status === 'Departed')
+        .map(t => t.boat_id);
+      const boats = (api._get('boats') || []).filter(b => activeBoatIds.includes(b.id));
       const logs = api._get('gps_logs') || [];
       boats.forEach(boat => {
         // move proportionally not implemented; simple jitter toward destination
@@ -1141,10 +1648,36 @@ export const api = {
     async create(data) {
       // FUTURE: POST /api/alerts
       const alerts = api._get('alerts') || [];
+
+      // Auto-populate trip_id and boat_id from sender's current trip if not provided
+      let tripId = data.trip_id;
+      let boatId = data.boat_id;
+
+      if (!tripId || !boatId) {
+        const session = api._get('session');
+        if (session && session.user_id) {
+          // Check if sender is a crew member
+          const crewMembers = api._get('crew_members') || [];
+          const crewMember = crewMembers.find(m => m.user_id === session.user_id);
+          if (crewMember && crewMember.boat_id) {
+            // Find the active trip for this boat
+            const trips = api._get('trips') || [];
+            const activeTrip = trips.find(t =>
+              t.boat_id === crewMember.boat_id &&
+              (t.trip_status === 'Scheduled' || t.trip_status === 'Departed')
+            );
+            if (activeTrip) {
+              tripId = tripId || activeTrip.id;
+              boatId = boatId || activeTrip.boat_id;
+            }
+          }
+        }
+      }
+
       const newAlert = {
         id: 'alt_' + Math.random().toString(36).substring(2, 9),
-        trip_id: data.trip_id || null,
-        boat_id: data.boat_id || null,
+        trip_id: tripId || null,
+        boat_id: boatId || null,
         sent_by_user_id: data.sent_by_user_id || null,
         sender_role: data.sender_role || 'Crew',
         message: data.message || 'SOS Emergency Alert triggered!',
@@ -1162,8 +1695,9 @@ export const api = {
       const idx = alerts.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Alert not found.');
       if (alerts[idx].status === 'Acknowledged') throw new Error('Already acknowledged.');
+      const session = api._get('session');
       alerts[idx].status = 'Acknowledged';
-      alerts[idx].acknowledged_by = acknowledgedBy;
+      alerts[idx].acknowledged_by = acknowledgedBy || (session && session.user_id) || null;
       alerts[idx].acknowledged_at = new Date().toISOString();
       api._set('alerts', alerts);
       return alerts[idx];
@@ -1178,6 +1712,7 @@ export const api = {
     },
     async update(data) {
       // FUTURE: PUT /api/settings
+      api._requireRole('administrator');
       const current = api._get('settings') || { discount_rate_senior: 20, discount_rate_pwd: 20, discount_rate_student: 20, cargo_rate_per_kg: 2.00 };
       const updated = { ...current, ...data };
       api._set('settings', updated);
@@ -1199,6 +1734,20 @@ export const api = {
     async create(data) {
       // FUTURE: POST /api/crew_applications
       const apps = api._get('crew_applications') || [];
+      
+      // Validate boat if provided
+      if (data.boat_id) {
+        const boats = api._get('boats') || [];
+        const boat = boats.find(b => b.id === data.boat_id);
+        if (!boat) throw new Error('Boat not found.');
+        if (boat.registration_status !== 'Verified') {
+          throw new Error(`Cannot apply to boat "${boat.name}": registration is ${boat.registration_status}. Only Verified boats can accept crew.`);
+        }
+        if (boat.boat_status !== 'Active') {
+          throw new Error(`Cannot apply to boat "${boat.name}": boat is ${boat.boat_status}. Only Active boats can accept crew.`);
+        }
+      }
+      
       const newApp = {
         id: 'capp_' + Math.random().toString(36).substring(2, 9),
         applicant_user_id: data.applicant_user_id || null,
@@ -1220,6 +1769,22 @@ export const api = {
       const apps = api._get('crew_applications') || [];
       const idx = apps.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Crew application not found.');
+      
+      // Validate boat_id if being changed
+      if (data.boat_id !== undefined && data.boat_id !== apps[idx].boat_id) {
+        if (data.boat_id) {
+          const boats = api._get('boats') || [];
+          const boat = boats.find(b => b.id === data.boat_id);
+          if (!boat) throw new Error('Boat not found.');
+          if (boat.registration_status !== 'Verified') {
+            throw new Error(`Cannot assign to boat "${boat.name}": registration is ${boat.registration_status}. Only Verified boats can accept crew.`);
+          }
+          if (boat.boat_status !== 'Active') {
+            throw new Error(`Cannot assign to boat "${boat.name}": boat is ${boat.boat_status}. Only Active boats can accept crew.`);
+          }
+        }
+      }
+      
       apps[idx] = { ...apps[idx], ...data, updated_at: new Date().toISOString() };
       api._set('crew_applications', apps);
       return apps[idx];
@@ -1242,24 +1807,39 @@ export const api = {
     },
     async verifyAndProvision(id, data = {}) {
       // FUTURE: POST /api/crew_applications/:id/verify
+      api._requireRole('administrator');
       const apps = api._get('crew_applications') || [];
       const idx = apps.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Crew application not found.');
       const app = apps[idx];
+      if (app.stage !== 'Pending Admin Verification') {
+        throw new Error('Crew application is not awaiting admin verification.');
+      }
 
+      const { hashPassword } = await import('./auth.js');
       let userId = app.applicant_user_id;
-      if (!userId) {
+      if (userId) {
+        // Reuse the applicant's existing login, but promote it: otherwise they keep
+        // their old role and cannot enter /crew/. Apply the email/username the admin
+        // edited in the provisioning form instead of silently ignoring them.
+        const updates = {
+          role: 'crew',
+          must_change_password: true,
+          password_hash: await hashPassword(data.password || '123')
+        };
+        if (data.email) updates.email = data.email;
+        if (data.username) updates.username = data.username;
+        await api.users.update(userId, updates);
+      } else {
         const email = data.email || `${app.full_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@boattrack.local`;
         const username = data.username || `crew_${Math.random().toString(36).substring(2, 7)}`;
         const password = data.password || '123';
         // Store a real hash: login and change-password compare hashes only, so a
         // plaintext value here would lock the crew member out of the forced change.
-        const { hashPassword } = await import('./auth.js');
         const newUser = await api.users.create({
           full_name: app.full_name,
           email,
           username,
-          password,
           password_hash: await hashPassword(password),
           role: 'crew',
           must_change_password: true
@@ -1267,19 +1847,28 @@ export const api = {
         userId = newUser.id;
       }
 
-      const newCrewMember = await api.crewMembers.create({
-        user_id: userId,
+      const crewData = {
         boat_id: app.boat_id,
         full_name: app.full_name,
         role: data.role || 'Crew',
         status: 'Active'
-      });
+      };
+      const members = api._get('crew_members') || [];
+      let crewMember = members.find(m => m.user_id === userId);
+      if (crewMember) {
+        crewMember = { ...crewMember, ...crewData };
+        const idx = members.findIndex(m => m.id === crewMember.id);
+        members[idx] = crewMember;
+        api._set('crew_members', members);
+      } else {
+        crewMember = await api.crewMembers.create({ user_id: userId, ...crewData });
+      }
 
       apps[idx] = {
         ...app,
         stage: 'Accepted',
         applicant_user_id: userId,
-        crew_member_id: newCrewMember.id,
+        crew_member_id: crewMember.id,
         decided_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -1448,6 +2037,6 @@ export const api = {
       localStorage.removeItem('session');
       throw new Error('Session expired. Please log in again.');
     }
-    if (s.role !== role) throw new Error('Forbidden: ' + role + ' only.');
+    if (s.role !== role && s.role !== 'administrator') throw new Error('Forbidden: ' + role + ' only.');
   }
 };

@@ -139,7 +139,7 @@
 
     const crewMember = await api.crewMembers.getByUser(session.user_id);
     const boats = await api.boats.list();
-    const assignedBoat = (crewMember ? boats.find(b => b.id === crewMember.boat_id) : null) || boats[0];
+    const assignedBoat = crewMember ? boats.find(b => b.id === crewMember.boat_id) || null : null;
 
     const boatInfoCard = document.getElementById('boatInfoCard');
     if (!assignedBoat) {

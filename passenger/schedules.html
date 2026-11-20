@@ -136,7 +136,7 @@
         const dest = terminals.find(term => term.id === route.destination_terminal_id);
         
         const tripManifests = manifests.filter(m => m.trip_id === t.id);
-        const tripBookings = bookings.filter(b => b.trip_id === t.id && b.status === 'Approved');
+        const tripBookings = bookings.filter(b => b.trip_id === t.id && api.bookings.isApproved(b));
         const bookedCount = tripManifests.length + tripBookings.reduce((sum, b) => sum + b.passenger_count, 0);
         const seatsRemaining = (boat ? boat.passenger_capacity : 0) - bookedCount;
 

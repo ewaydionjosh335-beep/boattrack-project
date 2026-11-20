@@ -296,7 +296,7 @@
               <th>Boat & Operator</th>
               <th>Route</th>
               <th>Departure Time</th>
-              <th>Pax (Booked / Req)</th>
+              <th style="text-align: center;">Pax (Booked / Req)</th>
               <th>Status / Reason</th>
               <th>Actions</th>
             </tr>
@@ -344,7 +344,7 @@
                    </td>
                    <td>${esc(origin)} → ${esc(dest)}</td>
                    <td>${timeStr}</td>
-                   <td>${mCount} / ${t.required_passengers}</td>
+                   <td style="text-align: center;">${mCount} / ${t.required_passengers}</td>
                    <td>
                      <span class="badge ${badgeClass}">${esc(t.trip_status)}</span>
                      ${t.trip_status === 'Held' && t.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${esc(t.held_reason)}</span>` : ''}

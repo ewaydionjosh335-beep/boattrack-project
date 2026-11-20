@@ -241,7 +241,7 @@
       // Also add cargo weight from approved bookings for this trip
       let cargoWeightSum = 0;
       allBookings.forEach(b => {
-        if (b.trip_id === tripId && b.status === 'Approved' && b.booking_type === 'Cargo') {
+        if (b.trip_id === tripId && api.bookings.isApproved(b) && b.booking_type === 'Cargo') {
           cargoWeightSum += (b.cargo_weight_kg || 0);
         }
       });

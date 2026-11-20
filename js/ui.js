@@ -13,6 +13,13 @@ export const ui = {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   },
 
+  // Escape untrusted values before inserting them into innerHTML.
+  escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  },
+
   showToast(message, type = 'info') {
     let container = document.querySelector('.toast-container');
     if (!container) {
@@ -30,6 +37,60 @@ export const ui = {
     }, 3500);
   },
 
+  // Escape/backdrop close, focus trap and focus restore for a .modal-backdrop.
+  // Call open() instead of setting display directly so keyboard handling is wired up.
+  modal(backdrop, { onClose } = {}) {
+    const modalEl = backdrop.querySelector('.modal');
+    const focusables = () => Array.from(backdrop.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ));
+    let lastFocused = null;
+
+    const close = () => {
+      if (backdrop.style.display === 'none') return;
+      backdrop.style.display = 'none';
+      document.removeEventListener('keydown', onKey);
+      if (lastFocused) lastFocused.focus();
+      if (onClose) onClose();
+    };
+
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key !== 'Tab' || !modalEl) return;
+      const items = focusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    backdrop.addEventListener('mousedown', (e) => {
+      if (e.target === backdrop) close();
+    });
+
+    return {
+      open() {
+        lastFocused = document.activeElement;
+        backdrop.setAttribute('role', 'dialog');
+        backdrop.setAttribute('aria-modal', 'true');
+        backdrop.style.display = 'flex';
+        document.addEventListener('keydown', onKey);
+        requestAnimationFrame(() => (focusables()[0] || modalEl)?.focus());
+      },
+      close
+    };
+  },
+
   confirm(message, onConfirm) {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
@@ -39,7 +100,7 @@ export const ui = {
           <h3>Confirm Action</h3>
         </div>
         <div class="modal-body">
-          <p>${message}</p>
+          <p></p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" id="cancelModal">Cancel</button>
@@ -47,12 +108,15 @@ export const ui = {
         </div>
       </div>
     `;
+    backdrop.querySelector('.modal-body p').textContent = message;
     document.body.appendChild(backdrop);
-    backdrop.querySelector('#cancelModal').onclick = () => backdrop.remove();
+    const dialog = ui.modal(backdrop, { onClose: () => backdrop.remove() });
+    backdrop.querySelector('#cancelModal').onclick = () => dialog.close();
     backdrop.querySelector('#confirmModal').onclick = () => {
-      backdrop.remove();
-      onConfirm();
+      dialog.close();
+      Promise.resolve(onConfirm()).catch(err => ui.showToast(err.message || 'Action failed.', 'error'));
     };
+    dialog.open();
   },
 
   exportToCSV(filename, rows) {
@@ -61,8 +125,7 @@ export const ui = {
       return;
     }
     const keys = Object.keys(rows[0]);
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += keys.join(',') + '\r\n';
+    const lines = [keys.join(',')];
 
     rows.forEach(row => {
       const line = keys.map(key => {
@@ -70,15 +133,18 @@ export const ui = {
         val = String(val).replace(/"/g, '""');
         return `"${val}"`;
       }).join(',');
-      csvContent += line + '\r\n';
+      lines.push(line);
     });
 
-    const encodedUri = encodeURI(csvContent);
+    // Blob download: data: URLs hit browser URL-length limits on large exports.
+    const blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
+    link.href = url;
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 };

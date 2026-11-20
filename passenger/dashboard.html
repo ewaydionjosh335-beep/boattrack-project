@@ -146,12 +146,12 @@
       const myBookings = allBookings.filter(b => b.passenger_id === passenger.id);
       document.getElementById('reviewingCount').textContent = myBookings.filter(b => b.status === 'Reviewing').length;
       document.getElementById('approvedUnpaidCount').textContent = myBookings.filter(b => b.status === 'Approved' && b.amount_due > 0).length; // Simplified
-      document.getElementById('approvedPaidCount').textContent = myBookings.filter(b => b.status === 'Approved' && b.amount_due <= 0).length; // Placeholder logic
+      document.getElementById('approvedPaidCount').textContent = myBookings.filter(b => b.status === 'Paid').length;
 
       // Next Trip
       const myManifests = manifests.filter(m => m.passenger_id === passenger.id);
       const upcomingManifestTrips = allTrips.filter(t => myManifests.some(m => m.trip_id === t.id) && new Date(t.departure_time) > new Date());
-      const paidBookingsTrips = allTrips.filter(t => myBookings.some(b => b.trip_id === t.id && b.status === 'Approved') && new Date(t.departure_time) > new Date());
+      const paidBookingsTrips = allTrips.filter(t => myBookings.some(b => b.trip_id === t.id && api.bookings.isApproved(b)) && new Date(t.departure_time) > new Date());
       
       const allUpcoming = [...upcomingManifestTrips, ...paidBookingsTrips].sort((a,b) => new Date(a.departure_time) - new Date(b.departure_time));
       

@@ -615,7 +615,7 @@
       const approvedBooking = allBookings.find(b => 
         b.passenger_id === selectedPassenger.id && 
         b.trip_id === selectedTrip.id && 
-        b.status === 'Approved'
+        api.bookings.isApproved(b)
       );
 
       const privNotice = document.getElementById('privateBookingNotice');

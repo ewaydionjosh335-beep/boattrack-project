@@ -11,11 +11,13 @@ const TERMINAL_COORDS = {
 
 export async function seedDatabase(force = false) {
   const existingUsers = api._get('users');
-  const existingTrips = api._get('trips');
-  const existingBoats = api._get('boats');
-  const existingCrew = api._get('crew_members');
   const COMMON_HASH = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
-  if (!force && existingUsers && existingUsers.length > 0 && existingTrips && existingTrips.length > 0 && existingBoats && existingBoats.length > 0 && existingCrew && existingCrew.length > 0) {
+  // "Wipe Data (Keep Accounts)" leaves users behind with no trips/boats/crew, so the
+  // old guard re-seeded everything and overwrote them on the next page. The marker makes
+  // an intentional wipe stick; existing installs are treated as already seeded.
+  const alreadySeeded = api._get('seeded') || (existingUsers && existingUsers.length > 0);
+  if (!force && alreadySeeded) {
+    if (!api._get('seeded')) api._set('seeded', true);
     // Existing accounts keep their stored credentials: every seed run used to reset
     // password_hash to the demo hash, which undid any password the user had changed.
 
@@ -31,6 +33,21 @@ export async function seedDatabase(force = false) {
       }
     });
     if (terminalsChanged) api._set('terminals', existingTerminals);
+
+    // Older seeds stored plaintext passwords; login only needs the hash.
+    let usersChanged = false;
+    (existingUsers || []).forEach(u => {
+      if (u.password) {
+        u.password = null;
+        usersChanged = true;
+      }
+      // Older seeds used the longer default admin name.
+      if (u.full_name === 'System Administrator') {
+        u.full_name = 'Administrator';
+        usersChanged = true;
+      }
+    });
+    if (usersChanged) api._set('users', existingUsers);
     return;
   }
 
@@ -43,10 +60,10 @@ export async function seedDatabase(force = false) {
   const users = [
     {
       id: 'usr_admin',
-      full_name: 'System Administrator',
+      full_name: 'Administrator',
       email: 'admin@boattrack.local',
       username: 'admin',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'administrator',
       status: 'Active',
@@ -57,7 +74,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Port Manager Juan',
       email: 'manager@boattrack.local',
       username: 'manager',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'port_manager',
       status: 'Active',
@@ -68,7 +85,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Receptionist Maria',
       email: 'receptionist@boattrack.local',
       username: 'receptionist',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'receptionist',
       status: 'Active',
@@ -79,7 +96,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Capt. Roberto Santos',
       email: 'owner1@boattrack.local',
       username: 'roberto',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'boat_owner',
       status: 'Active',
@@ -90,7 +107,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Operator Nestor Cruz',
       email: 'operator1@boattrack.local',
       username: 'nestor',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'boat_operator',
       status: 'Active',
@@ -101,7 +118,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Crew Dante Reyes',
       email: 'crew1@boattrack.local',
       username: 'dante',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'crew',
       status: 'Active',
@@ -112,7 +129,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Angelica Dela Cruz',
       email: 'passenger@boattrack.local',
       username: 'angelica',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -124,7 +141,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Carlos Roxas',
       email: 'carlos@boattrack.local',
       username: 'pax_review',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -135,7 +152,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Elena Blanco',
       email: 'elena@boattrack.local',
       username: 'pax_unpaid',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -146,7 +163,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Marco Alcantara',
       email: 'marco@boattrack.local',
       username: 'pax_paid',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -157,7 +174,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Diana Cargo',
       email: 'diana@boattrack.local',
       username: 'pax_cargo',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -168,7 +185,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Felipe Rejected',
       email: 'felipe@boattrack.local',
       username: 'pax_rejected',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -179,7 +196,7 @@ export async function seedDatabase(force = false) {
       full_name: 'Grace Cancelled',
       email: 'grace@boattrack.local',
       username: 'pax_cancelled',
-      password: '123',
+      password: null,
       password_hash: COMMON_HASH,
       role: 'passenger',
       status: 'Active',
@@ -305,7 +322,7 @@ export async function seedDatabase(force = false) {
       boat_type: 'Normal',
       registration_type: 'Franchised',
       registration_status: 'Verified',
-      verified_by: 'System Administrator',
+      verified_by: 'usr_admin',
       remarks: 'All safety gear and life jackets verified.',
       passenger_capacity: 45,
       cargo_capacity: 800,
@@ -319,9 +336,9 @@ export async function seedDatabase(force = false) {
       owner_id: 'usr_owner1',
       operator_id: 'usr_oper1',
       boat_type: 'Cargo',
-      registration_type: 'Licensed',
+      registration_type: 'Franchised',
       registration_status: 'Verified',
-      verified_by: 'System Administrator',
+      verified_by: 'usr_admin',
       remarks: 'Cargo hold and outriggers inspected.',
       passenger_capacity: 30,
       cargo_capacity: 1500,
@@ -337,16 +354,42 @@ export async function seedDatabase(force = false) {
       boat_type: 'Normal',
       registration_type: 'Franchised',
       registration_status: 'Verified',
-      verified_by: 'System Administrator',
+      verified_by: 'usr_admin',
       remarks: 'Verified for inter-island passenger transport.',
       passenger_capacity: 40,
       cargo_capacity: 600,
       max_load_kg: 3000,
       boat_status: 'Active',
       created_at: new Date().toISOString()
+    },
+    {
+      id: 'boat_4',
+      name: 'M/B Talim Breeze',
+      owner_id: 'usr_owner1',
+      operator_id: null,
+      boat_type: 'Normal',
+      registration_type: null,
+      registration_status: 'Pending',
+      verified_by: null,
+      remarks: 'Awaiting MARINA permit verification.',
+      passenger_capacity: 35,
+      cargo_capacity: 500,
+      max_load_kg: 2800,
+      boat_status: 'Active',
+      submitted_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
     }
   ];
   api._set('boats', boats);
+
+  const boatDocuments = [
+    { id: 'doc_1', boat_id: 'boat_1', doc_type: 'MARINA Permit', file_name: 'marina_permit_sto_nino.pdf', uploaded_at: new Date().toISOString() },
+    { id: 'doc_2', boat_id: 'boat_2', doc_type: 'MARINA Permit', file_name: 'marina_permit_laguna_star.pdf', uploaded_at: new Date().toISOString() },
+    { id: 'doc_3', boat_id: 'boat_3', doc_type: 'MARINA Permit', file_name: 'marina_permit_lake_voyager.pdf', uploaded_at: new Date().toISOString() },
+    { id: 'doc_4', boat_id: 'boat_4', doc_type: 'MARINA Permit', file_name: 'marina_permit_talim_breeze.pdf', uploaded_at: new Date().toISOString() },
+    { id: 'doc_5', boat_id: 'boat_4', doc_type: 'Safety Certificate', file_name: 'safety_certificate_talim_breeze.pdf', uploaded_at: new Date().toISOString() }
+  ];
+  api._set('boat_documents', boatDocuments);
 
   // Local calendar dates: toISOString() is UTC, so between 00:00 and 08:00 PHT the
   // seeded "today" trips landed on yesterday and the dashboard looked empty.
@@ -513,6 +556,36 @@ export async function seedDatabase(force = false) {
     }
   ];
   api._set('crew_members', crewMembers);
+
+  const crewApplications = [
+    {
+      id: 'capp_1',
+      applicant_user_id: null,
+      full_name: 'Rico Delgado',
+      contact: '0917 555 0142',
+      boat_id: 'boat_1',
+      stage: 'Pending Admin Verification',
+      decided_at: null,
+      crew_member_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+  ];
+  api._set('crew_applications', crewApplications);
+
+  const crewAttendance = [
+    {
+      id: 'att_1',
+      crew_member_id: 'cm_1',
+      date: todayStr,
+      time_in: `${todayStr}T05:45:00`,
+      time_out: null,
+      status: 'Present',
+      remarks: '',
+      created_at: new Date().toISOString()
+    }
+  ];
+  api._set('crew_attendance', crewAttendance);
 
   const payments = [
     {
@@ -909,4 +982,5 @@ export async function seedDatabase(force = false) {
     }
   ];
   api._set('inspections', inspections);
+  api._set('seeded', true);
 }

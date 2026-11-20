@@ -72,6 +72,15 @@
               <label class="form-label">Number of Passengers</label>
               <input type="number" id="passCount" class="form-control" value="1" min="1">
             </div>
+            <div class="form-group">
+              <label class="form-label">Passenger Type</label>
+              <select id="discountType" class="form-control">
+                <option value="Adult" selected>Adult (Regular Fare)</option>
+                <option value="Senior">Senior Citizen</option>
+                <option value="PWD">PWD</option>
+                <option value="Student">Student</option>
+              </select>
+            </div>
           </div>
 
           <div id="cargoFields" style="display: none;">
@@ -104,7 +113,7 @@
 
           <div style="background: var(--bg-main); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem;">
             <strong>Estimated Amount Due: ₱<span id="amountDue">0.00</span></strong>
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Fare discounts (Senior/PWD/Student) are applied at the port after ID verification by the Receptionist.</p>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Discounted fares require a valid Senior/PWD/Student ID at boarding.</p>
           </div>
           
           <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Booking Request</button>
@@ -132,8 +141,9 @@
     trips.filter(t => t.trip_status === 'Scheduled' && new Date(t.departure_time) > new Date()).forEach(t => {
       const boat = boats.find(b => b.id === t.boat_id);
       const route = routes.find(r => r.id === t.route_id);
-      const orig = terminals.find(term => term.id === route.origin_terminal_id);
-      const dest = terminals.find(term => term.id === route.destination_terminal_id);
+      const orig = route ? terminals.find(term => term.id === route.origin_terminal_id) : null;
+      const dest = route ? terminals.find(term => term.id === route.destination_terminal_id) : null;
+      if (!boat || !orig || !dest) return;
       const option = document.createElement('option');
       option.value = t.id;
       option.textContent = `${boat.name} - ${orig.name} to ${dest.name} (${new Date(t.departure_time).toLocaleString()})`;
@@ -158,13 +168,15 @@
         tripSelect.value, 
         typeSelect.value, 
         document.getElementById('passCount').value, 
-        document.getElementById('cargoWeight').value
+        document.getElementById('cargoWeight').value,
+        document.getElementById('discountType').value
       );
       document.getElementById('amountDue').textContent = amount.toFixed(2);
     }
     tripSelect.onchange = updateAmount;
     document.getElementById('passCount').oninput = updateAmount;
     document.getElementById('cargoWeight').oninput = updateAmount;
+    document.getElementById('discountType').onchange = updateAmount;
     updateAmount();
 
     document.getElementById('bookForm').onsubmit = async (e) => {
@@ -176,6 +188,7 @@
           booking_type: typeSelect.value,
           passenger_count: document.getElementById('passCount').value,
           cargo_weight_kg: document.getElementById('cargoWeight').value,
+          discount_type: document.getElementById('discountType').value,
           cargo_area_sqm: document.getElementById('cargoArea').value,
           cargo_crowding: document.getElementById('cargoCrowding').value,
           notes: document.getElementById('notes').value

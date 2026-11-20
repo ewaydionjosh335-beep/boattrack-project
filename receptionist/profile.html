@@ -92,7 +92,7 @@
       document.getElementById('fullNameInput').value = currentUser.full_name || '';
       document.getElementById('contactInput').value = currentUser.contact || '';
       document.getElementById('emailInput').value = currentUser.email || '';
-      document.getElementById('currentPassInput').value = currentUser.password || '123';
+      document.getElementById('currentPassInput').value = '';
     }
 
     document.getElementById('toggleCurrentPassBtn').onclick = () => {
@@ -128,8 +128,8 @@
       try {
         if (!newPass) throw new Error('Password cannot be empty.');
         const newHash = await hashPassword(newPass);
-        await api.users.update(session.user_id, { password_hash: newHash, password: newPass });
-        currentUser.password = newPass;
+        await api.users.update(session.user_id, { password: null, password_hash: newHash });
+        currentUser.password = null;
         currentUser.password_hash = newHash;
         ui.showToast('Password updated successfully!', 'success');
       } catch (err) {
