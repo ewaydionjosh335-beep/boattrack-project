@@ -151,25 +151,15 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
-      import { adminLogout } from "/admin/common.js";
+      import { initAdminPage } from "/admin/init.js";
+import { handleApiError, handleApiSuccess } from "/admin/common.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
+      import { initDashboardMap, refreshMap, simulateGpsMovement } from "/admin/dashboardMap.js";
 
-      // Load Leaflet dynamically - using local ES module wrapper
-      import L from "/js/lib/leaflet.mjs";
-
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "dashboard",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "dashboard" });
 
       document.getElementById("adminName").textContent =
         session.full_name || "Administrator";
@@ -206,129 +196,47 @@
             (b) => api.bookings.isApproved(b),
           ).length;
         } catch (err) {
-          console.error("Failed to refresh dashboard stats:", err);
+          handleApiError(err, { toast: false, fallbackMessage: "Failed to refresh dashboard stats" });
         }
       }
 
       await refreshStats();
       ui.setupSync(refreshStats, 10000);
 
-      const map = L.map("vesselMap").setView([14.4445, 121.1911], 12);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors",
-      }).addTo(map);
+      // Initialize map using the extracted module
+      const mapController = initDashboardMap({
+        mapElementId: "vesselMap",
+        onMapClick: (lat, lng) => {
+          if (mapController && mapController.map) {
+            mapController.map.setView([lat, lng], 14);
+          }
+        },
+      });
 
-      let mapMarkers = [];
-      let refreshMapLock = false;
-
-      async function refreshMap() {
-        if (refreshMapLock) return;
-        refreshMapLock = true;
-        try {
-          mapMarkers.forEach((m) => map.removeLayer(m));
-          mapMarkers = [];
-
-          const terminals = await api.terminals.list();
-          const boats = await api.boats.list();
-          const gpsLogs = await api.gpsLogs.list();
-
-          const listContainer = document.getElementById("vesselListContainer");
-          let htmlList =
-            '<ul style="display: flex; flex-direction: column; gap: 0.75rem;">';
-
-          terminals.forEach((term) => {
-            // Bad legacy coordinates used to throw "Invalid LatLng" and kill the whole map.
-            const lat = Number(term.lat);
-            const lng = Number(term.lng);
-            const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-            const markerLat = hasCoords ? lat : 14.4645;
-            const markerLng = hasCoords ? lng : 121.1918;
-
-            const marker = L.marker([markerLat, markerLng], {
-              icon: L.divIcon({
-                className: "terminal-marker",
-                html: '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:#0d1b2a;color:#ffffff;border:2px solid #0077b6;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.3);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div>',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16],
-                popupAnchor: [0, -16],
-              }),
-            })
-              .addTo(map)
-              .bindPopup(
-                `<strong>${ui.escapeHtml(term.name)}</strong><br>Location: ${ui.escapeHtml(term.location)}<br>Coast Guard: ${ui.escapeHtml(term.coast_guard_personnel)}`,
-              );
-            mapMarkers.push(marker);
-
-            htmlList += `<li style="background:white; padding:0.5rem; border-radius:4px; border:1px solid var(--border); font-size:0.85rem;">
-            <strong>Terminal: ${ui.escapeHtml(term.name)}</strong><br><span style="color:var(--text-muted);">PCG: ${ui.escapeHtml(term.coast_guard_personnel)}</span>
-          </li>`;
-          });
-
-          boats.forEach((boat) => {
-            if (
-              boat.registration_status !== "Verified" ||
-              boat.boat_status !== "Active"
-            )
-              return;
-            const boatLogs = gpsLogs.filter((l) => l.boat_id === boat.id);
-            const lastLog =
-              boatLogs.length > 0
-                ? boatLogs[boatLogs.length - 1]
-                : api.gpsLogs.demoPosition();
-
-            const marker = L.marker([lastLog.lat, lastLog.lng], {
-              icon: L.divIcon({
-                className: "boat-marker",
-                html: '<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:#2a9d8f;color:#ffffff;border:2px solid #ffffff;border-radius:50%;box-shadow:0 2px 5px rgba(0,0,0,0.3);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg></div>',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16],
-                popupAnchor: [0, -16],
-              }),
-            })
-              .addTo(map)
-              .bindPopup(
-                `<strong>Vessel: ${ui.escapeHtml(boat.name)}</strong><br>Type: ${ui.escapeHtml(boat.boat_type)}<br>Max Load: ${ui.escapeHtml(boat.max_load_kg)} kg`,
-              );
-            mapMarkers.push(marker);
-
-            htmlList += `<li style="background:white; padding:0.5rem; border-radius:4px; border:1px solid var(--border); font-size:0.85rem; cursor:pointer;" data-action="focus" data-lat="${lastLog.lat}" data-lng="${lastLog.lng}">
-            <strong>Vessel: ${ui.escapeHtml(boat.name)}</strong><br><span style="color:var(--success);">Active</span> (${ui.escapeHtml(boat.boat_type)})
-          </li>`;
-          });
-
-          htmlList += "</ul>";
-          listContainer.innerHTML = htmlList;
-        } finally {
-          refreshMapLock = false;
-        }
+      // Initial map load
+      if (mapController) {
+        await mapController.refresh({ listContainer: document.getElementById("vesselListContainer") });
       }
 
-      window.focusBoat = (lat, lng) => {
-        map.setView([lat, lng], 14);
-      };
-
-      document.getElementById("vesselListContainer").onclick = (e) => {
-        const item = e.target.closest('[data-action="focus"]');
-        if (item)
-          window.focusBoat(Number(item.dataset.lat), Number(item.dataset.lng));
-      };
-
+      // Simulate GPS button
       document.getElementById("simulateGpsBtn").onclick = async () => {
         try {
-          await api.gpsLogs.simulateMovement();
-          await refreshMap();
+          const activeCount = await simulateGpsMovement();
+          if (activeCount === 0) {
+            handleApiError("No active trips to simulate GPS movement for.", { toast: true });
+            return;
+          }
+          if (mapController) {
+            await mapController.refresh({ listContainer: document.getElementById("vesselListContainer") });
+          }
           await refreshStats();
-          ui.showToast(
-            "GPS vessel movement simulated for active trips in Laguna de Bay.",
-            "success",
+          handleApiSuccess(
+            `GPS vessel movement simulated for ${activeCount} active trip(s) in Laguna de Bay.`,
           );
         } catch (err) {
-          ui.showToast(err.message || "Simulation failed.", "error");
+          handleApiError(err, { fallbackMessage: "Simulation failed." });
         }
       };
-
-      refreshMap();
     </script>
   </body>
 </html>

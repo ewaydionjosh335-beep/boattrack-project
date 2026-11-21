@@ -168,7 +168,6 @@
   <script type="module">
     import { api } from '/js/api.js';
     import { seedDatabase } from '/js/seed.js';
-    import { hashPassword } from '/js/auth.js';
 
     await seedDatabase();
 
@@ -218,8 +217,7 @@
       errBox.textContent = '';
 
       try {
-        const hashed = await hashPassword(password);
-        const session = await api.auth.login(identifier, hashed);
+        const session = await api.auth.login(identifier, password);
         const ROLE_HOMES = {
           administrator: '/admin/dashboard.html',
           port_manager: '/manager/dashboard.html',
@@ -256,11 +254,10 @@
       }
 
       try {
-        const password_hash = await hashPassword(password);
         const weight_kg = parseFloat(document.getElementById('signupWeight').value) || 65;
         
         const result = await api.auth.registerUser({
-          full_name, email, username, password, password_hash, role: 'passenger', weight_kg
+          full_name, email, username, password_hash: password, role: 'passenger', weight_kg
         });
 
         document.getElementById('signupForm').style.display = 'none';

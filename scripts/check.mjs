@@ -22,11 +22,12 @@ globalThis.localStorage = {
 };
 globalThis.window = { crypto: globalThis.crypto };
 
-const { api } = await import(pathToFileURL(path.join(dir, 'api.mjs')));
+const { api, ensureCSRFToken } = await import(pathToFileURL(path.join(dir, 'api.mjs')));
 const { seedDatabase } = await import(pathToFileURL(path.join(dir, 'seed.mjs')));
 
 const session = { user_id: 'usr_admin', role: 'administrator', expires_at: new Date(Date.now() + 3600e3).toISOString() };
-const seedBoat = { id: 'b1', name: 'B1', operator_id: 'usr_op', registration_status: 'Pending', boat_status: 'Active', passenger_capacity: 10 };
+const csrfToken = ensureCSRFToken();
+const seedBoat = { id: 'b1', name: 'B1', operator_id: 'usr_op', registration_status: 'Pending', boat_status: 'Active', boat_type: 'Passenger Ferry', registration_type: 'Franchised', passenger_capacity: 10, max_load_kg: 2000 };
 const seedUsers = [
   { id: 'usr_admin', full_name: 'Admin', role: 'administrator', status: 'Active' },
   { id: 'usr_op', full_name: 'Operator', role: 'boat_operator', status: 'Active' },
@@ -49,22 +50,22 @@ api._set('session', session);
 api._set('users', seedUsers);
 api._set('boats', [seedBoat]);
 api._set('boat_documents', []);
-await assert.rejects(api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_op' }), /documents/);
+await assert.rejects(api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_op' }, csrfToken), /documents/);
 api._set('boat_documents', [{ id: 'd1', boat_id: 'b1' }]);
-await assert.rejects(api.boats.verify('b1', { registration_status: 'Verified', operator_id: null }), /active boat operator/);
-await assert.rejects(api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_suspended' }), /active boat operator/);
+await assert.rejects(api.boats.verify('b1', { registration_status: 'Verified', operator_id: null }, csrfToken), /active boat operator/);
+await assert.rejects(api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_suspended' }, csrfToken), /active boat operator/);
 
-let boat = await api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_op' });
+let boat = await api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_op' }, csrfToken);
 assert.equal(boat.registration_status, 'Verified');
 api._set('boats', [{ ...boat, boat_status: 'Suspended' }]);
-boat = await api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_op' });
+boat = await api.boats.verify('b1', { registration_status: 'Verified', operator_id: 'usr_op' }, csrfToken);
 assert.equal(boat.boat_status, 'Suspended');
 
 // Rejection requires a reason at the API level, not only in the page.
 api._set('boats', [seedBoat]);
-await assert.rejects(api.boats.verify('b1', { registration_status: 'Rejected' }), /reason/);
-await assert.rejects(api.boats.verify('b1', { registration_status: 'Rejected', remarks: '   ' }), /reason/);
-const rejectedBoat = await api.boats.verify('b1', { registration_status: 'Rejected', remarks: 'Hull damage' });
+await assert.rejects(api.boats.verify('b1', { registration_status: 'Rejected' }, csrfToken), /reason/);
+await assert.rejects(api.boats.verify('b1', { registration_status: 'Rejected', remarks: '   ' }, csrfToken), /reason/);
+const rejectedBoat = await api.boats.verify('b1', { registration_status: 'Rejected', remarks: 'Hull damage' }, csrfToken);
 assert.equal(rejectedBoat.registration_status, 'Rejected');
 
 // Suspension holds scheduled trips and notifies passengers + operator.
@@ -73,7 +74,7 @@ api._set('trips', [{ id: 't1', boat_id: 'b1', trip_status: 'Scheduled' }]);
 api._set('manifests', [{ id: 'm1', trip_id: 't1', passenger_id: 'p1' }]);
 api._set('passengers', [{ id: 'p1', user_id: 'usr_pax' }]);
 api._set('notifications', []);
-await api.boats.updateStatus('b1', 'Suspended', 'Maintenance');
+await api.boats.updateStatus('b1', 'Suspended', 'Maintenance', csrfToken);
 assert.equal(api._get('trips')[0].trip_status, 'Held');
 const notifs = api._get('notifications');
 assert.ok(notifs.some(n => n.user_id === 'usr_pax'), 'passenger notified');
@@ -87,10 +88,10 @@ api._set('trips', [
 ]);
 api._set('manifests', []);
 api._set('notifications', []);
-await api.boats.updateStatus('b1', 'Suspended', 'Maintenance');
+await api.boats.updateStatus('b1', 'Suspended', 'Maintenance', csrfToken);
 assert.equal(api._get('trips')[0].trip_status, 'Held');
 assert.equal(api._get('trips')[1].trip_status, 'Held', 'manually held trip untouched');
-await api.boats.updateStatus('b1', 'Active');
+await api.boats.updateStatus('b1', 'Active', null, csrfToken);
 const after = api._get('trips');
 assert.equal(after[0].trip_status, 'Scheduled', 'suspension-held trip resumed');
 assert.equal(after[1].trip_status, 'Held', 'manual hold survives reactivation');
@@ -98,7 +99,7 @@ assert.equal(after[1].trip_status, 'Held', 'manual hold survives reactivation');
 // Provisioning an existing applicant promotes the account and reuses one crew row.
 api._set('crew_applications', [{ id: 'c1', applicant_user_id: 'usr_pax', full_name: 'Applicant', boat_id: 'b1', stage: 'Pending Admin Verification' }]);
 api._set('crew_members', []);
-await api.crewApplications.verifyAndProvision('c1', { password: 'new-pass', email: 'promoted@x.local', username: 'promoted' });
+await api.crewApplications.verifyAndProvision('c1', { password: 'new-pass', email: 'promoted@x.local', username: 'promoted' }, csrfToken);
 const promoted = api._get('users').find(u => u.id === 'usr_pax');
 assert.equal(promoted.role, 'crew');
 assert.equal(promoted.status, 'Active');
@@ -125,32 +126,37 @@ const reviewed = await api.bookings.updateReview(discountBooking.id, { status: '
 assert.equal(reviewed.amount_due, 50);
 
 // Route edits cannot create duplicates.
+api._set('terminals', [
+  { id: 'a', name: 'Terminal A', location: 'A' },
+  { id: 'b', name: 'Terminal B', location: 'B' },
+  { id: 'c', name: 'Terminal C', location: 'C' }
+]);
 api._set('routes', [
   { id: 'rte_1', origin_terminal_id: 'a', destination_terminal_id: 'b', fare: 100 },
   { id: 'rte_2', origin_terminal_id: 'a', destination_terminal_id: 'c', fare: 100 }
 ]);
-await assert.rejects(api.routes.update('rte_2', { origin_terminal_id: 'a', destination_terminal_id: 'b', fare: 100 }), /already exists/);
+await assert.rejects(api.routes.update('rte_2', { origin_terminal_id: 'a', destination_terminal_id: 'b', fare: 100 }, csrfToken), /already exists/);
 assert.equal(api._get('routes').find(r => r.id === 'rte_2').destination_terminal_id, 'c');
 
 // Route creation rejects the same pair in either direction.
-await assert.rejects(api.routes.create({ origin_terminal_id: 'a', destination_terminal_id: 'b', fare: 100 }), /already exists/);
-await assert.rejects(api.routes.create({ origin_terminal_id: 'b', destination_terminal_id: 'a', fare: 100 }), /already exists/);
+await assert.rejects(api.routes.create({ origin_terminal_id: 'a', destination_terminal_id: 'b', fare: 100 }, csrfToken), /already exists/);
+await assert.rejects(api.routes.create({ origin_terminal_id: 'b', destination_terminal_id: 'a', fare: 100 }, csrfToken), /already exists/);
 assert.equal(api._get('routes').length, 2);
-await api.routes.create({ origin_terminal_id: 'b', destination_terminal_id: 'c', fare: 100 });
+await api.routes.create({ origin_terminal_id: 'b', destination_terminal_id: 'c', fare: 100 }, csrfToken);
 assert.equal(api._get('routes').length, 3);
 
 // Terminal coordinates are validated and coerced before Leaflet sees them.
   api._set('terminals', [{ id: 'term_1', name: 'Terminal', location: 'Loc', coast_guard_personnel: 'PCG', lat: 14.4, lng: 121.2 }]);
-  await assert.rejects(api.terminals.create({ name: 'Bad', location: 'Loc', lat: 'abc', lng: '121' }), /Latitude/);
+  await assert.rejects(api.terminals.create({ name: 'Bad', location: 'Loc', lat: 'abc', lng: '121' }, csrfToken), /Latitude/);
   // Partial coordinates (only one provided) should not update - they keep existing values
-  const partialUpdate = await api.terminals.update('term_1', { lat: '14.5', lng: '' });
+  const partialUpdate = await api.terminals.update('term_1', { lat: '14.5', lng: '' }, csrfToken);
   assert.equal(partialUpdate.lat, 14.4); // lat unchanged because lng was empty
   assert.equal(partialUpdate.lng, 121.2); // lng unchanged
-  await assert.rejects(api.terminals.update('term_1', { lat: '14.5', lng: 'not-a-number' }), /Longitude/);
-  const fixedTerminal = await api.terminals.update('term_1', { lat: '14.5', lng: '121.25' });
+await assert.rejects(api.terminals.update('term_1', { lat: '14.5', lng: 'not-a-number' }, csrfToken), /Longitude/);
+const fixedTerminal = await api.terminals.update('term_1', { lat: '14.5', lng: '121.25' }, csrfToken);
   assert.equal(fixedTerminal.lat, 14.5);
   assert.equal(fixedTerminal.lng, 121.25);
-  const clearedTerminal = await api.terminals.update('term_1', { lat: null, lng: null });
+  const clearedTerminal = await api.terminals.update('term_1', { lat: null, lng: null }, csrfToken);
   assert.equal(clearedTerminal.lat, null);
   assert.equal(clearedTerminal.lng, null);
 
@@ -168,7 +174,7 @@ assert.ok(!gpsLogs.some(l => l.boat_id === 'b2'), 'arrived boat stays put');
 // SOS acknowledgement records who acknowledged it.
 api._set('session', session);
 api._set('alerts', [{ id: 'alert_1', status: 'Open' }]);
-const acked = await api.alerts.acknowledge('alert_1');
+const acked = await api.alerts.acknowledge('alert_1', null, csrfToken);
 assert.equal(acked.acknowledged_by, 'usr_admin');
 assert.ok(acked.acknowledged_at);
 

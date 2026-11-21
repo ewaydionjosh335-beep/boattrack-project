@@ -197,23 +197,15 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
       import { loadService } from "/js/services/loadService.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
-      import { exportToCSV } from "/admin/common.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { exportToCSV, handleApiError, handleApiSuccess } from "/admin/common.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "manifests",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "manifests" });
 
       let allTrips = [];
       let allBoats = [];
@@ -236,13 +228,7 @@
         const tripSelect = document.getElementById("tripSelect");
         tripSelect.innerHTML =
           '<option value="">-- Select Trip --</option>' +
-          allTrips
-            .filter(
-              (trip) =>
-                trip.trip_status !== "Arrived" &&
-                trip.trip_status !== "Cancelled",
-            )
-            .map((trip) => {
+          allTrips.map((trip) => {
               const boat = allBoats.find((b) => b.id === trip.boat_id) || {
                 name: "Boat",
               };
@@ -376,7 +362,7 @@
 
       document.getElementById("exportCsvBtn").onclick = () => {
         if (!currentManifests.length) {
-          ui.showToast("No manifest data to export.", "warning");
+          handleApiError("No manifest data to export.", { toast: true });
           return;
         }
         const rows = currentManifests.map((m) => {

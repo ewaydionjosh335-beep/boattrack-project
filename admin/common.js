@@ -19,6 +19,39 @@ export async function adminLogout() {
 }
 
 /**
+ * Standardized error handler for admin pages
+ * Use this instead of custom error boxes for consistency
+ * @param {Error|string} err - Error object or message
+ * @param {Object} options - { toast?: boolean, errorBox?: HTMLElement, fallbackMessage?: string }
+ */
+export function handleApiError(err, options = {}) {
+  const { toast = true, errorBox = null, fallbackMessage = "Operation failed." } = options;
+  const message = err?.message || fallbackMessage;
+
+  if (toast) {
+    ui.showToast(message, "error");
+  }
+  if (errorBox) {
+    errorBox.textContent = message;
+  }
+  console.error("Admin API Error:", err);
+  return message;
+}
+
+/**
+ * Standardized success handler for admin pages
+ * @param {string} message - Success message
+ * @param {Object} options - { toast?: boolean }
+ */
+export function handleApiSuccess(message, options = {}) {
+  const { toast = true } = options;
+  if (toast) {
+    ui.showToast(message, "success");
+  }
+  console.log("Admin API Success:", message);
+}
+
+/**
  * Shared date formatting using PHT (UTC+8)
  * Use this instead of manual Date.toLocaleDateString() for consistency
  */
@@ -45,6 +78,94 @@ export function formatDisplayDateTime(value) {
   const d = value instanceof Date ? value : new Date(value);
   return d.toLocaleString();
 }
+
+/**
+ * Type definitions for admin module (JSDoc)
+ * @typedef {Object} AdminUser
+ * @property {string} id
+ * @property {string} full_name
+ * @property {string} email
+ * @property {string} username
+ * @property {string} role
+ * @property {string} status
+ * @property {string} [cluster]
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminBoat
+ * @property {string} id
+ * @property {string} name
+ * @property {string} boat_type
+ * @property {string} registration_status
+ * @property {string} [registration_type]
+ * @property {number} passenger_capacity
+ * @property {number} cargo_capacity
+ * @property {number} max_load_kg
+ * @property {string} boat_status
+ * @property {string} [owner_id]
+ * @property {string} [operator_id]
+ * @property {string} [remarks]
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminCrewApplication
+ * @property {string} id
+ * @property {string} full_name
+ * @property {string} contact
+ * @property {string} boat_id
+ * @property {string} stage
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminRoute
+ * @property {string} id
+ * @property {string} origin_terminal_id
+ * @property {string} destination_terminal_id
+ * @property {number} fare
+ * @property {string} route_type
+ * @property {Object} [discount_rates]
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminTerminal
+ * @property {string} id
+ * @property {string} name
+ * @property {string} location
+ * @property {string} coast_guard_personnel
+ * @property {number} [lat]
+ * @property {number} [lng]
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminTrip
+ * @property {string} id
+ * @property {string} boat_id
+ * @property {string} route_id
+ * @property {string} departure_time
+ * @property {string} trip_status
+ * @property {number} required_passengers
+ * @property {string} [created_by]
+ * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminAlert
+ * @property {string} id
+ * @property {string} boat_id
+ * @property {string} trip_id
+ * @property {string} sent_by_user_id
+ * @property {string} sender_role
+ * @property {string} message
+ * @property {string} status
+ * @property {string} [acknowledged_by]
+ * @property {string} [acknowledged_at]
+ * @property {string} created_at
+ */
 
 /**
  * RFC 4180 compliant CSV escaping
@@ -147,6 +268,59 @@ export function renderPagination(pagination) {
 }
 
 /**
+ * Update pagination controls in-place (more efficient than recreating)
+ * @param {string} containerSelector - Selector for pagination container
+ * @param {Object} pagination - Result from paginate()
+ */
+export function updatePagination(containerSelector, pagination) {
+  const container = document.querySelector(containerSelector);
+  if (!container) return;
+
+  const { currentPage, totalPages } = pagination;
+  if (totalPages <= 1) {
+    container.innerHTML = "";
+    return;
+  }
+
+  // Update existing buttons instead of recreating
+  const prevBtn = container.querySelector('button[data-page="prev"]');
+  const nextBtn = container.querySelector('button[data-page="next"]');
+  const pageBtns = container.querySelectorAll('button[data-page]:not([data-page="prev"]):not([data-page="next"])');
+
+  if (prevBtn) {
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.dataset.page = currentPage - 1;
+  }
+  if (nextBtn) {
+    nextBtn.disabled = currentPage === totalPages;
+    nextBtn.dataset.page = currentPage + 1;
+  }
+
+  // Update page number buttons
+  let startPage = Math.max(1, currentPage - 2);
+  let endPage = Math.min(totalPages, startPage + 4);
+  if (endPage - startPage < 4) {
+    startPage = Math.max(1, endPage - 4);
+  }
+
+  // For simplicity, recreate only if page range changed significantly
+  // Otherwise update in place
+  const needsRecreate = pageBtns.length !== (endPage - startPage + 1) ||
+    Array.from(pageBtns).some((btn, i) => parseInt(btn.dataset.page) !== startPage + i);
+
+  if (needsRecreate) {
+    container.innerHTML = renderPagination(pagination);
+  } else {
+    pageBtns.forEach((btn, i) => {
+      const pageNum = startPage + i;
+      btn.textContent = pageNum;
+      btn.dataset.page = pageNum;
+      btn.className = `btn ${pageNum === currentPage ? "btn-primary" : "btn-outline"} btn-sm`;
+    });
+  }
+}
+
+/**
  * Initialize pagination event listeners
  * @param {string} containerSelector - Selector for pagination container
  * @param {Function} onPageChange - Callback(pageNumber)
@@ -212,6 +386,61 @@ export function filterTable(allItems, filters, matchFn) {
 }
 
 /**
+ * Create a standardized filter function for common admin table patterns
+ * @param {Object} options - Configuration
+ * @param {string} options.searchField - Field to search (or array of fields)
+ * @param {Array} options.exactFilters - Array of { field, value } for exact matches
+ * @returns {Function} Filter function compatible with filterTable
+ */
+export function createTableFilter({ searchFields = [], exactFilters = [] }) {
+  return (item, filters) => {
+    // Search filter
+    if (filters.search) {
+      const search = filters.search.toLowerCase();
+      const fields = Array.isArray(searchFields) ? searchFields : [searchFields];
+      const matches = fields.some((field) => {
+        const value = item[field];
+        return value && String(value).toLowerCase().includes(search);
+      });
+      if (!matches) return false;
+    }
+
+    // Exact match filters
+    for (const { field, value } of exactFilters) {
+      const filterValue = filters[value];
+      if (filterValue && item[field] !== filterValue) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+}
+
+/**
+ * Setup standard filter event listeners for a table
+ * @param {Object} options - { searchInput, filterSelects, renderTable }
+ */
+export function setupTableFilters({ searchInput, filterSelects = [], renderTable }) {
+  let currentPage = 1;
+
+  const resetPage = () => {
+    currentPage = 1;
+    renderTable();
+  };
+
+  if (searchInput) {
+    searchInput.oninput = resetPage;
+  }
+
+  filterSelects.forEach((select) => {
+    select.onchange = resetPage;
+  });
+
+  return { getCurrentPage: () => currentPage, setCurrentPage: (p) => { currentPage = p; } };
+}
+
+/**
  * Unique email check for crew provisioning
  * Generates a unique email based on name
  * @param {string} baseName - Base name for email
@@ -231,69 +460,33 @@ export async function generateUniqueEmail(baseName, existingUsers) {
   return email;
 }
 
-// Make adminLogout globally available for inline onclick handlers
-window.adminLogout = adminLogout;
+// adminLogout is exported and imported by modules that need it.
+// Sidebar uses it directly via import; no global attachment needed.
 
 /**
- * Modal accessibility helper - adds focus trap, Escape key handling, and ARIA attributes
- * Call this after opening a modal: setupModalAccessibility(modalElement)
- * @param {HTMLElement} modal - The modal element (the .modal, not .modal-backdrop)
+ * Password toggle button utility - returns SVG for eye/eye-slash icons
+ * @param {boolean} showPassword - true for "show password" (eye), false for "hide password" (eye-slash)
+ * @returns {string} SVG HTML string
  */
-export function setupModalAccessibility(modal) {
-  if (!modal) return;
-  // Re-opening a modal used to stack another keydown listener every time.
-  if (modal._a11yCleanup) modal._a11yCleanup();
-
-  // Set ARIA attributes
-  modal.setAttribute("role", "dialog");
-  modal.setAttribute("aria-modal", "true");
-
-  // Get focusable elements
-  const focusableSelectors =
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-  const getFocusable = () => modal.querySelectorAll(focusableSelectors);
-
-  // Focus first element
-  const focusable = getFocusable();
-  if (focusable.length > 0) {
-    focusable[0].focus();
+export function getPasswordToggleSVG(showPassword) {
+  if (showPassword) {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
   }
-
-  // Handle keydown for focus trap and Escape
-  const handleKeydown = (e) => {
-    if (e.key === "Escape") {
-      // Find close/cancel button - prefer data-dismiss, then .btn-outline in modal footer, then any close button
-      const closeBtn = modal.querySelector(
-        '[data-dismiss="modal"], .modal-footer .btn-outline, .modal-header .btn-outline, button[aria-label="Close"]',
-      );
-      if (closeBtn) {
-        e.preventDefault();
-        closeBtn.click();
-      }
-      return;
-    }
-
-    if (e.key === "Tab") {
-      const focusable = getFocusable();
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    }
-  };
-
-  modal.addEventListener("keydown", handleKeydown);
-
-  // Return cleanup function
-  const cleanup = () => modal.removeEventListener("keydown", handleKeydown);
-  modal._a11yCleanup = cleanup;
-  return cleanup;
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 }
+
+/**
+ * Setup password toggle button
+ * @param {HTMLInputElement} passwordInput - The password input element
+ * @param {HTMLButtonElement} toggleBtn - The toggle button element
+ */
+export function setupPasswordToggle(passwordInput, toggleBtn) {
+  toggleBtn.onclick = () => {
+    const show = passwordInput.type === "password";
+    passwordInput.type = show ? "text" : "password";
+    toggleBtn.innerHTML = getPasswordToggleSVG(show);
+  };
+}
+
+// Modal accessibility is handled by ui.modal() - no duplicate needed here.
+// ui.modal() already provides: focus trap, Escape key handling, ARIA attributes, focus restore.

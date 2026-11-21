@@ -107,7 +107,7 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Initial Password</label>
+              <label class="form-label">Initial Password <span style="color: var(--danger); font-weight: bold;">*</span></label>
               <input
                 type="text"
                 id="crewPassword"
@@ -116,6 +116,7 @@
                 autocomplete="new-password"
                 required
               />
+              <div id="passwordValidation" style="font-size: 0.75rem; margin-top: 0.35rem; display: none;"></div>
               <small style="color: var(--text-muted)"
                 >Share this temporary password with the crew member; they will
                 be required to change it on first login.</small
@@ -140,32 +141,39 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { ensureCSRFToken } from "/js/api.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import {
         paginate,
         renderPagination,
+        updatePagination,
         initPagination,
-        setupModalAccessibility,
+        createTableFilter,
+        filterTable,
+        setupTableFilters,
+        handleApiError,
+        handleApiSuccess,
       } from "/admin/common.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "crew-verification",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "crew-verification" });
+      const csrfToken = ensureCSRFToken();
 
       let apps = [];
       let boats = [];
       let currentPage = 1;
       const pageSize = 25;
+
+      // Create standardized filter function
+      const crewFilter = createTableFilter({
+        searchFields: ["full_name", "contact"],
+        exactFilters: [
+          { field: "stage", value: "stageFilter" },
+        ],
+      });
 
       async function loadData() {
         apps = await api.crewApplications.list();
@@ -176,21 +184,12 @@
 
       function render() {
         const tbody = document.getElementById("crewAppTableBody");
-        const stageFilter = document.getElementById("stageFilter").value;
-        const search = document
-          .getElementById("searchInput")
-          .value.toLowerCase();
+        const filters = {
+          search: document.getElementById("searchInput").value,
+          stageFilter: document.getElementById("stageFilter").value,
+        };
 
-        let filtered = apps.filter((a) => {
-          if (stageFilter !== "" && a.stage !== stageFilter) return false;
-          if (
-            search &&
-            !a.full_name.toLowerCase().includes(search) &&
-            !a.contact?.toLowerCase().includes(search)
-          )
-            return false;
-          return true;
-        });
+        const filtered = filterTable(apps, filters, crewFilter);
 
         const pagination = paginate(filtered, currentPage, pageSize);
 
@@ -229,60 +228,47 @@
             .join("");
         }
 
-        // Render pagination controls
-        const paginationContainer = document.getElementById(
-          "paginationContainer",
-        );
-        if (paginationContainer) {
-          paginationContainer.innerHTML = renderPagination(pagination);
-        }
+        // Update pagination controls in-place
+        updatePagination("#paginationContainer", pagination);
       }
 
       initPagination("#paginationContainer", (page) => {
         currentPage = page;
         render();
       });
-      document.getElementById("stageFilter").onchange = () => {
-        currentPage = 1;
-        render();
-      };
-      document.getElementById("searchInput").oninput = () => {
-        currentPage = 1;
-        render();
-      };
+
+      // Use standardized filter event setup
+      setupTableFilters({
+        searchInput: document.getElementById("searchInput"),
+        filterSelects: [document.getElementById("stageFilter")],
+        renderTable: render,
+      });
 
       const modal = document.getElementById("verifyCrewModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
-      // Apply accessibility enhancements
-      let modalCleanup = null;
-      const openWithA11y = () => {
-        openModal();
-        modalCleanup = setupModalAccessibility(modal);
-      };
 
       // Strong-ish temporary password; the crew member must change it on first login.
       function generateTempPassword() {
-        const chars =
-          "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
-        const bytes = crypto.getRandomValues(new Uint8Array(10));
-        let p = Array.from(bytes, (b) => chars[b % chars.length]).join("");
-        if (!/[0-9]/.test(p)) p = p.slice(0, -1) + "7";
-        if (!/[a-zA-Z]/.test(p)) p = "a" + p.slice(1);
+        const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const lower = "abcdefghijkmnopqrstuvwxyz";
+        const digits = "23456789";
+        const symbols = "!@#$%^&*";
+        const all = upper + lower + digits + symbols;
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        let p = Array.from(bytes, (b) => all[b % all.length]).join("");
+        if (!/[A-Z]/.test(p)) p = upper[0] + p.slice(1);
+        if (!/[a-z]/.test(p)) p = lower[0] + p.slice(1);
+        if (!/[0-9]/.test(p)) p = digits[0] + p.slice(1);
+        if (!/[!@#$%^&*]/.test(p)) p = symbols[0] + p.slice(1);
         return p;
       }
-      document.getElementById("cancelCrewModalBtn").onclick = () => {
-        if (modalCleanup) modalCleanup();
-        closeModal();
-      };
+      document.getElementById("cancelCrewModalBtn").onclick = closeModal;
 
-      window.openVerifyModal = async (id) => {
+      const openVerifyModal = async (id) => {
         const app = apps.find((a) => a.id === id);
         if (!app) return;
         if (app.stage !== "Pending Admin Verification") {
-          ui.showToast(
-            "Application is not awaiting admin verification.",
-            "warning",
-          );
+          handleApiError("Application is not awaiting admin verification.", { toast: true });
           return;
         }
         const boat = boats.find((b) => b.id === app.boat_id) || { name: "N/A" };
@@ -294,12 +280,36 @@
         // Generate unique email using atomic API call to avoid race conditions
         const uniqueEmail = await api.users.generateUniqueEmail(app.full_name);
         document.getElementById("crewEmail").value = uniqueEmail;
-        document.getElementById("crewUsername").value =
-          `crew_${Math.random().toString(36).substring(2, 7)}`;
+        const uniqueUsername = await api.users.generateUniqueUsername(
+          app.full_name,
+        );
+        document.getElementById("crewUsername").value = uniqueUsername;
         document.getElementById("crewPassword").value = generateTempPassword();
+        document.getElementById("passwordValidation").style.display = "none";
 
-        openWithA11y();
+        openModal();
       };
+
+      // Real-time password validation for crew modal
+      const crewPassInput = document.getElementById("crewPassword");
+      const crewPassValidation = document.getElementById("passwordValidation");
+      function validateCrewPassword() {
+        const val = crewPassInput.value;
+        crewPassValidation.style.display = val ? "block" : "none";
+        if (!val) return;
+        let ok = true;
+        let msg = "";
+        if (val.length < 8) {
+          ok = false;
+          msg = "Password must be at least 8 characters.";
+        } else if (!/[a-zA-Z]/.test(val) || !/[0-9]/.test(val)) {
+          ok = false;
+          msg = "Password must be 8+ chars with a letter and a number.";
+        }
+        crewPassValidation.textContent = msg;
+        crewPassValidation.style.color = ok ? "var(--success)" : "var(--danger)";
+      }
+      crewPassInput.addEventListener("input", validateCrewPassword);
 
       document.getElementById("verifyCrewForm").onsubmit = async (e) => {
         e.preventDefault();
@@ -313,10 +323,7 @@
           !/[a-zA-Z]/.test(password) ||
           !/[0-9]/.test(password)
         ) {
-          ui.showToast(
-            "Initial password must be at least 8 characters and contain a letter and a number.",
-            "warning",
-          );
+          handleApiError("Initial password must be at least 8 characters and contain a letter and a number.", { toast: true });
           return;
         }
 
@@ -333,31 +340,28 @@
             username,
             role,
             password,
-          });
+          }, csrfToken);
           closeModal();
-          ui.showToast(
-            "Crew verified and account successfully provisioned!",
-            "success",
-          );
+          handleApiSuccess("Crew verified and account successfully provisioned!");
           await loadData();
         } catch (err) {
-          ui.showToast(err.message, "error");
+          handleApiError(err);
         } finally {
           submitBtn.disabled = false;
           submitBtn.textContent = originalText;
         }
       };
 
-      window.rejectApp = async (id) => {
+      const rejectApp = async (id) => {
         ui.confirm(
           "Are you sure you want to reject this crew application?",
           async () => {
             try {
-              await api.crewApplications.decide(id, "Rejected");
-              ui.showToast("Crew application rejected.", "warning");
+              await api.crewApplications.decide(id, "Rejected", csrfToken);
+              handleApiSuccess("Crew application rejected.", { toast: true });
               await loadData();
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             }
           },
         );
@@ -367,9 +371,9 @@
         const btn = e.target.closest("button[data-action]");
         if (!btn) return;
         if (btn.dataset.action === "verify")
-          window.openVerifyModal(btn.dataset.id);
+          openVerifyModal(btn.dataset.id);
         else if (btn.dataset.action === "reject")
-          window.rejectApp(btn.dataset.id);
+          rejectApp(btn.dataset.id);
       };
 
       loadData();

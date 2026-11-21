@@ -231,21 +231,16 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { ensureCSRFToken } from "/js/api.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
+      import { handleApiError, handleApiSuccess } from "/admin/common.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "dev-tools",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "dev-tools" });
+      const csrfToken = ensureCSRFToken();
 
       await refreshSosBadge();
 
@@ -280,13 +275,12 @@
           async () => {
             try {
               await seedDatabase(true);
-              ui.showToast(
+              handleApiSuccess(
                 "All roles populated with full simulation data successfully!",
-                "success",
               );
               setTimeout(() => location.reload(), 1000);
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             } finally {
               btn.disabled = false;
               btn.textContent = originalText;
@@ -310,10 +304,10 @@
                   throw new Error(
                     `No active ${role.replace("_", " ")} account found. Create one first.`,
                   );
-                await api.auth.impersonate(user.id);
+                await api.auth.impersonate(user.id, csrfToken);
                 window.location.href = btn.getAttribute("data-url");
               } catch (err) {
-                ui.showToast(err.message, "error");
+                handleApiError(err);
               }
             },
           );

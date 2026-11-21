@@ -102,7 +102,7 @@
                 id="termLng"
                 class="form-control"
                 placeholder="121.1950"
-                title="Required for weather and risk assessment"
+                title="Optional - Used for weather and risk assessment"
               />
             </div>
             <div class="form-group">
@@ -114,6 +114,9 @@
                 required
                 placeholder="PCG Cdr. Edgardo Mendoza"
               />
+            </div>
+            <div id="coordWarning" style="display: none; font-size: 0.85rem; color: var(--warning); margin-top: 0.5rem;">
+              Coordinates are optional. Leaving them blank will use default location mapping.
             </div>
             <div id="modalError" class="error-text"></div>
           </div>
@@ -173,31 +176,36 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { ensureCSRFToken } from "/js/api.js";
       import {
         paginate,
         renderPagination,
+        updatePagination,
         initPagination,
-        setupModalAccessibility,
+        createTableFilter,
+        filterTable,
+        setupTableFilters,
+        handleApiError,
+        handleApiSuccess,
       } from "/admin/common.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "terminals",
-        userName: session.full_name || "Administrator",
-      });
+const session = await initAdminPage({ activePage: "terminals" });
+const csrfToken = ensureCSRFToken();
 
       let allTerminals = [];
       let currentPage = 1;
       const pageSize = 25;
+
+      // Create standardized filter function (no search/filter UI on this page yet, but ready for future)
+      const terminalFilter = createTableFilter({
+        searchFields: ["name", "location"],
+        exactFilters: [],
+      });
 
       async function loadTerminals() {
         allTerminals = await api.terminals.list();
@@ -222,31 +230,26 @@
           tbody.innerHTML = pagination.items
             .map(
               (t) => `
-          <tr>
-            <td><strong>${ui.escapeHtml(t.name)}</strong></td>
-            <td>${ui.escapeHtml(t.location)}</td>
-            <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(t.coast_guard_personnel)}</span></td>
-            <td><span class="badge" style="background:#dbeafe; color:#1e40af;">${t.assignedBoats?.length || 0} boat(s)</span></td>
-              <td>
-                <div class="table-actions">
-                  <button class="btn btn-outline btn-sm" data-action="edit" data-id="${t.id}">Edit</button>
-                  <button class="btn btn-outline btn-sm" data-action="boats" data-id="${t.id}">Manage Boats</button>
-                  <button class="btn btn-danger btn-sm" data-action="delete" data-id="${t.id}">Delete</button>
-                </div>
-              </td>
-          </tr>
-        `,
+            <tr>
+              <td><strong>${ui.escapeHtml(t.name)}</strong></td>
+              <td>${ui.escapeHtml(t.location)}</td>
+              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(t.coast_guard_personnel)}</span></td>
+              <td><span class="badge" style="background:#dbeafe; color:#1e40af;">${t.assignedBoats?.length || 0} boat(s)</span></td>
+                <td>
+                  <div class="table-actions">
+                    <button class="btn btn-outline btn-sm" data-action="edit" data-id="${t.id}">Edit</button>
+                    <button class="btn btn-outline btn-sm" data-action="boats" data-id="${t.id}">Manage Boats</button>
+                    <button class="btn btn-danger btn-sm" data-action="delete" data-id="${t.id}">Delete</button>
+                  </div>
+                </td>
+            </tr>
+          `,
             )
             .join("");
         }
 
-        // Render pagination controls
-        const paginationContainer = document.getElementById(
-          "paginationContainer",
-        );
-        if (paginationContainer) {
-          paginationContainer.innerHTML = renderPagination(pagination);
-        }
+        // Update pagination controls in-place
+        updatePagination("#paginationContainer", pagination);
       }
 
       initPagination("#paginationContainer", (page) => {
@@ -256,18 +259,8 @@
 
       const modal = document.getElementById("termModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
-      // Apply accessibility enhancements
-      let modalCleanup = null;
-      const openWithA11y = () => {
-        openModal();
-        modalCleanup = setupModalAccessibility(modal);
-      };
-      const closeWithCleanup = () => {
-        if (modalCleanup) modalCleanup();
-        closeModal();
-      };
-      document.getElementById("closeModalBtn").onclick = closeWithCleanup;
-      document.getElementById("cancelModalBtn").onclick = closeWithCleanup;
+      document.getElementById("closeModalBtn").onclick = closeModal;
+      document.getElementById("cancelModalBtn").onclick = closeModal;
 
       document.getElementById("openAddModalBtn").onclick = () => {
         document.getElementById("modalTitle").textContent = "Add Terminal";
@@ -278,7 +271,7 @@
         document.getElementById("termLng").value = "";
         document.getElementById("termCoastGuard").value = "";
         document.getElementById("modalError").textContent = "";
-        openWithA11y();
+        openModal();
       };
 
       const editTerm = (id) => {
@@ -293,7 +286,7 @@
         document.getElementById("termCoastGuard").value =
           term.coast_guard_personnel;
         document.getElementById("modalError").textContent = "";
-        openWithA11y();
+        openModal();
       };
 
       const deleteTerm = async (id) => {
@@ -301,11 +294,11 @@
           "Are you sure you want to delete this terminal?",
           async () => {
             try {
-              await api.terminals.delete(id);
-              ui.showToast("Terminal deleted successfully.", "success");
+              await api.terminals.delete(id, csrfToken);
+              handleApiSuccess("Terminal deleted successfully.");
               await loadTerminals();
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             }
           },
         );
@@ -329,16 +322,17 @@
         const coast_guard_personnel = document
           .getElementById("termCoastGuard")
           .value.trim();
+        const coordWarning = document.getElementById("coordWarning");
         const errBox = document.getElementById("modalError");
         errBox.textContent = "";
 
-        // Validate coordinates: both must be provided or both empty
+        // Show warning if only one coordinate is provided
         const hasLat = lat !== "";
         const hasLng = lng !== "";
         if (hasLat !== hasLng) {
-          errBox.textContent =
-            "Both latitude and longitude must be provided together, or both left empty.";
-          return;
+          coordWarning.style.display = "block";
+        } else {
+          coordWarning.style.display = "none";
         }
 
         try {
@@ -347,26 +341,26 @@
             location,
             coast_guard_personnel,
           };
-          // Only include coordinates if both are provided or both are cleared.
-          if (hasLat && hasLng) {
-            data.lat = lat;
-            data.lng = lng;
+          // Include coordinates if provided (partial is allowed with warning)
+          if (hasLat || hasLng) {
+            if (hasLat) data.lat = lat;
+            if (hasLng) data.lng = lng;
           } else if (!hasLat && !hasLng && id) {
             // Explicitly clearing both on edit
             data.lat = null;
             data.lng = null;
           }
           if (id) {
-            await api.terminals.update(id, data);
-            ui.showToast("Terminal updated successfully.", "success");
+            await api.terminals.update(id, data, csrfToken);
+            handleApiSuccess("Terminal updated successfully.");
           } else {
-            await api.terminals.create(data);
-            ui.showToast("Terminal created successfully.", "success");
+            await api.terminals.create(data, csrfToken);
+            handleApiSuccess("Terminal created successfully.");
           }
           closeModal();
           await loadTerminals();
         } catch (err) {
-          errBox.textContent = err.message;
+          handleApiError(err, { errorBox: errBox });
         }
       };
 
@@ -374,28 +368,16 @@
       const boatsModal = document.getElementById("boatsModal");
       const { open: openBoatsModal, close: closeBoatsModal } =
         ui.modal(boatsModal);
-      // Apply accessibility to boats modal
-      let boatsModalCleanup = null;
-      const openBoatsWithA11y = () => {
-        openBoatsModal();
-        boatsModalCleanup = setupModalAccessibility(boatsModal);
-      };
-      const closeBoatsWithCleanup = () => {
-        if (boatsModalCleanup) boatsModalCleanup();
-        closeBoatsModal();
-      };
 
-      document.getElementById("closeBoatsModalBtn").onclick =
-        closeBoatsWithCleanup;
-      document.getElementById("closeBoatsModalBtn2").onclick =
-        closeBoatsWithCleanup;
+      document.getElementById("closeBoatsModalBtn").onclick = closeBoatsModal;
+      document.getElementById("closeBoatsModalBtn2").onclick = closeBoatsModal;
 
       async function manageBoats(termId) {
         document.getElementById("boatsTermId").value = termId;
         document.getElementById("boatsModalTitle").textContent =
           `Manage Boats - ${allTerminals.find((t) => t.id === termId)?.name}`;
         await loadTerminalBoats(termId);
-        openBoatsWithA11y();
+        openBoatsModal();
       }
 
       async function loadTerminalBoats(termId) {
@@ -449,19 +431,19 @@
 
       async function assignBoatToTerminal(termId, boatId) {
         try {
-          await api.boats.update(boatId, { home_terminal_id: termId });
-          ui.showToast("Boat assigned to terminal successfully.", "success");
+          await api.boats.update(boatId, { home_terminal_id: termId }, csrfToken);
+          handleApiSuccess("Boat assigned to terminal successfully.");
         } catch (err) {
-          ui.showToast(err.message, "error");
+          handleApiError(err);
         }
       }
 
       async function unassignBoatFromTerminal(termId, boatId) {
         try {
-          await api.boats.update(boatId, { home_terminal_id: null });
-          ui.showToast("Boat unassigned from terminal.", "success");
+          await api.boats.update(boatId, { home_terminal_id: null }, csrfToken);
+          handleApiSuccess("Boat unassigned from terminal.");
         } catch (err) {
-          ui.showToast(err.message, "error");
+          handleApiError(err);
         }
       }
 

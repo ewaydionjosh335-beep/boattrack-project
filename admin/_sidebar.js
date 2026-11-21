@@ -53,7 +53,9 @@ const SIDEBAR_HTML = `
 export const AdminSidebar = {
   mount({ activePage, userName = "Administrator" } = {}) {
     const container = document.getElementById("sidebarContainer");
-    if (container) container.innerHTML = SIDEBAR_HTML;
+    if (container && !container.querySelector(".admin-sidebar")) {
+      container.innerHTML = SIDEBAR_HTML;
+    }
     this.init({ activePage, userName });
   },
 

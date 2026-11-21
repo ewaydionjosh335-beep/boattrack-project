@@ -16,13 +16,114 @@ const STORAGE_KEYS = [
   'etickets', 'gps_logs', 'alerts', 'settings', 'session',
   'crew_applications', 'crew_members', 'crew_attendance',
   'remittances', 'notifications', 'inspections', 'payment_gateway',
-  'weather_records', 'risk_scans', 'departure_approvals'
+  'weather_records', 'risk_scans', 'departure_approvals', 'audit_logs'
 ];
 
-// Local date helper (PHT timezone) - returns YYYY-MM-DD in local time
+const CSRF_TOKEN_KEY = 'csrf_token';
+const CSRF_TOKEN_EXPIRY = 24 * 60 * 60 * 1000;
+
 function uiLocalDateStr(d = new Date()) {
   const date = d instanceof Date ? d : new Date(d);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function generateCSRFToken() {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function getCSRFToken() {
+  const stored = localStorage.getItem(CSRF_TOKEN_KEY);
+  if (!stored) return null;
+  const { token, expires } = JSON.parse(stored);
+  if (Date.now() > expires) {
+    localStorage.removeItem(CSRF_TOKEN_KEY);
+    return null;
+  }
+  return token;
+}
+
+function setCSRFToken(token) {
+  localStorage.setItem(CSRF_TOKEN_KEY, JSON.stringify({
+    token,
+    expires: Date.now() + CSRF_TOKEN_EXPIRY
+  }));
+}
+
+export function ensureCSRFToken() {
+  let token = getCSRFToken();
+  if (!token) {
+    token = generateCSRFToken();
+    setCSRFToken(token);
+  }
+  return token;
+}
+
+function validateCSRFToken(token) {
+  const stored = getCSRFToken();
+  return stored && stored === token;
+}
+
+function consumeCSRFToken() {
+  localStorage.removeItem(CSRF_TOKEN_KEY);
+}
+
+async function hashPasswordServerSide(password, salt = null) {
+  const encoder = new TextEncoder();
+  const saltBytes = salt ? new Uint8Array(salt.match(/.{2}/g).map(b => parseInt(b, 16))) : crypto.getRandomValues(new Uint8Array(16));
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+  const hashArray = Array.from(new Uint8Array(derivedBits));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const saltHex = Array.from(saltBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return { hash: hashHex, salt: saltHex };
+}
+
+async function verifyPasswordServerSide(password, storedHash, storedSalt) {
+  if (!storedSalt) {
+    // Backward compatibility: old SHA-256 hash without salt
+    const msgBuffer = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex === storedHash;
+  }
+  const { hash } = await hashPasswordServerSide(password, storedSalt);
+  return hash === storedHash;
+}
+
+function logAuditAction(session, action, targetType, targetId, details = {}) {
+  const logs = api._get('audit_logs') || [];
+  logs.push({
+    id: 'audit_' + Math.random().toString(36).substring(2, 9),
+    user_id: session?.user_id || 'unknown',
+    user_role: session?.role || 'unknown',
+    user_name: session?.full_name || 'Unknown',
+    action,
+    target_type: targetType,
+    target_id: targetId,
+    details,
+    timestamp: new Date().toISOString(),
+    ip: 'local'
+  });
+  if (logs.length > 10000) logs.splice(0, logs.length - 10000);
+  api._set('audit_logs', logs);
 }
 
 export const api = {
@@ -34,6 +135,16 @@ export const api = {
 
   _set(key, val) {
     localStorage.setItem(key, JSON.stringify(val));
+  },
+
+  _broadcastAlertsChanged() {
+    try {
+      const channel = new BroadcastChannel("sos-alerts");
+      channel.postMessage("alerts-changed");
+      channel.close();
+    } catch (e) {
+      // BroadcastChannel not supported (e.g., in some test environments)
+    }
   },
 
   // Keep the role-specific record in sync with its user account. Admins create and
@@ -205,7 +316,8 @@ export const api = {
       if (!user) throw new Error('Invalid email/username or password.');
       if (user.status === 'Suspended') throw new Error('Account is suspended. Please contact administrator.');
       
-      if (user.password_hash !== passwordHash) {
+      const valid = await verifyPasswordServerSide(passwordHash, user.password_hash, user.password_salt);
+      if (!valid) {
         throw new Error('Invalid email/username or password.');
       }
       
@@ -217,6 +329,7 @@ export const api = {
         expires_at: new Date(Date.now() + 86400000).toISOString()
       };
       api._set('session', session);
+      logAuditAction(session, 'LOGIN', 'user', user.id, { identifier });
       return session;
     },
 
@@ -226,19 +339,22 @@ export const api = {
       return true;
     },
 
-    async impersonate(userId) {
+    async impersonate(userId, csrfToken) {
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const users = api._get('users') || [];
       const user = users.find(u => u.id === userId);
       if (!user) throw new Error('User not found.');
-      const session = {
+      const newSession = {
         token: 'mock_jwt_token_' + Math.random().toString(36).substring(2),
         user_id: user.id,
         role: user.role,
         full_name: user.full_name,
         expires_at: new Date(Date.now() + 86400000).toISOString()
       };
-      api._set('session', session);
-      return session;
+      api._set('session', newSession);
+      logAuditAction(session, 'IMPERSONATE', 'user', userId, { targetRole: user.role });
+      return newSession;
     },
 
     async getSession() {
@@ -268,13 +384,15 @@ export const api = {
       if (users.some(u => u.email === userData.email)) throw new Error('Email is already registered.');
       if (users.some(u => u.username === userData.username)) throw new Error('Username is already taken.');
 
+      const { hash, salt } = await hashPasswordServerSide(userData.password_hash);
       const newUser = {
         id: 'usr_' + Math.random().toString(36).substring(2, 9),
         full_name: userData.full_name,
         email: userData.email,
         username: userData.username,
         password: null,
-        password_hash: userData.password_hash,
+        password_hash: hash,
+        password_salt: salt,
         role: userData.role || 'passenger',
         status: 'Active',
         created_at: new Date().toISOString()
@@ -295,19 +413,47 @@ export const api = {
       // FUTURE: GET /api/users
       return api._get('users') || [];
     },
-    async create(data) {
+    async generateUniqueEmail(baseName) {
+      // FUTURE: POST /api/users/generate-email (atomic)
+      const users = api._get('users') || [];
+      const cleanBase = (baseName || 'crew').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let email = `${cleanBase}@boattrack.local`;
+      let counter = 1;
+      while (users.some(u => u.email === email)) {
+        counter++;
+        email = `${cleanBase}${counter}@boattrack.local`;
+      }
+      return email;
+    },
+    async generateUniqueUsername(baseName) {
+      // FUTURE: POST /api/users/generate-username (atomic)
+      const users = api._get('users') || [];
+      const cleanBase = (baseName || 'crew').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let username = `crew_${cleanBase}`;
+      let counter = 1;
+      while (users.some(u => u.username === username)) {
+        counter++;
+        username = `crew_${cleanBase}${counter}`;
+      }
+      return username;
+    },
+    async create(data, csrfToken) {
       // FUTURE: POST /api/users
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const users = api._get('users') || [];
       if (users.some(u => u.email === data.email)) throw new Error('Email already exists.');
       if (users.some(u => u.username === data.username)) throw new Error('Username already exists.');
+
+      const { hash, salt } = await hashPasswordServerSide(data.password_hash);
       const newUser = {
         id: 'usr_' + Math.random().toString(36).substring(2, 9),
         full_name: data.full_name,
         email: data.email,
         username: data.username,
         password: null,
-        password_hash: data.password_hash || 'hashed_default',
+        password_hash: hash,
+        password_salt: salt,
         role: data.role,
         status: data.status || 'Active',
         cluster: data.cluster || null,
@@ -317,17 +463,19 @@ export const api = {
       users.push(newUser);
       api._set('users', users);
       api._ensureRoleRecord(newUser, data);
+      logAuditAction(session, 'CREATE', 'user', newUser.id, { role: newUser.role, email: newUser.email });
       return newUser;
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/users/:id
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const users = api._get('users') || [];
       const idx = users.findIndex(u => u.id === id);
       if (idx === -1) throw new Error('User not found.');
       if (data.email && users.some(u => u.id !== id && u.email === data.email)) throw new Error('Email already exists.');
       if (data.username && users.some(u => u.id !== id && u.username === data.username)) throw new Error('Username already exists.');
 
-      const session = api._get('session');
       if (data.status === 'Suspended' && session && session.user_id === id) {
         throw new Error('You cannot suspend your own account.');
       }
@@ -338,19 +486,26 @@ export const api = {
         throw new Error('Cannot remove or suspend the last active administrator.');
       }
 
+      const oldData = { ...users[idx] };
+      if (data.password_hash) {
+        const { hash, salt } = await hashPasswordServerSide(data.password_hash);
+        data.password_hash = hash;
+        data.password_salt = salt;
+      }
       users[idx] = { ...users[idx], ...data, password: null };
       api._set('users', users);
       api._ensureRoleRecord(users[idx], data);
+      logAuditAction(session, 'UPDATE', 'user', id, { changes: data, previous: oldData });
       return users[idx];
     },
-    async delete(id) {
+    async delete(id, csrfToken) {
       // FUTURE: DELETE /api/users/:id
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const users = api._get('users') || [];
       const user = users.find(u => u.id === id);
       if (!user) return false;
 
-      const session = api._get('session');
       if (session && session.user_id === id) {
         throw new Error('You cannot delete your own account.');
       }
@@ -439,6 +594,7 @@ export const api = {
       if (tripsChanged) api._set('trips', trips);
 
       api._set('users', users.filter(u => u.id !== id));
+      logAuditAction(session, 'DELETE', 'user', id, { email: user.email, role: user.role });
       return true;
     }
   },
@@ -472,8 +628,10 @@ export const api = {
       const boats = api._get('boats') || [];
       return boats.find(b => b.id === id);
     },
-    async create(data) {
+    async create(data, csrfToken) {
       // FUTURE: POST /api/boats
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const boats = api._get('boats') || [];
       const passengerCapacity = parseInt(data.passenger_capacity) || 20;
       const maxLoadKg = parseInt(data.max_load_kg) || 2000;
@@ -504,11 +662,13 @@ export const api = {
       };
       boats.push(newBoat);
       api._set('boats', boats);
+      logAuditAction(session, 'CREATE', 'boat', newBoat.id, { name: newBoat.name, owner_id: newBoat.owner_id });
       return newBoat;
     },
-    async verify(id, data) {
+    async verify(id, data, csrfToken) {
       // FUTURE: PATCH /api/boats/:id/verify
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const boats = api._get('boats') || [];
       const idx = boats.findIndex(b => b.id === id);
       if (idx === -1) throw new Error('Boat not found.');
@@ -543,6 +703,7 @@ export const api = {
         }
       }
 
+      const oldData = { ...boats[idx] };
       boats[idx] = {
         ...boats[idx],
         registration_status: data.registration_status,
@@ -556,14 +717,17 @@ export const api = {
           : boats[idx].boat_status
       };
       api._set('boats', boats);
+      logAuditAction(session, 'VERIFY', 'boat', id, { newStatus: data.registration_status, changes: data, previous: oldData });
       return boats[idx];
     },
-    async updateStatus(id, boat_status, reason = null) {
+    async updateStatus(id, boat_status, reason = null, csrfToken) {
       // FUTURE: PATCH /api/boats/:id/status
-      api._requireRole('port_manager');
+      const session = api._requireRole('port_manager');
+      api._requireCSRF(csrfToken);
       const boats = api._get('boats') || [];
       const idx = boats.findIndex(b => b.id === id);
       if (idx === -1) throw new Error('Boat not found.');
+      const oldStatus = boats[idx].boat_status;
       boats[idx].boat_status = boat_status;
       api._set('boats', boats);
 
@@ -622,13 +786,17 @@ export const api = {
 
       if (tripsChanged) api._set('trips', trips);
       if (notified) api._set('notifications', notifs);
+      logAuditAction(session, 'UPDATE_STATUS', 'boat', id, { oldStatus, newStatus: boat_status, reason });
       return boats[idx];
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/boats/:id
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const boats = api._get('boats') || [];
       const idx = boats.findIndex(b => b.id === id);
       if (idx === -1) throw new Error('Boat not found.');
+      const oldData = { ...boats[idx] };
       const passengerCapacity = data.passenger_capacity !== undefined ? parseInt(data.passenger_capacity) : boats[idx].passenger_capacity;
       const maxLoadKg = data.max_load_kg !== undefined ? parseInt(data.max_load_kg) : boats[idx].max_load_kg;
       const avgPassengerWeightKg = 65;
@@ -647,6 +815,7 @@ export const api = {
         resubmission_count: data.resubmission_count !== undefined ? parseInt(data.resubmission_count) : (boats[idx].resubmission_count || 0)
       };
       api._set('boats', boats);
+      logAuditAction(session, 'UPDATE', 'boat', id, { changes: data, previous: oldData });
       return boats[idx];
     }
   },
@@ -702,9 +871,10 @@ export const api = {
       const boats = api._get('boats') || [];
       return boats.filter(b => b.home_terminal_id === terminalId);
     },
-    async create(data) {
+    async create(data, csrfToken) {
       // FUTURE: POST /api/terminals
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const terminals = api._get('terminals') || [];
       const coords = api.terminals._coords(data.lat, data.lng);
       const newTerm = {
@@ -717,14 +887,17 @@ export const api = {
       };
       terminals.push(newTerm);
       api._set('terminals', terminals);
+      logAuditAction(session, 'CREATE', 'terminal', newTerm.id, { name: newTerm.name, location: newTerm.location });
       return newTerm;
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/terminals/:id
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const terminals = api._get('terminals') || [];
       const idx = terminals.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Terminal not found.');
+      const oldData = { ...terminals[idx] };
       if (data.lat !== undefined || data.lng !== undefined) {
         const coords = api.terminals._coords(data.lat, data.lng);
         if (coords) {
@@ -737,11 +910,13 @@ export const api = {
       }
       terminals[idx] = { ...terminals[idx], ...data };
       api._set('terminals', terminals);
+      logAuditAction(session, 'UPDATE', 'terminal', id, { changes: data, previous: oldData });
       return terminals[idx];
     },
-    async delete(id) {
+    async delete(id, csrfToken) {
       // FUTURE: DELETE /api/terminals/:id
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const routes = api._get('routes') || [];
       const routeIds = routes
         .filter(r => r.origin_terminal_id === id || r.destination_terminal_id === id)
@@ -763,8 +938,10 @@ export const api = {
         throw new Error('Cannot delete terminal: boats are assigned to it.');
       }
       let terminals = api._get('terminals') || [];
+      const deletedTerm = terminals.find(t => t.id === id);
       terminals = terminals.filter(t => t.id !== id);
       api._set('terminals', terminals);
+      logAuditAction(session, 'DELETE', 'terminal', id, { name: deletedTerm?.name });
       return true;
     }
   },
@@ -775,9 +952,10 @@ export const api = {
       // FUTURE: GET /api/routes
       return api._get('routes') || [];
     },
-    async create(data) {
+    async create(data, csrfToken) {
       // FUTURE: POST /api/routes
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       if (data.origin_terminal_id === data.destination_terminal_id) {
         throw new Error('Origin and destination terminals must be different.');
       }
@@ -804,14 +982,17 @@ export const api = {
       };
       routes.push(newRoute);
       api._set('routes', routes);
+      logAuditAction(session, 'CREATE', 'route', newRoute.id, { origin: newRoute.origin_terminal_id, destination: newRoute.destination_terminal_id, fare: newRoute.fare });
       return newRoute;
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/routes/:id
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const routes = api._get('routes') || [];
       const idx = routes.findIndex(r => r.id === id);
       if (idx === -1) throw new Error('Route not found.');
+      const oldData = { ...routes[idx] };
       const origin = data.origin_terminal_id !== undefined ? data.origin_terminal_id : routes[idx].origin_terminal_id;
       const destination = data.destination_terminal_id !== undefined ? data.destination_terminal_id : routes[idx].destination_terminal_id;
       if (origin === destination) {
@@ -876,18 +1057,22 @@ export const api = {
       }
       routes[idx] = { ...routes[idx], ...data, origin_terminal_id: origin, destination_terminal_id: destination, route_type: routeType, discount_rates: discountRates, fare };
       api._set('routes', routes);
+      logAuditAction(session, 'UPDATE', 'route', id, { changes: data, previous: oldData });
       return routes[idx];
     },
-    async delete(id) {
+    async delete(id, csrfToken) {
       // FUTURE: DELETE /api/routes/:id
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const trips = api._get('trips') || [];
       if (trips.some(t => t.route_id === id)) {
         throw new Error('Cannot delete route: trips are still using it.');
       }
       let routes = api._get('routes') || [];
+      const deletedRoute = routes.find(r => r.id === id);
       routes = routes.filter(r => r.id !== id);
       api._set('routes', routes);
+      logAuditAction(session, 'DELETE', 'route', id, { origin: deletedRoute?.origin_terminal_id, destination: deletedRoute?.destination_terminal_id });
       return true;
     }
   },
@@ -941,27 +1126,16 @@ export const api = {
       throw new Error(`Fast Craft "${boat.name}" cannot be assigned to a Cargo-only route.`);
     }
 },
-  // --- Users & Accounts ---
-  users: {
+  // --- Trips ---
+  trips: {
     async list() {
-      // FUTURE: GET /api/users
-      return api._get('users') || [];
+      // FUTURE: GET /api/trips
+      return api._get('trips') || [];
     },
-    async generateUniqueEmail(baseName) {
-      // FUTURE: POST /api/users/generate-email (atomic)
-      const users = api._get('users') || [];
-      const cleanBase = (baseName || 'crew').toLowerCase().replace(/[^a-z0-9]/g, '');
-      let email = `${cleanBase}@boattrack.local`;
-      let counter = 1;
-      while (users.some(u => u.email === email)) {
-        counter++;
-        email = `${cleanBase}${counter}@boattrack.local`;
-      }
-      return email;
-    },
-    async create(data) {
+    async create(data, csrfToken) {
       // FUTURE: POST /api/trips
-      api._requireRole('port_manager');
+      const session = api._requireRole('port_manager');
+      api._requireCSRF(csrfToken);
       api._validateTrip(data.boat_id, data.departure_time);
       api._validateBoatRouteCompatibility(data.boat_id, data.route_id);
       const boats = api._get('boats') || [];
@@ -987,11 +1161,13 @@ export const api = {
       };
       trips.push(newTrip);
       api._set('trips', trips);
+      logAuditAction(session, 'CREATE', 'trip', newTrip.id, { boat_id: newTrip.boat_id, route_id: newTrip.route_id, departure_time: newTrip.departure_time });
       return newTrip;
     },
-    async updateStatus(id, trip_status, held_reason = null) {
+    async updateStatus(id, trip_status, held_reason = null, csrfToken) {
       // FUTURE: PATCH /api/trips/:id/status
-      api._requireRole('port_manager');
+      const session = api._requireRole('port_manager');
+      api._requireCSRF(csrfToken);
       const trips = api._get('trips') || [];
       const idx = trips.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Trip not found.');
@@ -1057,15 +1233,18 @@ export const api = {
       }
       trip.updated_at = new Date().toISOString();
       api._set('trips', trips);
+      logAuditAction(session, 'UPDATE_STATUS', 'trip', id, { oldStatus: previousStatus, newStatus: trip_status, held_reason });
       return trip;
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/trips/:id
-      api._requireRole('port_manager');
+      const session = api._requireRole('port_manager');
+      api._requireCSRF(csrfToken);
       const trips = api._get('trips') || [];
       const idx = trips.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Trip not found.');
 
+      const oldData = { ...trips[idx] };
       const targetBoatId = data.boat_id !== undefined ? data.boat_id : trips[idx].boat_id;
       const targetRouteId = data.route_id !== undefined ? data.route_id : trips[idx].route_id;
 
@@ -1109,11 +1288,13 @@ export const api = {
 
       trips[idx] = { ...trips[idx], ...data, updated_at: new Date().toISOString() };
       api._set('trips', trips);
+      logAuditAction(session, 'UPDATE', 'trip', id, { changes: data, previous: oldData });
       return trips[idx];
     },
-    async delete(id) {
+    async delete(id, csrfToken) {
       // FUTURE: DELETE /api/trips/:id
-      api._requireRole('port_manager');
+      const session = api._requireRole('port_manager');
+      api._requireCSRF(csrfToken);
       const trips = api._get('trips') || [];
       const idx = trips.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Trip not found.');
@@ -1687,19 +1868,23 @@ export const api = {
       };
       alerts.push(newAlert);
       api._set('alerts', alerts);
+      api._broadcastAlertsChanged();
       return newAlert;
     },
-    async acknowledge(id, acknowledgedBy = null) {
-      api._requireRole('administrator');
+    async acknowledge(id, acknowledgedBy = null, csrfToken) {
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const alerts = api._get('alerts') || [];
       const idx = alerts.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Alert not found.');
       if (alerts[idx].status === 'Acknowledged') throw new Error('Already acknowledged.');
-      const session = api._get('session');
+      const oldStatus = alerts[idx].status;
       alerts[idx].status = 'Acknowledged';
       alerts[idx].acknowledged_by = acknowledgedBy || (session && session.user_id) || null;
       alerts[idx].acknowledged_at = new Date().toISOString();
       api._set('alerts', alerts);
+      api._broadcastAlertsChanged();
+      logAuditAction(session, 'ACKNOWLEDGE', 'alert', id, { oldStatus, newStatus: 'Acknowledged' });
       return alerts[idx];
     }
   },
@@ -1710,12 +1895,15 @@ export const api = {
       // FUTURE: GET /api/settings
       return api._get('settings') || { discount_rate_senior: 20, discount_rate_pwd: 20, discount_rate_student: 20, cargo_rate_per_kg: 2.00 };
     },
-    async update(data) {
+    async update(data, csrfToken) {
       // FUTURE: PUT /api/settings
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const current = api._get('settings') || { discount_rate_senior: 20, discount_rate_pwd: 20, discount_rate_student: 20, cargo_rate_per_kg: 2.00 };
+      const oldData = { ...current };
       const updated = { ...current, ...data };
       api._set('settings', updated);
+      logAuditAction(session, 'UPDATE', 'settings', 'global', { changes: data, previous: oldData });
       return updated;
     }
   },
@@ -1731,8 +1919,10 @@ export const api = {
       const apps = api._get('crew_applications') || [];
       return apps.find(a => a.id === id);
     },
-    async create(data) {
+    async create(data, csrfToken) {
       // FUTURE: POST /api/crew_applications
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const apps = api._get('crew_applications') || [];
       
       // Validate boat if provided
@@ -1762,13 +1952,17 @@ export const api = {
       };
       apps.push(newApp);
       api._set('crew_applications', apps);
+      logAuditAction(session, 'CREATE', 'crew_application', newApp.id, { full_name: newApp.full_name, boat_id: newApp.boat_id });
       return newApp;
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/crew_applications/:id
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const apps = api._get('crew_applications') || [];
       const idx = apps.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Crew application not found.');
+      const oldData = { ...apps[idx] };
       
       // Validate boat_id if being changed
       if (data.boat_id !== undefined && data.boat_id !== apps[idx].boat_id) {
@@ -1787,13 +1981,17 @@ export const api = {
       
       apps[idx] = { ...apps[idx], ...data, updated_at: new Date().toISOString() };
       api._set('crew_applications', apps);
+      logAuditAction(session, 'UPDATE', 'crew_application', id, { changes: data, previous: oldData });
       return apps[idx];
     },
-    async decide(id, decision) {
+    async decide(id, decision, csrfToken) {
       // FUTURE: PATCH /api/crew_applications/:id/decide
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const apps = api._get('crew_applications') || [];
       const idx = apps.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Crew application not found.');
+      const oldStage = apps[idx].stage;
       const accepted = decision === 'Accepted';
       apps[idx] = {
         ...apps[idx],
@@ -1803,11 +2001,13 @@ export const api = {
         updated_at: new Date().toISOString()
       };
       api._set('crew_applications', apps);
+      logAuditAction(session, 'DECIDE', 'crew_application', id, { decision, oldStage });
       return apps[idx];
     },
-    async verifyAndProvision(id, data = {}) {
+    async verifyAndProvision(id, data = {}, csrfToken) {
       // FUTURE: POST /api/crew_applications/:id/verify
-      api._requireRole('administrator');
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const apps = api._get('crew_applications') || [];
       const idx = apps.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Crew application not found.');
@@ -1829,7 +2029,7 @@ export const api = {
         };
         if (data.email) updates.email = data.email;
         if (data.username) updates.username = data.username;
-        await api.users.update(userId, updates);
+        await api.users.update(userId, updates, csrfToken);
       } else {
         const email = data.email || `${app.full_name.toLowerCase().replace(/[^a-z0-9]/g, '')}@boattrack.local`;
         const username = data.username || `crew_${Math.random().toString(36).substring(2, 7)}`;
@@ -1843,7 +2043,7 @@ export const api = {
           password_hash: await hashPassword(password),
           role: 'crew',
           must_change_password: true
-        });
+        }, csrfToken);
         userId = newUser.id;
       }
 
@@ -1861,7 +2061,7 @@ export const api = {
         members[idx] = crewMember;
         api._set('crew_members', members);
       } else {
-        crewMember = await api.crewMembers.create({ user_id: userId, ...crewData });
+        crewMember = await api.crewMembers.create({ user_id: userId, ...crewData }, csrfToken);
       }
 
       apps[idx] = {
@@ -1873,13 +2073,18 @@ export const api = {
         updated_at: new Date().toISOString()
       };
       api._set('crew_applications', apps);
+      logAuditAction(session, 'VERIFY_PROVISION', 'crew_application', id, { userId, crewMemberId: crewMember.id, role: data.role });
       return apps[idx];
     },
-    async delete(id) {
+    async delete(id, csrfToken) {
       // FUTURE: DELETE /api/crew_applications/:id
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       let apps = api._get('crew_applications') || [];
+      const deletedApp = apps.find(a => a.id === id);
       apps = apps.filter(a => a.id !== id);
       api._set('crew_applications', apps);
+      logAuditAction(session, 'DELETE', 'crew_application', id, { full_name: deletedApp?.full_name });
       return true;
     }
   },
@@ -1902,6 +2107,8 @@ export const api = {
     },
     async create(data) {
       // FUTURE: POST /api/crew_members
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const members = api._get('crew_members') || [];
       const newMember = {
         id: 'cm_' + Math.random().toString(36).substring(2, 9),
@@ -1914,22 +2121,31 @@ export const api = {
       };
       members.push(newMember);
       api._set('crew_members', members);
+      logAuditAction(session, 'CREATE', 'crew_member', newMember.id, { user_id: newMember.user_id, boat_id: newMember.boat_id });
       return newMember;
     },
-    async update(id, data) {
+    async update(id, data, csrfToken) {
       // FUTURE: PUT /api/crew_members/:id
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       const members = api._get('crew_members') || [];
       const idx = members.findIndex(m => m.id === id);
       if (idx === -1) throw new Error('Crew member not found.');
+      const oldData = { ...members[idx] };
       members[idx] = { ...members[idx], ...data };
       api._set('crew_members', members);
+      logAuditAction(session, 'UPDATE', 'crew_member', id, { changes: data, previous: oldData });
       return members[idx];
     },
-    async delete(id) {
+    async delete(id, csrfToken) {
       // FUTURE: DELETE /api/crew_members/:id
+      const session = api._requireRole('administrator');
+      api._requireCSRF(csrfToken);
       let members = api._get('crew_members') || [];
+      const deletedMember = members.find(m => m.id === id);
       members = members.filter(m => m.id !== id);
       api._set('crew_members', members);
+      logAuditAction(session, 'DELETE', 'crew_member', id, { user_id: deletedMember?.user_id });
       return true;
     }
   },
@@ -2038,5 +2254,22 @@ export const api = {
       throw new Error('Session expired. Please log in again.');
     }
     if (s.role !== role && s.role !== 'administrator') throw new Error('Forbidden: ' + role + ' only.');
+    return s;
+  },
+
+  _requireCSRF(csrfToken) {
+    if (!validateCSRFToken(csrfToken)) {
+      throw new Error('Invalid CSRF token. Please refresh the page and try again.');
+    }
+  },
+
+  _getSession() {
+    return JSON.parse(localStorage.getItem('session') || 'null');
+  },
+
+  audit: {
+    async list() {
+      return api._get('audit_logs') || [];
+    }
   }
 };

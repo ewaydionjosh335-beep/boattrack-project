@@ -50,32 +50,40 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { ensureCSRFToken } from "/js/api.js";
       import {
         paginate,
         renderPagination,
+        updatePagination,
         initPagination,
+        createTableFilter,
+        filterTable,
+        setupTableFilters,
+        handleApiError,
+        handleApiSuccess,
       } from "/admin/common.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "sos-alerts",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "sos-alerts" });
+      const csrfToken = ensureCSRFToken();
 
       let allAlerts = [];
       let allBoats = [];
       let allUsers = [];
       let currentPage = 1;
       const pageSize = 25;
+
+      // Create standardized filter function (no search/filter UI on this page yet, but ready for future)
+      const alertFilter = createTableFilter({
+        searchFields: ["message"],
+        exactFilters: [
+          { field: "status", value: "statusFilter" },
+        ],
+      });
 
       async function loadAlerts() {
         allAlerts = await api.alerts.list();
@@ -130,13 +138,8 @@
             .join("");
         }
 
-        // Render pagination controls
-        const paginationContainer = document.getElementById(
-          "paginationContainer",
-        );
-        if (paginationContainer) {
-          paginationContainer.innerHTML = renderPagination(pagination);
-        }
+        // Update pagination controls in-place
+        updatePagination("#paginationContainer", pagination);
       }
 
       initPagination("#paginationContainer", (page) => {
@@ -144,16 +147,16 @@
         renderTable();
       });
 
-      window.acknowledgeAlert = async (id) => {
+      const acknowledgeAlert = async (id) => {
         ui.confirm(
           "Are you sure you want to acknowledge this SOS alert?",
           async () => {
             try {
-              await api.alerts.acknowledge(id, session.user_id);
-              ui.showToast("SOS alert acknowledged.", "success");
+              await api.alerts.acknowledge(id, session.user_id, csrfToken);
+              handleApiSuccess("SOS alert acknowledged.");
               await loadAlerts();
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             }
           },
         );
@@ -161,21 +164,23 @@
 
       document.getElementById("alertsTableBody").onclick = (e) => {
         const btn = e.target.closest('button[data-action="acknowledge"]');
-        if (btn) window.acknowledgeAlert(btn.dataset.id);
+        if (btn) acknowledgeAlert(btn.dataset.id);
       };
 
       document.getElementById("pollAlertsBtn").onclick = loadAlerts;
 
-      const storageHandler = (e) => {
-        if (e.key === "alerts") {
+      // Use BroadcastChannel for cross-tab and same-tab communication
+      // storage event only fires in other tabs, not the originating tab
+      const alertChannel = new BroadcastChannel("sos-alerts");
+      alertChannel.onmessage = (e) => {
+        if (e.data === "alerts-changed") {
           loadAlerts();
           ui.showToast("New SOS Alert received!", "error");
         }
       };
-      window.addEventListener("storage", storageHandler);
       window.addEventListener(
         "beforeunload",
-        () => window.removeEventListener("storage", storageHandler),
+        () => alertChannel.close(),
         { once: true },
       );
 

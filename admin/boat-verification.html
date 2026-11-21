@@ -102,7 +102,7 @@
 
           <div class="form-group">
             <label class="form-label"
-              >Registration Type (Required for Approval)</label
+              >Registration Type <span style="color: var(--danger); font-weight: bold;">*</span></label
             >
             <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem">
               <label
@@ -114,6 +114,9 @@
                 Licensed</label
               >
             </div>
+            <small style="color: var(--text-muted); font-size: 0.8rem;">
+              Required for approval. Select the appropriate registration type.
+            </small>
           </div>
 
           <div class="form-group">
@@ -139,32 +142,39 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { ensureCSRFToken } from "/js/api.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import {
         paginate,
         renderPagination,
+        updatePagination,
         initPagination,
-        setupModalAccessibility,
+        createTableFilter,
+        filterTable,
+        setupTableFilters,
+        handleApiError,
+        handleApiSuccess,
       } from "/admin/common.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "boat-verification",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "boat-verification" });
+      const csrfToken = ensureCSRFToken();
 
       let allBoats = [];
       let allUsers = [];
       let currentPage = 1;
       const pageSize = 25;
+
+      // Create standardized filter function
+      const boatFilter = createTableFilter({
+        searchFields: ["name"],
+        exactFilters: [
+          { field: "registration_status", value: "statusFilter" },
+        ],
+      });
 
       async function loadBoats() {
         allBoats = await api.boats.list();
@@ -174,14 +184,17 @@
       }
 
       function renderTable() {
-        const statusFilter = document.getElementById("statusFilter").value;
-        const search = document
-          .getElementById("searchInput")
-          .value.toLowerCase();
+        const filters = {
+          search: document.getElementById("searchInput").value,
+          statusFilter: document.getElementById("statusFilter").value,
+        };
+
+        // Custom filter for owner name search
         const filtered = allBoats.filter((b) => {
-          if (statusFilter && b.registration_status !== statusFilter)
+          if (filters.statusFilter && b.registration_status !== filters.statusFilter)
             return false;
-          if (search) {
+          if (filters.search) {
+            const search = filters.search.toLowerCase();
             const owner = allUsers.find((u) => u.id === b.owner_id);
             const ownerName = owner ? owner.full_name.toLowerCase() : "";
             if (
@@ -226,42 +239,27 @@
             .join("");
         }
 
-        // Render pagination controls
-        const paginationContainer = document.getElementById(
-          "paginationContainer",
-        );
-        if (paginationContainer) {
-          paginationContainer.innerHTML = renderPagination(pagination);
-        }
+        // Update pagination controls in-place
+        updatePagination("#paginationContainer", pagination);
       }
 
       initPagination("#paginationContainer", (page) => {
         currentPage = page;
         renderTable();
       });
-      document.getElementById("statusFilter").onchange = () => {
-        currentPage = 1;
-        renderTable();
-      };
-      document.getElementById("searchInput").oninput = () => {
-        currentPage = 1;
-        renderTable();
-      };
+
+      // Use standardized filter event setup
+      setupTableFilters({
+        searchInput: document.getElementById("searchInput"),
+        filterSelects: [document.getElementById("statusFilter")],
+        renderTable: renderTable,
+      });
 
       const modal = document.getElementById("verifyModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
-      // Apply accessibility enhancements
-      let modalCleanup = null;
-      const openWithA11y = () => {
-        openModal();
-        modalCleanup = setupModalAccessibility(modal);
-      };
-      document.getElementById("closeModalBtn").onclick = () => {
-        if (modalCleanup) modalCleanup();
-        closeModal();
-      };
+      document.getElementById("closeModalBtn").onclick = closeModal;
 
-      window.openVerifyModal = async (boatId) => {
+      const openVerifyModal = async (boatId) => {
         const boat = allBoats.find((b) => b.id === boatId);
         if (!boat) return;
 
@@ -293,8 +291,12 @@
         const opSelect = document.getElementById("assignOperator");
         // An operator may run more than one boat (the seed data does this), so do not
         // hide operators that already operate another vessel.
+        const ownerCluster = owner ? owner.cluster : null;
         const operators = allUsers.filter(
-          (u) => u.role === "boat_operator" && u.status === "Active",
+          (u) =>
+            u.role === "boat_operator" &&
+            u.status === "Active" &&
+            (!ownerCluster || u.cluster === ownerCluster),
         );
         opSelect.innerHTML =
           '<option value="">-- Select Operator --</option>' +
@@ -335,10 +337,7 @@
         );
         const remarks = document.getElementById("verifyRemarks").value.trim();
         if (!regTypeInput) {
-          ui.showToast(
-            "Select a registration type (Franchised or Licensed).",
-            "warning",
-          );
+          handleApiError("Select a registration type (Franchised or Licensed).", { toast: true });
           return;
         }
         const registration_type = regTypeInput.value;
@@ -351,12 +350,12 @@
             verified_by: session.user_id,
             remarks: remarks || "Verified and approved by Administrator.",
             operator_id,
-          });
-          ui.showToast("Boat successfully verified and approved.", "success");
+          }, csrfToken);
+          handleApiSuccess("Boat successfully verified and approved.");
           closeModal();
           await loadBoats();
         } catch (err) {
-          ui.showToast(err.message, "error");
+          handleApiError(err);
         } finally {
           resetBtn();
         }
@@ -368,7 +367,7 @@
         const id = document.getElementById("verifyBoatId").value;
         const remarks = document.getElementById("verifyRemarks").value.trim();
         if (!remarks) {
-          ui.showToast("Please enter remarks/reason for rejecting.", "warning");
+          handleApiError("Please enter remarks/reason for rejecting.", { toast: true });
           resetBtn();
           return;
         }
@@ -378,28 +377,28 @@
             registration_status: "Rejected",
             verified_by: session.user_id,
             remarks,
-          });
-          ui.showToast("Boat registration rejected.", "warning");
+          }, csrfToken);
+          handleApiSuccess("Boat registration rejected.", { toast: true });
           closeModal();
           await loadBoats();
         } catch (err) {
-          ui.showToast(err.message, "error");
+          handleApiError(err);
         } finally {
           resetBtn();
         }
       };
 
-      window.toggleBoatStatus = async (id, currentStatus) => {
+      const toggleBoatStatus = async (id, currentStatus) => {
         const newStatus = currentStatus === "Active" ? "Suspended" : "Active";
         ui.confirm(
           `Are you sure you want to set boat status to ${newStatus}?`,
           async () => {
             try {
-              await api.boats.updateStatus(id, newStatus);
-              ui.showToast(`Boat status updated to ${newStatus}`, "success");
+              await api.boats.updateStatus(id, newStatus, null, csrfToken);
+              handleApiSuccess(`Boat status updated to ${newStatus}`);
               await loadBoats();
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             }
           },
         );
@@ -409,9 +408,9 @@
         const btn = e.target.closest("button[data-action]");
         if (!btn) return;
         if (btn.dataset.action === "verify")
-          window.openVerifyModal(btn.dataset.id);
+          openVerifyModal(btn.dataset.id);
         else if (btn.dataset.action === "toggle-status")
-          window.toggleBoatStatus(btn.dataset.id, btn.dataset.status);
+          toggleBoatStatus(btn.dataset.id, btn.dataset.status);
       };
 
       loadBoats();

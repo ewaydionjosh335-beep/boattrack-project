@@ -181,6 +181,14 @@
                 </button>
               </div>
               <div
+                id="passwordValidation"
+                style="
+                  font-size: 0.75rem;
+                  margin-top: 0.35rem;
+                  display: none;
+                "
+              ></div>
+              <div
                 id="passwordHint"
                 style="
                   font-size: 0.8rem;
@@ -207,32 +215,41 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth, hashPassword } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
+      import { ensureCSRFToken } from "/js/api.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import {
         paginate,
         renderPagination,
+        updatePagination,
         initPagination,
-        setupModalAccessibility,
         setupModalSubmit,
+        setupPasswordToggle,
+        createTableFilter,
+        filterTable,
+        setupTableFilters,
+        handleApiError,
+        handleApiSuccess,
       } from "/admin/common.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "accounts",
-        userName: session.full_name || "Administrator",
-      });
+const session = await initAdminPage({ activePage: "accounts" });
+const csrfToken = ensureCSRFToken();
 
       let allUsers = [];
       let currentPage = 1;
       const pageSize = 25;
+
+      // Create standardized filter function
+      const accountFilter = createTableFilter({
+        searchFields: ["full_name", "email", "username"],
+        exactFilters: [
+          { field: "role", value: "role" },
+          { field: "status", value: "status" },
+        ],
+      });
 
       async function loadAccounts() {
         allUsers = await api.users.list();
@@ -241,25 +258,13 @@
       }
 
       function renderTable() {
-        const search = document
-          .getElementById("searchInput")
-          .value.toLowerCase();
-        const role = document.getElementById("roleFilter").value;
-        const status = document.getElementById("statusFilter").value;
+        const filters = {
+          search: document.getElementById("searchInput").value,
+          role: document.getElementById("roleFilter").value,
+          status: document.getElementById("statusFilter").value,
+        };
 
-        const filtered = allUsers.filter((u) => {
-          if (role && u.role !== role) return false;
-          if (status && u.status !== status) return false;
-          if (
-            search &&
-            !u.full_name.toLowerCase().includes(search) &&
-            !u.email.toLowerCase().includes(search) &&
-            !u.username.toLowerCase().includes(search)
-          )
-            return false;
-          return true;
-        });
-
+        const filtered = filterTable(allUsers, filters, accountFilter);
         const pagination = paginate(filtered, currentPage, pageSize);
         const tbody = document.getElementById("accountsTableBody");
         if (pagination.items.length === 0) {
@@ -268,62 +273,55 @@
         } else {
           tbody.innerHTML = pagination.items
             .map(
-              (u) => `
-          <tr>
-            <td><strong>${ui.escapeHtml(u.full_name)}</strong></td>
-            <td>${ui.escapeHtml(u.username)}</td>
-            <td>${ui.escapeHtml(u.email)}</td>
-            <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(u.role)}</span></td>
-            <td>${ui.escapeHtml(u.cluster || "-")}</td>
-            <td><span class="badge badge-${ui.escapeHtml(u.status.toLowerCase())}">${ui.escapeHtml(u.status)}</span></td>
-            <td>${new Date(u.created_at).toLocaleDateString()}</td>
-            <td>
-              <div class="table-actions">
-                <button class="btn btn-outline btn-sm" data-action="edit" data-id="${u.id}">Edit</button>
-                <button class="btn btn-outline btn-sm" data-action="toggle" data-id="${u.id}" data-status="${ui.escapeHtml(u.status)}">${u.status === "Active" ? "Suspend" : "Activate"}</button>
-                ${u.id !== session.user_id ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${u.id}">Delete</button>` : ""}
-              </div>
-            </td>
-          </tr>
-        `,
+              (u) => {
+                const activeAdmins = allUsers.filter(au => au.role === 'administrator' && au.status === 'Active');
+                const isLastAdmin = u.role === 'administrator' && u.status === 'Active' && activeAdmins.length <= 1;
+                const canDelete = u.id !== session.user_id && !isLastAdmin;
+                return `
+            <tr>
+              <td><strong>${ui.escapeHtml(u.full_name)}</strong></td>
+              <td>${ui.escapeHtml(u.username)}</td>
+              <td>${ui.escapeHtml(u.email)}</td>
+              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(u.role)}</span></td>
+              <td>${ui.escapeHtml(u.cluster || "-")}</td>
+              <td><span class="badge badge-${ui.escapeHtml(u.status.toLowerCase())}">${ui.escapeHtml(u.status)}</span></td>
+              <td>${new Date(u.created_at).toLocaleDateString()}</td>
+              <td>
+                <div class="table-actions">
+                  <button class="btn btn-outline btn-sm" data-action="edit" data-id="${u.id}">Edit</button>
+                  <button class="btn btn-outline btn-sm" data-action="toggle" data-id="${u.id}" data-status="${ui.escapeHtml(u.status)}">${u.status === "Active" ? "Suspend" : "Activate"}</button>
+                  ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${u.id}">Delete</button>` : (isLastAdmin ? `<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.75rem;">Protected (Last Admin)</span>` : "")}
+                </div>
+              </td>
+            </tr>
+          `;
+              }
             )
             .join("");
         }
 
-        // Render pagination controls
-        const paginationContainer = document.getElementById(
-          "paginationContainer",
-        );
-        if (paginationContainer) {
-          paginationContainer.innerHTML = renderPagination(pagination);
-        }
+        // Update pagination controls in-place
+        updatePagination("#paginationContainer", pagination);
       }
 
       initPagination("#paginationContainer", (page) => {
         currentPage = page;
         renderTable();
       });
-      document.getElementById("searchInput").oninput = () => {
-        currentPage = 1;
-        renderTable();
-      };
-      document.getElementById("roleFilter").onchange = () => {
-        currentPage = 1;
-        renderTable();
-      };
-      document.getElementById("statusFilter").onchange = () => {
-        currentPage = 1;
-        renderTable();
-      };
+
+      // Use standardized filter event setup
+      setupTableFilters({
+        searchInput: document.getElementById("searchInput"),
+        filterSelects: [
+          document.getElementById("roleFilter"),
+          document.getElementById("statusFilter"),
+        ],
+        renderTable: renderTable,
+      });
 
       const modal = document.getElementById("accountModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
-      // Apply accessibility enhancements
-      let modalCleanup = null;
-      const openWithA11y = () => {
-        openModal();
-        modalCleanup = setupModalAccessibility(modal);
-      };
+
       document.getElementById("openAddModalBtn").onclick = () => {
         document.getElementById("modalTitle").textContent = "Add Account";
         document.getElementById("editUserId").value = "";
@@ -339,20 +337,39 @@
         document.getElementById("passwordGroup").style.display = "block";
         document.getElementById("passwordHint").style.display = "none";
         document.getElementById("modalError").textContent = "";
-        openWithA11y();
+        openModal();
       };
 
-      document.getElementById("togglePassBtn").onclick = () => {
-        const passInput = document.getElementById("modalPassword");
-        const btn = document.getElementById("togglePassBtn");
-        if (passInput.type === "password") {
-          passInput.type = "text";
-          btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-        } else {
-          passInput.type = "password";
-          btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+      setupPasswordToggle(
+        document.getElementById("modalPassword"),
+        document.getElementById("togglePassBtn"),
+      );
+
+      // Real-time password validation feedback while typing
+      const passInputEl = document.getElementById("modalPassword");
+      const passValEl = document.getElementById("passwordValidation");
+      function validatePasswordUI() {
+        const val = passInputEl.value;
+        const isNew = !document.getElementById("editUserId").value;
+        passValEl.style.display = val ? "block" : "none";
+        if (!val) return;
+        let ok = true;
+        let msg = "";
+        if (isNew && val.length < 8) {
+          ok = false;
+          msg = "Password must be at least 8 characters.";
+        } else if (
+          val.length < 8 ||
+          !/[a-zA-Z]/.test(val) ||
+          !/[0-9]/.test(val)
+        ) {
+          ok = false;
+          msg = "Password must be 8+ chars with a letter and a number.";
         }
-      };
+        passValEl.textContent = msg;
+        passValEl.style.color = ok ? "var(--success)" : "var(--danger)";
+      }
+      passInputEl.addEventListener("input", validatePasswordUI);
 
       document.getElementById("closeModalBtn").onclick = closeModal;
       document.getElementById("cancelModalBtn").onclick = closeModal;
@@ -374,12 +391,12 @@
         document.getElementById("modalPassword").type = "password";
         document.getElementById("passwordHint").style.display = "block";
         document.getElementById("modalError").textContent = "";
-        openWithA11y();
+        openModal();
       };
 
       const toggleSuspend = async (id, currentStatus) => {
         if (id === session.user_id) {
-          ui.showToast("You cannot suspend your own account.", "error");
+          handleApiError("You cannot suspend your own account.", { toast: true });
           return;
         }
         const newStatus = currentStatus === "Active" ? "Suspended" : "Active";
@@ -387,11 +404,11 @@
           `Are you sure you want to set this account status to ${newStatus}?`,
           async () => {
             try {
-              await api.users.update(id, { status: newStatus });
-              ui.showToast(`Account status updated to ${newStatus}`, "success");
+              await api.users.update(id, { status: newStatus }, csrfToken);
+              handleApiSuccess(`Account status updated to ${newStatus}`);
               await loadAccounts();
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             }
           },
         );
@@ -402,11 +419,11 @@
           "Are you sure you want to delete this account? This action cannot be undone.",
           async () => {
             try {
-              await api.users.delete(id);
-              ui.showToast("Account deleted successfully.", "success");
+              await api.users.delete(id, csrfToken);
+              handleApiSuccess("Account deleted successfully.");
               await loadAccounts();
             } catch (err) {
-              ui.showToast(err.message, "error");
+              handleApiError(err);
             }
           },
         );
@@ -456,12 +473,11 @@
             if (rawPass) {
               updateData.password_hash = await hashPassword(rawPass);
             }
-            await api.users.update(id, updateData);
-            ui.showToast(
+            await api.users.update(id, updateData, csrfToken);
+            handleApiSuccess(
               rawPass
                 ? "Account updated. New password saved — it will be required on next login."
                 : "Account updated successfully.",
-              "success",
             );
           } else {
             const password_hash = await hashPassword(rawPass);
@@ -474,8 +490,8 @@
               password_hash,
               status: "Active",
               must_change_password: true,
-            });
-            ui.showToast("Account created successfully.", "success");
+            }, csrfToken);
+            handleApiSuccess("Account created successfully.");
           }
           closeModal();
           await loadAccounts();

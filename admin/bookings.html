@@ -73,28 +73,26 @@
 
     <script type="module">
       import { api } from "/js/api.js";
-      import { seedDatabase } from "/js/seed.js";
       import { auth } from "/js/auth.js";
       import { ui } from "/js/ui.js";
-      import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
+      import { initAdminPage } from "/admin/init.js";
       import {
         exportToCSV,
         uiLocalDateStr,
         paginate,
         renderPagination,
+        updatePagination,
         initPagination,
+        createTableFilter,
+        filterTable,
+        setupTableFilters,
+        handleApiError,
+        handleApiSuccess,
       } from "/admin/common.js";
+      import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
-      await seedDatabase();
-      const session = await auth.requireAuth(["administrator"]);
-      if (!session) throw new Error("Unauthorized");
-
-      // Load shared sidebar
-      AdminSidebar.mount({
-        activePage: "bookings",
-        userName: session.full_name || "Administrator",
-      });
+      const session = await initAdminPage({ activePage: "bookings" });
 
       let allBookings = [];
       let allPassengers = [];
@@ -116,6 +114,14 @@
       let currentPage = 1;
       const pageSize = 25;
 
+      // Create standardized filter function
+      const bookingFilter = createTableFilter({
+        searchFields: [], // Custom search logic needed (searches passenger name + booking ID)
+        exactFilters: [
+          { field: "booking_type", value: "typeFilter" },
+        ],
+      });
+
       function getFilteredBookings() {
         const search = document
           .getElementById("searchInput")
@@ -123,24 +129,30 @@
         const typeFilter = document.getElementById("typeFilter").value;
         const dateFilter = document.getElementById("dateFilter").value;
 
-        return allBookings.filter((b) => {
-          if (!api.bookings.isApproved(b)) return false;
-          if (typeFilter && b.booking_type !== typeFilter) return false;
-          if (dateFilter && toLocalDateKey(b.created_at) !== dateFilter)
+        // First apply standard filters
+        const filters = { search: "", typeFilter };
+        let filtered = filterTable(allBookings, filters, (item, f) => {
+          if (!api.bookings.isApproved(item)) return false;
+          if (f.typeFilter && item.booking_type !== f.typeFilter) return false;
+          if (dateFilter && toLocalDateKey(item.created_at) !== dateFilter)
             return false;
-
-          const psg = allPassengers.find((p) => p.id === b.passenger_id) || {
-            full_name: "",
-          };
-          if (
-            search &&
-            !psg.full_name.toLowerCase().includes(search) &&
-            !b.id.toLowerCase().includes(search)
-          )
-            return false;
-
           return true;
         });
+
+        // Then apply custom search (passenger name + booking ID)
+        if (search) {
+          filtered = filtered.filter((b) => {
+            const psg = allPassengers.find((p) => p.id === b.passenger_id) || {
+              full_name: "",
+            };
+            return (
+              psg.full_name.toLowerCase().includes(search) ||
+              b.id.toLowerCase().includes(search)
+            );
+          });
+        }
+
+        return filtered;
       }
 
       function renderTable() {
@@ -196,31 +208,24 @@
             .join("");
         }
 
-        // Render pagination controls
-        const paginationContainer = document.getElementById(
-          "paginationContainer",
-        );
-        if (paginationContainer) {
-          paginationContainer.innerHTML = renderPagination(pagination);
-        }
+        // Update pagination controls in-place
+        updatePagination("#paginationContainer", pagination);
       }
 
       initPagination("#paginationContainer", (page) => {
         currentPage = page;
         renderTable();
       });
-      document.getElementById("searchInput").oninput = () => {
-        currentPage = 1;
-        renderTable();
-      };
-      document.getElementById("typeFilter").onchange = () => {
-        currentPage = 1;
-        renderTable();
-      };
-      document.getElementById("dateFilter").onchange = () => {
-        currentPage = 1;
-        renderTable();
-      };
+
+      // Use standardized filter event setup (with custom renderTable)
+      setupTableFilters({
+        searchInput: document.getElementById("searchInput"),
+        filterSelects: [
+          document.getElementById("typeFilter"),
+          document.getElementById("dateFilter"),
+        ],
+        renderTable: renderTable,
+      });
 
       document.getElementById("exportCsvBtn").onclick = () => {
         const approved = getFilteredBookings();
