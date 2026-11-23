@@ -23,14 +23,8 @@
       </header>
 
       <div class="admin-content">
-        <div class="card" style="margin-bottom: 1.5rem">
-          <div
-            style="
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 1rem;
-            "
-          >
+        <div class="card filter-card">
+          <div class="filter-row">
             <input
               type="text"
               id="searchInput"
@@ -71,14 +65,14 @@
             </thead>
             <tbody id="accountsTableBody">
               <tr>
-                <td colspan="8" style="text-align: center">
+                <td colspan="8" class="table-message">
                   Loading accounts...
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
@@ -132,40 +126,23 @@
                 <option value="administrator">Administrator</option>
               </select>
             </div>
-            <div
-              class="form-group"
-              id="passwordGroup"
-              style="position: relative"
-            >
+            <div class="form-group">
               <label class="form-label">Password / Temp Password</label>
-              <div style="display: flex; position: relative; width: 100%">
+              <div class="password-field">
                 <input
                   type="password"
                   id="modalPassword"
                   class="form-control"
                   autocomplete="new-password"
                   placeholder="••••••••"
-                  style="padding-right: 40px; width: 100%"
+                  data-placeholder-new="Temporary password"
+                  data-placeholder-edit="Leave blank to keep current"
                 />
                 <button
                   type="button"
-                  class="btn btn-outline"
+                  class="password-toggle"
                   id="togglePassBtn"
-                  style="
-                    position: absolute;
-                    right: 0;
-                    top: 0;
-                    bottom: 0;
-                    width: 40px;
-                    padding: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: none;
-                    border: none;
-                    cursor: pointer;
-                    border-left: 1px solid var(--border);
-                  "
+                  aria-label="Show password"
                 >
                   <svg
                     width="18"
@@ -174,29 +151,15 @@
                     fill="none"
                     stroke="currentColor"
                     stroke-width="2"
+                    aria-hidden="true"
                   >
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
                 </button>
               </div>
-              <div
-                id="passwordValidation"
-                style="
-                  font-size: 0.75rem;
-                  margin-top: 0.35rem;
-                  display: none;
-                "
-              ></div>
-              <div
-                id="passwordHint"
-                style="
-                  font-size: 0.8rem;
-                  color: var(--text-muted);
-                  margin-top: 0.35rem;
-                  display: none;
-                "
-              >
+              <div id="passwordValidation" class="validation-message hidden"></div>
+              <div id="passwordHint" class="form-hint hidden">
                 Password is saved and hidden. Leave blank to keep it, or type a
                 new password to replace it.
               </div>
@@ -239,8 +202,13 @@ const session = await initAdminPage({ activePage: "accounts" });
 const csrfToken = ensureCSRFToken();
 
       let allUsers = [];
+      let activeAdminCount = 0;
       let currentPage = 1;
       const pageSize = 25;
+      const STATUS_BADGE = {
+        Active: "badge-active",
+        Suspended: "badge-suspended",
+      };
 
       // Create standardized filter function
       const accountFilter = createTableFilter({
@@ -253,6 +221,10 @@ const csrfToken = ensureCSRFToken();
 
       async function loadAccounts() {
         allUsers = await api.users.list();
+        // Count from the full user list, never from the filtered table view.
+        activeAdminCount = allUsers.filter(
+          (u) => u.role === "administrator" && u.status === "Active",
+        ).length;
         renderTable();
         await refreshSosBadge();
       }
@@ -269,28 +241,27 @@ const csrfToken = ensureCSRFToken();
         const tbody = document.getElementById("accountsTableBody");
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="8" style="text-align: center;">No accounts found.</td></tr>';
+            '<tr><td colspan="8" class="table-message">No accounts found.</td></tr>';
         } else {
           tbody.innerHTML = pagination.items
             .map(
               (u) => {
-                const activeAdmins = allUsers.filter(au => au.role === 'administrator' && au.status === 'Active');
-                const isLastAdmin = u.role === 'administrator' && u.status === 'Active' && activeAdmins.length <= 1;
+                const isLastAdmin = u.role === 'administrator' && u.status === 'Active' && activeAdminCount <= 1;
                 const canDelete = u.id !== session.user_id && !isLastAdmin;
                 return `
             <tr>
               <td><strong>${ui.escapeHtml(u.full_name)}</strong></td>
               <td>${ui.escapeHtml(u.username)}</td>
               <td>${ui.escapeHtml(u.email)}</td>
-              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(u.role)}</span></td>
+              <td><span class="badge badge-neutral">${ui.escapeHtml(u.role)}</span></td>
               <td>${ui.escapeHtml(u.cluster || "-")}</td>
-              <td><span class="badge badge-${ui.escapeHtml(u.status.toLowerCase())}">${ui.escapeHtml(u.status)}</span></td>
+              <td><span class="badge ${STATUS_BADGE[u.status] || "badge-pending"}">${ui.escapeHtml(u.status)}</span></td>
               <td>${new Date(u.created_at).toLocaleDateString()}</td>
               <td>
                 <div class="table-actions">
                   <button class="btn btn-outline btn-sm" data-action="edit" data-id="${u.id}">Edit</button>
                   <button class="btn btn-outline btn-sm" data-action="toggle" data-id="${u.id}" data-status="${ui.escapeHtml(u.status)}">${u.status === "Active" ? "Suspend" : "Activate"}</button>
-                  ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${u.id}">Delete</button>` : (isLastAdmin ? `<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.75rem;">Protected (Last Admin)</span>` : "")}
+                  ${canDelete ? `<button class="btn btn-danger btn-sm" data-action="delete" data-id="${u.id}">Delete</button>` : (isLastAdmin ? `<span class="badge badge-protected">Protected (Last Admin)</span>` : "")}
                 </div>
               </td>
             </tr>
@@ -321,6 +292,22 @@ const csrfToken = ensureCSRFToken();
 
       const modal = document.getElementById("accountModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
+      const passInputEl = document.getElementById("modalPassword");
+      const passValEl = document.getElementById("passwordValidation");
+      const passwordHintEl = document.getElementById("passwordHint");
+
+      // Single source of truth for the password policy used by the live hint
+      // and the submit handler, so they can never disagree.
+      function passwordIssue(value) {
+        if (
+          value.length < 8 ||
+          !/[a-zA-Z]/.test(value) ||
+          !/[0-9]/.test(value)
+        ) {
+          return "Password must be at least 8 characters and contain a letter and a number.";
+        }
+        return "";
+      }
 
       document.getElementById("openAddModalBtn").onclick = () => {
         document.getElementById("modalTitle").textContent = "Add Account";
@@ -330,44 +317,27 @@ const csrfToken = ensureCSRFToken();
         document.getElementById("modalUsername").value = "";
         document.getElementById("modalCluster").value = "";
         document.getElementById("modalRole").value = "port_manager";
-        document.getElementById("modalPassword").value = "";
-        document.getElementById("modalPassword").placeholder =
-          "Temporary password";
-        document.getElementById("modalPassword").type = "password";
-        document.getElementById("passwordGroup").style.display = "block";
-        document.getElementById("passwordHint").style.display = "none";
+        passInputEl.value = "";
+        passInputEl.placeholder = passInputEl.dataset.placeholderNew;
+        passInputEl.type = "password";
+        passwordHintEl.classList.add("hidden");
+        passValEl.textContent = "";
+        passValEl.classList.add("hidden");
         document.getElementById("modalError").textContent = "";
         openModal();
       };
 
-      setupPasswordToggle(
-        document.getElementById("modalPassword"),
-        document.getElementById("togglePassBtn"),
-      );
+      setupPasswordToggle(passInputEl, document.getElementById("togglePassBtn"));
 
       // Real-time password validation feedback while typing
-      const passInputEl = document.getElementById("modalPassword");
-      const passValEl = document.getElementById("passwordValidation");
       function validatePasswordUI() {
         const val = passInputEl.value;
-        const isNew = !document.getElementById("editUserId").value;
-        passValEl.style.display = val ? "block" : "none";
+        passValEl.classList.toggle("hidden", !val);
         if (!val) return;
-        let ok = true;
-        let msg = "";
-        if (isNew && val.length < 8) {
-          ok = false;
-          msg = "Password must be at least 8 characters.";
-        } else if (
-          val.length < 8 ||
-          !/[a-zA-Z]/.test(val) ||
-          !/[0-9]/.test(val)
-        ) {
-          ok = false;
-          msg = "Password must be 8+ chars with a letter and a number.";
-        }
-        passValEl.textContent = msg;
-        passValEl.style.color = ok ? "var(--success)" : "var(--danger)";
+        const issue = passwordIssue(val);
+        passValEl.textContent = issue;
+        passValEl.classList.toggle("ok", !issue);
+        passValEl.classList.toggle("error", !!issue);
       }
       passInputEl.addEventListener("input", validatePasswordUI);
 
@@ -384,19 +354,35 @@ const csrfToken = ensureCSRFToken();
         document.getElementById("modalUsername").value = user.username;
         document.getElementById("modalCluster").value = user.cluster || "";
         document.getElementById("modalRole").value = user.role;
-        document.getElementById("passwordGroup").style.display = "block";
-        document.getElementById("modalPassword").value = "";
-        document.getElementById("modalPassword").placeholder =
-          "Leave blank to keep current";
-        document.getElementById("modalPassword").type = "password";
-        document.getElementById("passwordHint").style.display = "block";
+        passInputEl.value = "";
+        passInputEl.placeholder = passInputEl.dataset.placeholderEdit;
+        passInputEl.type = "password";
+        passwordHintEl.classList.remove("hidden");
+        passValEl.textContent = "";
+        passValEl.classList.add("hidden");
         document.getElementById("modalError").textContent = "";
         openModal();
       };
 
       const toggleSuspend = async (id, currentStatus) => {
         if (id === session.user_id) {
-          handleApiError("You cannot suspend your own account.", { toast: true });
+          handleApiError(new Error("You cannot suspend your own account."), { toast: true });
+          return;
+        }
+        const users = await api.users.list();
+        const target = users.find((u) => u.id === id);
+        const activeAdmins = users.filter(
+          (u) => u.role === "administrator" && u.status === "Active",
+        );
+        if (
+          target?.role === "administrator" &&
+          currentStatus === "Active" &&
+          activeAdmins.length <= 1
+        ) {
+          handleApiError(
+            new Error("Cannot suspend the last active administrator."),
+            { toast: true },
+          );
           return;
         }
         const newStatus = currentStatus === "Active" ? "Suspended" : "Active";
@@ -457,16 +443,8 @@ const csrfToken = ensureCSRFToken();
           const isNewAccount = !id;
           if (isNewAccount && !rawPass)
             throw new Error("A temporary password is required.");
-          if (
-            rawPass &&
-            (rawPass.length < 8 ||
-              !/[a-zA-Z]/.test(rawPass) ||
-              !/[0-9]/.test(rawPass))
-          ) {
-            throw new Error(
-              "Password must be at least 8 characters and contain at least one letter and one number.",
-            );
-          }
+          const passIssue = rawPass ? passwordIssue(rawPass) : "";
+          if (passIssue) throw new Error(passIssue);
 
           if (id) {
             const updateData = { full_name, email, username, role, cluster };

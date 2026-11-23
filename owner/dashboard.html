@@ -83,7 +83,7 @@
     const rejectedBoats = boats.filter(b => b.registration_status === 'Rejected');
     const tbody = document.querySelector('#rejectedBoatsTable tbody');
     if (rejectedBoats.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No rejected boats requiring attention.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="table-message">No rejected boats requiring attention.</td></tr>';
     } else {
       rejectedBoats.forEach(boat => {
         const tr = document.createElement('tr');

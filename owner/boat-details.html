@@ -47,7 +47,7 @@
               </tr>
             </thead>
             <tbody id="crewTableBody">
-              <tr><td colspan="4" style="text-align: center;">Loading crew roster...</td></tr>
+              <tr><td colspan="4" class="table-message">Loading crew roster...</td></tr>
             </tbody>
           </table>
         </div>
@@ -192,7 +192,7 @@
       const boatCrew = allCrew.filter(c => c.boat_id === boat.id);
       const crewTableBody = document.getElementById('crewTableBody');
       if (boatCrew.length === 0) {
-        crewTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No crew members assigned to this vessel yet.</td></tr>';
+        crewTableBody.innerHTML = '<tr><td colspan="4" class="table-message">No crew members assigned to this vessel yet.</td></tr>';
       } else {
         crewTableBody.innerHTML = boatCrew.map(c => `
           <tr>

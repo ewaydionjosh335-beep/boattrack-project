@@ -108,7 +108,7 @@
               </tr>
             </thead>
             <tbody id="vesselRemitBody">
-              <tr><td colspan="5" style="text-align: center;">Loading unremitted payments...</td></tr>
+              <tr><td colspan="5" class="table-message">Loading unremitted payments...</td></tr>
             </tbody>
           </table>
         </div>
@@ -134,7 +134,7 @@
               </tr>
             </thead>
             <tbody id="historyBody">
-              <tr><td colspan="7" style="text-align: center;">Loading remittance history...</td></tr>
+              <tr><td colspan="7" class="table-message">Loading remittance history...</td></tr>
             </tbody>
           </table>
         </div>
@@ -200,6 +200,7 @@
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
+    import { exportToCSV } from '/admin/common.js';
 
     const session = await auth.requireAuth(['receptionist']);
     if (!session) throw new Error('Unauthorized');
@@ -243,7 +244,7 @@
       const boatEntries = Object.entries(boatMap);
 
       if (boatEntries.length === 0) {
-        vesselBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No unremitted payments for ${selectedDate}.</td></tr>`;
+        vesselBody.innerHTML = `<tr><td colspan="5" class="table-message">No unremitted payments for ${selectedDate}.</td></tr>`;
       } else {
         vesselBody.innerHTML = boatEntries.map(([boatId, data]) => {
           const boat = boats.find(b => b.id === boatId) || { name: 'Unknown Vessel' };
@@ -288,7 +289,7 @@
       // 2. Remittance History table
       const historyBody = document.getElementById('historyBody');
       if (remittances.length === 0) {
-        historyBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No remittance records found.</td></tr>';
+        historyBody.innerHTML = '<tr><td colspan="7" class="table-message">No remittance records found.</td></tr>';
       } else {
         historyBody.innerHTML = remittances.map(r => {
           const boat = boats.find(b => b.id === r.boat_id) || { name: 'Vessel' };
@@ -413,7 +414,7 @@
         'Received By Crew': r.received_by_crew_id,
         Timestamp: r.remitted_at
       }));
-      ui.exportToCSV('remittances_export.csv', csvRows);
+      exportToCSV('remittances_export.csv', csvRows);
     };
 
     loadRemittancesData();

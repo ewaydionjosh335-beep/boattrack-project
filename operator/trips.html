@@ -47,7 +47,7 @@
             </tr>
           </thead>
           <tbody id="tripsTableBody">
-            <tr><td colspan="5" style="text-align: center;">Loading trips...</td></tr>
+            <tr><td colspan="5" class="table-message">Loading trips...</td></tr>
           </tbody>
         </table>
       </div>
@@ -74,7 +74,7 @@
         
         const tbody = document.getElementById('tripsTableBody');
         if (myTrips.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No trips found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="table-message">No trips found.</td></tr>';
             return;
         }
 

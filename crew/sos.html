@@ -102,7 +102,7 @@
                 </tr>
               </thead>
               <tbody id="alertsTableBody">
-                <tr><td colspan="4" style="text-align: center;">Loading alerts...</td></tr>
+                <tr><td colspan="4" class="table-message">Loading alerts...</td></tr>
               </tbody>
             </table>
           </div>
@@ -204,7 +204,7 @@
       const tbody = document.getElementById('alertsTableBody');
 
       if (myAlerts.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No SOS alerts recorded for your vessel.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="table-message">No SOS alerts recorded for your vessel.</td></tr>';
         return;
       }
 

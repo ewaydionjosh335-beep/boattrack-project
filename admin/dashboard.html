@@ -10,51 +10,6 @@
     <link rel="stylesheet" href="/css/layout.css" />
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="/js/lib/leaflet.css" />
-    <style>
-      .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-      }
-      .stat-card {
-        background: white;
-        padding: 1.25rem;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--border);
-        box-shadow: var(--shadow-sm);
-      }
-      .stat-card h4 {
-        color: var(--text-muted);
-        font-size: 0.9rem;
-        margin-bottom: 0.5rem;
-      }
-      .stat-card .val {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: var(--primary);
-      }
-      .map-container-grid {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 1.5rem;
-      }
-      #vesselMap {
-        height: 450px;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--border);
-      }
-      .terminal-marker,
-      .boat-marker {
-        background: transparent !important;
-        border: none !important;
-      }
-      @media (max-width: 992px) {
-        .map-container-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
   </head>
   <body class="admin-layout">
     <!-- SIDEBAR -->
@@ -64,7 +19,7 @@
     <div class="admin-main">
       <header class="admin-header">
         <h2>Dashboard & Vessel Tracking</h2>
-        <span id="adminName" style="font-weight: 600">Administrator</span>
+        <span id="adminName" class="font-semibold">Administrator</span>
       </header>
 
       <div class="admin-content">
@@ -77,71 +32,41 @@
             <h4>Verified Boats</h4>
             <div class="val" id="statBoats">0</div>
           </div>
-          <div class="stat-card">
-            <h4>Pending Boat Verifications</h4>
-            <div
-              class="val"
-              id="statPendingBoats"
-              style="color: var(--warning, #d97706)"
-            >
-              0
-            </div>
+          <div class="stat-card warning">
+            <h4>Pending Boats</h4>
+            <div class="val" id="statPendingBoats">0</div>
           </div>
-          <div class="stat-card">
-            <h4>Pending Crew Verifications</h4>
-            <div
-              class="val"
-              id="statPendingCrew"
-              style="color: var(--warning, #d97706)"
-            >
-              0
-            </div>
+          <div class="stat-card warning">
+            <h4>Pending Crew</h4>
+            <div class="val" id="statPendingCrew">0</div>
           </div>
           <div class="stat-card">
             <h4>Today's Trips</h4>
             <div class="val" id="statTrips">0</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card danger">
             <h4>Open SOS Alerts</h4>
-            <div class="val" id="statSos" style="color: var(--danger)">0</div>
+            <div class="val" id="statSos">0</div>
           </div>
           <div class="stat-card">
-            <h4>Approved Bookings</h4>
+            <h4 title="Approved bookings">Bookings</h4>
             <div class="val" id="statBookings">0</div>
           </div>
         </div>
 
         <div class="card">
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 1rem;
-            "
-          >
-            <h3>Binangonan Port & Laguna de Bay Vessel Radar</h3>
+          <div class="map-card-header">
+            <h3>Binangonan Port &amp; Laguna de Bay Vessel Radar</h3>
             <button id="simulateGpsBtn" class="btn btn-primary btn-sm">
-              Simulate Movement & GPS Update
+              Simulate Movement &amp; GPS Update
             </button>
           </div>
           <div class="map-container-grid">
-            <div id="vesselMap"></div>
-            <div
-              style="
-                background: var(--bg-main);
-                padding: 1rem;
-                border-radius: var(--radius-md);
-                border: 1px solid var(--border);
-                max-height: 450px;
-                overflow-y: auto;
-              "
-            >
-              <h4 style="margin-bottom: 0.75rem">Active Vessels & Terminals</h4>
+            <div id="vesselMap" class="map-container"></div>
+            <div class="vessel-list-panel">
+              <h4>Active Vessels &amp; Terminals</h4>
               <div id="vesselListContainer">
-                <p style="color: var(--text-muted); font-size: 0.9rem">
-                  Loading vessels...
-                </p>
+                <p class="text-muted text-sm">Loading vessels...</p>
               </div>
             </div>
           </div>
@@ -175,7 +100,9 @@ import { handleApiError, handleApiSuccess } from "/admin/common.js";
 
           document.getElementById("statUsers").textContent = users.length;
           document.getElementById("statBoats").textContent = boats.filter(
-            (b) => b.registration_status === "Verified",
+            (b) =>
+              b.registration_status === "Verified" &&
+              b.boat_status === "Active",
           ).length;
           document.getElementById("statPendingBoats").textContent =
             boats.filter((b) => b.registration_status === "Pending").length;
@@ -201,15 +128,20 @@ import { handleApiError, handleApiSuccess } from "/admin/common.js";
       }
 
       await refreshStats();
-      ui.setupSync(refreshStats, 10000);
+      const stopStatsSync = ui.setupSync(refreshStats, 10000);
+      window.addEventListener("pagehide", stopStatsSync, { once: true });
 
       // Initialize map using the extracted module
+      let mapClickTimer = null;
       const mapController = initDashboardMap({
         mapElementId: "vesselMap",
         onMapClick: (lat, lng) => {
-          if (mapController && mapController.map) {
-            mapController.map.setView([lat, lng], 14);
-          }
+          clearTimeout(mapClickTimer);
+          mapClickTimer = setTimeout(() => {
+            if (mapController && mapController.map) {
+              mapController.map.setView([lat, lng], 14);
+            }
+          }, 100);
         },
       });
 

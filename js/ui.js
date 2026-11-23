@@ -1,11 +1,16 @@
 export const ui = {
   setupSync(callback, intervalMs = 5000) {
-    setInterval(() => {
+    const intervalId = setInterval(() => {
       try { callback(); } catch (e) { console.error('Sync interval error:', e); }
     }, intervalMs);
-    window.addEventListener('storage', (e) => {
+    const onStorage = (e) => {
       try { callback(); } catch (err) { console.error('Storage sync error:', err); }
-    });
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('storage', onStorage);
+    };
   },
 
   localDateStr(value = new Date()) {
@@ -119,32 +124,4 @@ export const ui = {
     dialog.open();
   },
 
-  exportToCSV(filename, rows) {
-    if (!rows || !rows.length) {
-      this.showToast('No data available to export.', 'warning');
-      return;
-    }
-    const keys = Object.keys(rows[0]);
-    const lines = [keys.join(',')];
-
-    rows.forEach(row => {
-      const line = keys.map(key => {
-        let val = row[key] !== undefined && row[key] !== null ? row[key] : '';
-        val = String(val).replace(/"/g, '""');
-        return `"${val}"`;
-      }).join(',');
-      lines.push(line);
-    });
-
-    // Blob download: data: URLs hit browser URL-length limits on large exports.
-    const blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-};
+  };

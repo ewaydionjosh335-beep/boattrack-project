@@ -4,6 +4,10 @@
 import { api } from "/js/api.js";
 import { ui } from "/js/ui.js";
 
+// Load monitor thresholds, as a percentage of rated capacity.
+export const LOAD_WARNING_THRESHOLD = 80;
+export const LOAD_DANGER_THRESHOLD = 100;
+
 /**
  * Shared logout handler for all admin pages
  * Prevents duplicate code across 10 admin files
@@ -105,6 +109,7 @@ export function formatDisplayDateTime(value) {
  * @property {string} boat_status
  * @property {string} [owner_id]
  * @property {string} [operator_id]
+ * @property {string} [verified_by]
  * @property {string} [remarks]
  * @property {string} created_at
  */
@@ -151,6 +156,17 @@ export function formatDisplayDateTime(value) {
  * @property {number} required_passengers
  * @property {string} [created_by]
  * @property {string} created_at
+ */
+
+/**
+ * @typedef {Object} AdminTripLoad
+ * @property {Array<Object>} manifests
+ * @property {Array<Object>} cargo_bookings
+ * @property {number} passenger_count
+ * @property {number} passenger_weight_kg
+ * @property {number} baggage_weight_kg
+ * @property {number} cargo_weight_kg
+ * @property {number} total_load_kg
  */
 
 /**
@@ -244,7 +260,7 @@ export function renderPagination(pagination) {
   if (totalPages <= 1) return "";
 
   let html =
-    '<div class="pagination" style="display:flex;gap:0.5rem;justify-content:center;margin-top:1rem;flex-wrap:wrap;">';
+    '<div class="pagination">';
 
   // Previous button
   html += `<button class="btn btn-outline btn-sm" ${currentPage === 1 ? "disabled" : ""} data-page="${currentPage - 1}">Prev</button>`;
@@ -464,15 +480,41 @@ export async function generateUniqueEmail(baseName, existingUsers) {
 // Sidebar uses it directly via import; no global attachment needed.
 
 /**
- * Password toggle button utility - returns SVG for eye/eye-slash icons
- * @param {boolean} showPassword - true for "show password" (eye), false for "hide password" (eye-slash)
- * @returns {string} SVG HTML string
+ * Generate a strong-ish temporary password.
+ * Excludes look-alike characters; guarantees upper, lower, digit, symbol.
+ * @returns {string} 16-character password
  */
-export function getPasswordToggleSVG(showPassword) {
-  if (showPassword) {
-    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-  }
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+export function generateTempPassword() {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%^&*";
+  const all = upper + lower + digits + symbols;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let p = Array.from(bytes, (b) => all[b % all.length]).join("");
+  if (!/[A-Z]/.test(p)) p = upper[0] + p.slice(1);
+  if (!/[a-z]/.test(p)) p = lower[0] + p.slice(1);
+  if (!/[0-9]/.test(p)) p = digits[0] + p.slice(1);
+  if (!/[!@#$%^&*]/.test(p)) p = symbols[0] + p.slice(1);
+  return p;
+}
+
+/**
+ * Toggle a button's busy state while an async action runs.
+ * @param {HTMLButtonElement} btn - Button to lock
+ * @param {string} loadingText - Text shown while busy
+ * @returns {Function} Restores the button's original text and enabled state
+ */
+export function setupButtonLoading(btn, loadingText = "Saving...") {
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.classList.add("is-loading");
+  btn.textContent = loadingText;
+  return () => {
+    btn.disabled = false;
+    btn.classList.remove("is-loading");
+    btn.textContent = originalText;
+  };
 }
 
 /**
@@ -481,10 +523,16 @@ export function getPasswordToggleSVG(showPassword) {
  * @param {HTMLButtonElement} toggleBtn - The toggle button element
  */
 export function setupPasswordToggle(passwordInput, toggleBtn) {
+  const isHidden = passwordInput.type === "password";
+  toggleBtn.innerHTML = `<svg aria-hidden="true"><use href="/assets/icons.svg#i-${isHidden ? "eye" : "eye-off"}"></use></svg>`;
+  toggleBtn.setAttribute("aria-label", isHidden ? "Show password" : "Hide password");
+
   toggleBtn.onclick = () => {
     const show = passwordInput.type === "password";
     passwordInput.type = show ? "text" : "password";
-    toggleBtn.innerHTML = getPasswordToggleSVG(show);
+    // After click, password is visible when show=true, so show "eye-off" (hide)
+    toggleBtn.innerHTML = `<svg aria-hidden="true"><use href="/assets/icons.svg#i-${show ? "eye-off" : "eye"}"></use></svg>`;
+    toggleBtn.setAttribute("aria-label", show ? "Hide password" : "Show password");
   };
 }
 

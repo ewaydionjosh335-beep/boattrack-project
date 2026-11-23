@@ -17,15 +17,14 @@
     <div class="admin-main">
       <header class="admin-header">
         <h2>Boat Registration Verification</h2>
-        <div style="display: flex; gap: 1rem; align-items: center">
+        <div class="header-filters">
           <input
             type="text"
             id="searchInput"
-            class="form-control"
+            class="form-control filter-input"
             placeholder="Search boat name or owner..."
-            style="width: 250px"
           />
-          <select id="statusFilter" class="form-control" style="width: 200px">
+          <select id="statusFilter" class="form-control filter-input">
             <option value="">All Statuses</option>
             <option value="Pending" selected>Pending</option>
             <option value="Verified">Verified</option>
@@ -50,18 +49,18 @@
             </thead>
             <tbody id="boatsTableBody">
               <tr>
-                <td colspan="7" style="text-align: center">Loading boats...</td>
+                <td colspan="7" class="table-message">Loading boats...</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
     <!-- VERIFICATION MODAL -->
     <div id="verifyModal" class="modal-backdrop" style="display: none">
-      <div class="modal" style="max-width: 600px">
+      <div class="modal modal-lg">
         <div class="modal-header">
           <h3 id="modalBoatName">Verify Boat Registration</h3>
           <button class="btn btn-outline btn-sm" id="closeModalBtn">
@@ -84,15 +83,7 @@
 
           <div class="form-group">
             <label class="form-label">Submitted Documents</label>
-            <div
-              id="boatDocsList"
-              style="
-                padding: 0.5rem;
-                background: #fff;
-                border: 1px solid var(--border);
-                border-radius: var(--radius-sm);
-              "
-            ></div>
+            <div id="boatDocsList" class="docs-list"></div>
           </div>
 
           <div class="form-group">
@@ -104,12 +95,12 @@
             <label class="form-label"
               >Registration Type <span style="color: var(--danger); font-weight: bold;">*</span></label
             >
-            <div style="display: flex; gap: 1.5rem; margin-top: 0.5rem">
-              <label
+            <div class="radio-group">
+              <label class="radio-option"
                 ><input type="radio" name="regType" value="Franchised" />
                 Franchised</label
               >
-              <label
+              <label class="radio-option"
                 ><input type="radio" name="regType" value="Licensed" />
                 Licensed</label
               >
@@ -132,9 +123,12 @@
           </div>
         </div>
         <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelModalBtn">
+            Cancel
+          </button>
           <button class="btn btn-danger" id="rejectBtn">Reject Boat</button>
           <button class="btn btn-primary" id="verifyBtn">
-            Verify & Approve
+            Verify &amp; Approve
           </button>
         </div>
       </div>
@@ -158,6 +152,7 @@
         setupTableFilters,
         handleApiError,
         handleApiSuccess,
+        setupButtonLoading,
       } from "/admin/common.js";
 
       const session = await initAdminPage({ activePage: "boat-verification" });
@@ -167,6 +162,11 @@
       let allUsers = [];
       let currentPage = 1;
       const pageSize = 25;
+      const REG_STATUS_BADGE = {
+        Pending: "badge-pending",
+        Verified: "badge-verified",
+        Rejected: "badge-rejected",
+      };
 
       // Create standardized filter function
       const boatFilter = createTableFilter({
@@ -210,7 +210,7 @@
         const tbody = document.getElementById("boatsTableBody");
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="7" style="text-align: center;">No boats found.</td></tr>';
+            '<tr><td colspan="7" class="table-message">No boats found.</td></tr>';
         } else {
           tbody.innerHTML = pagination.items
             .map((b) => {
@@ -222,15 +222,15 @@
                 <strong>${ui.escapeHtml(b.name)}</strong><br>
                 <span style="font-size: 0.8rem; color: var(--text-muted);">Owner: ${ui.escapeHtml(owner ? owner.full_name : "N/A")}</span>
               </td>
-              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(b.boat_type)}</span> (${ui.escapeHtml(b.registration_type || "Unregistered")})</td>
+              <td><span class="badge badge-neutral">${ui.escapeHtml(b.boat_type)}</span> (${ui.escapeHtml(b.registration_type || "Unregistered")})</td>
               <td>${ui.escapeHtml(b.passenger_capacity)} pax / ${ui.escapeHtml(b.cargo_capacity)} kg</td>
               <td><strong>${ui.escapeHtml(b.max_load_kg)} kg</strong></td>
-              <td><span class="badge badge-${ui.escapeHtml(b.registration_status.toLowerCase())}">${ui.escapeHtml(b.registration_status)}</span></td>
+              <td><span class="badge ${REG_STATUS_BADGE[b.registration_status] || "badge-neutral"}">${ui.escapeHtml(b.registration_status)}</span></td>
               <td>${ui.escapeHtml(b.remarks || "None")}</td>
               <td>
                 <div class="table-actions">
-                  <button class="btn btn-primary btn-sm" data-action="verify" data-id="${b.id}">Review / Verify</button>
-                  <button class="btn btn-outline btn-sm" data-action="toggle-status" data-id="${b.id}" data-status="${b.boat_status}">${b.boat_status === "Active" ? "Suspend" : "Activate"}</button>
+                  ${b.registration_status !== "Verified" ? `<button class="btn btn-primary btn-sm" data-action="verify" data-id="${b.id}">Review / Verify</button>` : ""}
+                  <button class="btn ${b.boat_status === "Active" ? "btn-danger" : "btn-outline"} btn-sm" data-action="toggle-status" data-id="${b.id}" data-status="${b.boat_status}">${b.boat_status === "Active" ? "Suspend Boat" : "Activate Boat"}</button>
                 </div>
               </td>
             </tr>
@@ -258,6 +258,7 @@
       const modal = document.getElementById("verifyModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
       document.getElementById("closeModalBtn").onclick = closeModal;
+      document.getElementById("cancelModalBtn").onclick = closeModal;
 
       const openVerifyModal = async (boatId) => {
         const boat = allBoats.find((b) => b.id === boatId);
@@ -278,7 +279,7 @@
         const docsContainer = document.getElementById("boatDocsList");
         if (docs.length === 0) {
           docsContainer.innerHTML =
-            '<span style="color:var(--text-muted);">No documents uploaded.</span>';
+            '<span class="text-muted">No documents uploaded.</span>';
         } else {
           docsContainer.innerHTML = docs
             .map(
@@ -291,12 +292,9 @@
         const opSelect = document.getElementById("assignOperator");
         // An operator may run more than one boat (the seed data does this), so do not
         // hide operators that already operate another vessel.
-        const ownerCluster = owner ? owner.cluster : null;
+        // Operator assignment is independent of the owner's cluster.
         const operators = allUsers.filter(
-          (u) =>
-            u.role === "boat_operator" &&
-            u.status === "Active" &&
-            (!ownerCluster || u.cluster === ownerCluster),
+          (u) => u.role === "boat_operator" && u.status === "Active",
         );
         opSelect.innerHTML =
           '<option value="">-- Select Operator --</option>' +
@@ -309,24 +307,14 @@
             .join("");
 
         document.getElementById("verifyRemarks").value = boat.remarks || "";
-        // Pre-select the registration type, otherwise "Verify & Approve" had no checked radio.
+        // Pre-select the registration type, defaulting new verifications to Franchised.
         document.querySelectorAll('input[name="regType"]').forEach((r) => {
-          r.checked = r.value === boat.registration_type;
+          r.checked = r.value === (boat.registration_type || "Franchised");
         });
-        openWithA11y();
+        openModal();
       };
 
       // Setup loading state for verify/reject buttons
-      const setupButtonLoading = (btn, loadingText = "Saving...") => {
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = loadingText;
-        return () => {
-          btn.disabled = false;
-          btn.textContent = originalText;
-        };
-      };
-
       document.getElementById("verifyBtn").onclick = async () => {
         const btn = document.getElementById("verifyBtn");
         const id = document.getElementById("verifyBoatId").value;
@@ -337,7 +325,7 @@
         );
         const remarks = document.getElementById("verifyRemarks").value.trim();
         if (!regTypeInput) {
-          handleApiError("Select a registration type (Franchised or Licensed).", { toast: true });
+          handleApiError(new Error("Select a registration type (Franchised or Licensed)."), { toast: true });
           return;
         }
         const registration_type = regTypeInput.value;
@@ -367,7 +355,7 @@
         const id = document.getElementById("verifyBoatId").value;
         const remarks = document.getElementById("verifyRemarks").value.trim();
         if (!remarks) {
-          handleApiError("Please enter remarks/reason for rejecting.", { toast: true });
+          handleApiError(new Error("Please enter remarks/reason for rejecting."), { toast: true });
           resetBtn();
           return;
         }

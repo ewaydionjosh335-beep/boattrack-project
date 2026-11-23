@@ -84,11 +84,11 @@
                   <th>Route</th>
                   <th>Departure</th>
                   <th>Status</th>
-                  <th style="text-align: center;">Pax (Manifest / Req)</th>
+                  <th class="text-center">Pax (Manifest / Req)</th>
                 </tr>
               </thead>
               <tbody id="todayTripsBody">
-                <tr><td colspan="5" style="text-align: center;">Loading trips...</td></tr>
+                <tr><td colspan="5" class="table-message">Loading trips...</td></tr>
               </tbody>
             </table>
           </div>
@@ -169,7 +169,7 @@
       // Render today's trips table
       const tbody = document.getElementById('todayTripsBody');
       if (todayTrips.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No trips scheduled for today.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="table-message">No trips scheduled for today.</td></tr>';
       } else {
         tbody.innerHTML = todayTrips.map(t => {
           const boat = boats.find(b => b.id === t.boat_id) || { name: 'Boat' };
@@ -190,7 +190,7 @@
               <td>${esc(origin)} → ${esc(dest)}</td>
               <td>${time}</td>
               <td><span class="badge ${badgeClass}">${esc(t.trip_status)}</span></td>
-              <td style="text-align: center;">${mCount} / ${t.required_passengers}</td>
+              <td class="text-center">${mCount} / ${t.required_passengers}</td>
             </tr>
           `;
         }).join('');

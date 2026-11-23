@@ -45,24 +45,24 @@
 
   <!-- HOLD REMARKS MODAL -->
   <div id="holdRemarksModal" class="modal-backdrop" style="display: none;">
-    <div class="modal" style="max-width: 480px; width: 100%; border-radius: var(--radius-lg);">
-      <div class="modal-header" style="padding: 1.25rem 1.5rem;">
-        <h3 style="color: var(--danger); font-size: 1.15rem;">Hold Trip</h3>
-        <button type="button" class="btn btn-outline btn-sm" id="closeHoldRemarksModalBtn" style="padding: 0.35rem 0.75rem;">&times;</button>
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3>Hold Trip</h3>
+        <button type="button" class="btn btn-outline btn-sm" id="closeHoldRemarksModalBtn">&times;</button>
       </div>
       <form id="holdRemarksForm">
-        <div class="modal-body" style="padding: 1.5rem;">
+        <div class="modal-body">
           <input type="hidden" id="holdRemarksTripId">
-          <p id="holdRemarksSummary" style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem;"></p>
+          <p id="holdRemarksSummary" class="form-hint"></p>
           <div class="form-group">
             <label class="form-label">Coast Guard Hold Reason (required)</label>
             <textarea id="holdRemarksInput" class="form-control" rows="3" placeholder="e.g. Weather advisory, safety inspection pending, coast guard order..."></textarea>
           </div>
           <div id="holdRemarksError" class="error-text"></div>
         </div>
-        <div class="modal-footer" style="padding: 1rem 1.5rem;">
-          <button type="button" class="btn btn-outline" id="cancelHoldRemarksBtn" style="padding: 0.6rem 1.25rem;">Cancel</button>
-          <button type="submit" class="btn btn-danger" style="padding: 0.6rem 1.25rem;">Confirm Hold</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelHoldRemarksBtn">Cancel</button>
+          <button type="submit" class="btn btn-danger">Confirm Hold</button>
         </div>
       </form>
     </div>
@@ -70,25 +70,25 @@
 
   <!-- APPROVAL MODAL: evidence + coast guard remarks -->
   <div id="approvalModal" class="modal-backdrop" style="display: none;">
-    <div class="modal" style="max-width: 720px; width: 100%; border-radius: var(--radius-lg);">
-      <div class="modal-header" style="padding: 1.25rem 1.5rem;">
-        <h3 style="font-size: 1.25rem;">Record Departure Approval</h3>
-        <button type="button" class="btn btn-outline btn-sm" id="closeApprovalModalBtn" style="padding: 0.35rem 0.75rem;">&times;</button>
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>Record Departure Approval</h3>
+        <button type="button" class="btn btn-outline btn-sm" id="closeApprovalModalBtn">&times;</button>
       </div>
       <form id="approvalForm">
-        <div class="modal-body" style="font-size: 0.95rem; padding: 1.5rem;">
+        <div class="modal-body">
           <input type="hidden" id="approvalTripId">
-          <p id="approvalSummary" style="margin-bottom: 1.25rem; color: var(--text-muted); font-size: 1rem;"></p>
-          <div id="approvalEvidence" style="margin-bottom: 1.25rem;"></div>
+          <p id="approvalSummary" class="form-hint"></p>
+          <div id="approvalEvidence"></div>
           <div class="form-group">
-            <label class="form-label" id="approvalRemarksLabel" style="font-size: 1rem;">Remarks</label>
-            <textarea id="approvalRemarks" class="form-control" rows="4" style="font-size: 0.95rem; padding: 0.75rem;"></textarea>
+            <label class="form-label" id="approvalRemarksLabel">Remarks</label>
+            <textarea id="approvalRemarks" class="form-control" rows="4"></textarea>
           </div>
-          <div id="approvalError" class="error-text" style="font-size: 0.9rem;"></div>
+          <div id="approvalError" class="error-text"></div>
         </div>
-        <div class="modal-footer" style="padding: 1rem 1.5rem;">
-          <button type="button" class="btn btn-outline" id="cancelApprovalBtn" style="padding: 0.6rem 1.25rem; font-size: 1rem;">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="recordApprovalBtn" style="padding: 0.6rem 1.25rem; font-size: 1rem;">Record Approval</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelApprovalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="recordApprovalBtn">Record Approval</button>
         </div>
       </form>
     </div>

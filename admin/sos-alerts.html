@@ -17,9 +17,14 @@
     <div class="admin-main">
       <header class="admin-header">
         <h2>Emergency SOS Distress Alerts</h2>
-        <button id="pollAlertsBtn" class="btn btn-outline btn-sm">
-          Refresh Alerts
-        </button>
+        <div class="header-filters">
+          <span class="live-indicator" title="Live updates enabled">
+            <span class="live-dot"></span>Live
+          </span>
+          <button id="pollAlertsBtn" class="btn btn-outline btn-sm">
+            Refresh Alerts
+          </button>
+        </div>
       </header>
 
       <div class="admin-content">
@@ -37,14 +42,14 @@
             </thead>
             <tbody id="alertsTableBody">
               <tr>
-                <td colspan="6" style="text-align: center">
+                <td colspan="6" class="table-message">
                   Loading alerts...
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
@@ -65,6 +70,7 @@
         setupTableFilters,
         handleApiError,
         handleApiSuccess,
+        setupButtonLoading,
       } from "/admin/common.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
@@ -100,7 +106,7 @@
 
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="6" style="text-align: center;">No emergency alerts recorded.</td></tr>';
+            '<tr><td colspan="6" class="table-message">No emergency alerts recorded.</td></tr>';
         } else {
           tbody.innerHTML = pagination.items
             .map((a) => {
@@ -116,21 +122,19 @@
               const ackUser = allUsers.find((u) => u.id === a.acknowledged_by);
               const ackInfo =
                 a.status === "Acknowledged" && (ackUser || a.acknowledged_at)
-                  ? `<br><small style="color:var(--text-muted);">by ${ui.escapeHtml(ackUser ? ackUser.full_name : "Unknown")}${a.acknowledged_at ? " · " + new Date(a.acknowledged_at).toLocaleString() : ""}</small>`
+                  ? `<br><small class="text-muted text-xs">by ${ui.escapeHtml(ackUser ? ackUser.full_name : "Unknown")}${a.acknowledged_at ? " · " + new Date(a.acknowledged_at).toLocaleString() : ""}</small>`
                   : "";
-              const rowStyle = isOpen
-                ? "background-color: rgba(231, 111, 81, 0.05);"
-                : "";
+              const rowClass = isOpen ? "alert-row open" : "alert-row";
 
               return `
-            <tr style="${rowStyle}">
-              <td><strong>${ui.escapeHtml(boat.name)}</strong><br><small style="color:var(--text-muted);">Trip: ${ui.escapeHtml(a.trip_id || "N/A")}</small></td>
-              <td><strong>${ui.escapeHtml(sender.full_name)}</strong><br><span class="badge" style="background:#e2e8f0; color:#334155; font-size:0.7rem;">${ui.escapeHtml(role)}</span></td>
-              <td><span style="color: ${isOpen ? "var(--danger)" : "inherit"}; font-weight: ${isOpen ? "600" : "400"};">${ui.escapeHtml(a.message)}</span></td>
+            <tr class="${rowClass}">
+              <td><strong>${ui.escapeHtml(boat.name)}</strong></td>
+              <td><strong>${ui.escapeHtml(sender.full_name)}</strong><br><span class="badge badge-neutral text-xs">${ui.escapeHtml(role)}</span></td>
+              <td><span class="alert-message ${isOpen ? "open" : ""}">${ui.escapeHtml(a.message)}</span></td>
               <td><span class="badge badge-${ui.escapeHtml(a.status.toLowerCase())}">${ui.escapeHtml(a.status)}</span>${ackInfo}</td>
               <td>${time}</td>
               <td>
-                ${isOpen ? `<button class="btn btn-primary btn-sm" data-action="acknowledge" data-id="${a.id}">Acknowledge</button>` : `<span style="font-size:0.85rem; color:var(--text-muted);">Acknowledged</span>`}
+                ${isOpen ? `<button class="btn btn-primary btn-sm" data-action="acknowledge" data-id="${a.id}">Acknowledge</button>` : `<span class="text-sm text-muted">Acknowledged</span>`}
               </td>
             </tr>
           `;
@@ -147,16 +151,18 @@
         renderTable();
       });
 
-      const acknowledgeAlert = async (id) => {
+      const acknowledgeAlert = async (id, btn) => {
         ui.confirm(
           "Are you sure you want to acknowledge this SOS alert?",
           async () => {
+            const resetBtn = setupButtonLoading(btn, "Acknowledging...");
             try {
               await api.alerts.acknowledge(id, session.user_id, csrfToken);
               handleApiSuccess("SOS alert acknowledged.");
               await loadAlerts();
             } catch (err) {
               handleApiError(err);
+              resetBtn();
             }
           },
         );
@@ -164,25 +170,22 @@
 
       document.getElementById("alertsTableBody").onclick = (e) => {
         const btn = e.target.closest('button[data-action="acknowledge"]');
-        if (btn) acknowledgeAlert(btn.dataset.id);
+        if (btn) acknowledgeAlert(btn.dataset.id, btn);
       };
 
       document.getElementById("pollAlertsBtn").onclick = loadAlerts;
 
-      // Use BroadcastChannel for cross-tab and same-tab communication
-      // storage event only fires in other tabs, not the originating tab
-      const alertChannel = new BroadcastChannel("sos-alerts");
+      // Reuse BroadcastChannel across page navigations to avoid leaks
+      if (!window.__sosChannel) {
+        window.__sosChannel = new BroadcastChannel("sos-alerts");
+      }
+      const alertChannel = window.__sosChannel;
       alertChannel.onmessage = (e) => {
         if (e.data === "alerts-changed") {
           loadAlerts();
           ui.showToast("New SOS Alert received!", "error");
         }
       };
-      window.addEventListener(
-        "beforeunload",
-        () => alertChannel.close(),
-        { once: true },
-      );
 
       loadAlerts();
     </script>

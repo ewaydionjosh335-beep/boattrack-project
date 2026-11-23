@@ -1,57 +1,36 @@
 // AdminSidebar component - renders the shared sidebar and handles active state.
 // The markup lives here instead of a fetched .html fragment because live-server
 // injects its reload script into any served HTML, which corrupted the sidebar.
+import { adminLogout } from "/admin/common.js";
+
+const icon = (name) =>
+  `<svg aria-hidden="true"><use href="/assets/icons.svg#i-${name}"></use></svg>`;
+
 const SIDEBAR_HTML = `
 <aside class="admin-sidebar">
   <div class="sidebar-header">
-    <span style="display: flex; align-items: center; gap: 0.5rem;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
-        <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/>
-        <path d="M12 10V4l3 2-3 2"/>
-      </svg>
-      <span id="sidebarUserName">Administrator</span>
+    <span class="sidebar-brand">
+      <svg class="sidebar-logo" aria-hidden="true"><use href="/assets/icons.svg#i-boat"></use></svg>
+      <span id="sidebarUserName"></span>
     </span>
   </div>
-  <div class="sidebar-menu">
-    <a href="/admin/dashboard.html" data-page="dashboard">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard
-    </a>
-    <a href="/admin/accounts.html" data-page="accounts">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Accounts
-    </a>
-    <a href="/admin/boat-verification.html" data-page="boat-verification">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg> Boat Verification
-    </a>
-    <a href="/admin/crew-verification.html" data-page="crew-verification">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Crew Verification
-    </a>
-    <a href="/admin/routes-fares.html" data-page="routes-fares">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Routes &amp; Fares
-    </a>
-    <a href="/admin/terminals.html" data-page="terminals">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/></svg> Terminals
-    </a>
-    <a href="/admin/manifests.html" data-page="manifests">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Manifests
-    </a>
-    <a href="/admin/bookings.html" data-page="bookings">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Bookings
-    </a>
-    <a href="/admin/sos-alerts.html" data-page="sos-alerts">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/></svg> SOS Alerts <span class="badge badge-pending" id="sosBadge">0</span>
-    </a>
-    <a href="/admin/dev-tools.html" data-page="dev-tools">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l-.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c0 .69.21 1.35.6 1.91z"/></svg> Dev Tools
-    </a>
-    <a href="#" id="logoutBtn" style="color: var(--danger);">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout
-    </a>
-  </div>
+  <nav class="sidebar-menu" aria-label="Admin">
+    <a href="/admin/dashboard.html" data-page="dashboard">${icon("dashboard")} Dashboard</a>
+    <a href="/admin/accounts.html" data-page="accounts">${icon("users")} Accounts</a>
+    <a href="/admin/boat-verification.html" data-page="boat-verification">${icon("boat-check")} Boat Verification</a>
+    <a href="/admin/crew-verification.html" data-page="crew-verification">${icon("users")} Crew Verification</a>
+    <a href="/admin/routes-fares.html" data-page="routes-fares">${icon("routes")} Routes &amp; Fares</a>
+    <a href="/admin/terminals.html" data-page="terminals">${icon("terminals")} Terminals</a>
+    <a href="/admin/manifests.html" data-page="manifests">${icon("manifests")} Manifests</a>
+    <a href="/admin/bookings.html" data-page="bookings">${icon("bookings")} Bookings</a>
+    <a href="/admin/sos-alerts.html" data-page="sos-alerts" aria-label="SOS Alerts">${icon("sos")} SOS Alerts <span class="badge badge-pending" id="sosBadge" aria-hidden="true">0</span></a>
+    <a href="/admin/dev-tools.html" data-page="dev-tools">${icon("dev-tools")} Dev Tools</a>
+    <button type="button" class="sidebar-logout" id="logoutBtn">${icon("logout")} Logout</button>
+  </nav>
 </aside>`;
 
 export const AdminSidebar = {
-  mount({ activePage, userName = "Administrator" } = {}) {
+  mount({ activePage, userName } = {}) {
     const container = document.getElementById("sidebarContainer");
     if (container && !container.querySelector(".admin-sidebar")) {
       container.innerHTML = SIDEBAR_HTML;
@@ -59,33 +38,22 @@ export const AdminSidebar = {
     this.init({ activePage, userName });
   },
 
-  init({ activePage, userName = "Administrator" }) {
+  init({ activePage, userName }) {
     // Set active page
     const activeLink = document.querySelector(
       `.sidebar-menu a[data-page="${activePage}"]`,
     );
     if (activeLink) {
       activeLink.classList.add("active");
+      activeLink.setAttribute("aria-current", "page");
     }
 
     // Set user name
     const nameEl = document.getElementById("sidebarUserName");
-    if (nameEl) nameEl.textContent = userName;
+    if (nameEl && userName) nameEl.textContent = userName;
 
-    // Attach logout handler (uses shared function from admin/common.js)
+    // Attach logout handler (shared helper)
     const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-      logoutBtn.onclick = async (e) => {
-        e.preventDefault();
-        if (typeof adminLogout === "function") {
-          await adminLogout();
-        } else {
-          // Fallback if common.js not loaded
-          const { api } = await import("/js/api.js");
-          await api.auth.logout();
-          window.location.href = "/login.html";
-        }
-      };
-    }
+    if (logoutBtn) logoutBtn.onclick = adminLogout;
   },
 };

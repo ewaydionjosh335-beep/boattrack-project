@@ -17,15 +17,14 @@
     <div class="admin-main">
       <header class="admin-header">
         <h2>Crew Verification & Account Provisioning</h2>
-        <div style="display: flex; gap: 1rem; align-items: center">
+        <div class="header-filters">
           <input
             type="text"
             id="searchInput"
-            class="form-control"
+            class="form-control filter-input"
             placeholder="Search name or contact..."
-            style="width: 250px"
           />
-          <select id="stageFilter" class="form-control" style="width: 220px">
+          <select id="stageFilter" class="form-control filter-input">
             <option value="">All Stages</option>
             <option value="Pending Admin Verification" selected>
               Pending Admin Verification
@@ -51,20 +50,20 @@
             </thead>
             <tbody id="crewAppTableBody">
               <tr>
-                <td colspan="6" style="text-align: center">
+                <td colspan="6" class="table-message">
                   Loading crew applications...
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
     <!-- VERIFICATION MODAL -->
     <div id="verifyCrewModal" class="modal-backdrop" style="display: none">
-      <div class="modal" style="max-width: 500px">
+      <div class="modal">
         <div class="modal-header">
           <h3 id="modalTitle">Verify & Provision Crew Account</h3>
         </div>
@@ -81,7 +80,10 @@
             ></p>
 
             <div class="form-group">
-              <label class="form-label">Crew Email (Login ID)</label>
+              <label class="form-label"
+                >Crew Email (Login ID)
+                <span class="generated-badge">Generated</span></label
+              >
               <input
                 type="email"
                 id="crewEmail"
@@ -90,7 +92,10 @@
               />
             </div>
             <div class="form-group">
-              <label class="form-label">Username</label>
+              <label class="form-label"
+                >Username
+                <span class="generated-badge">Generated</span></label
+              >
               <input
                 type="text"
                 id="crewUsername"
@@ -107,17 +112,65 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Initial Password <span style="color: var(--danger); font-weight: bold;">*</span></label>
-              <input
-                type="text"
-                id="crewPassword"
-                class="form-control"
-                minlength="8"
-                autocomplete="new-password"
-                required
-              />
-              <div id="passwordValidation" style="font-size: 0.75rem; margin-top: 0.35rem; display: none;"></div>
-              <small style="color: var(--text-muted)"
+              <label class="form-label"
+                >Initial Password
+                <span class="generated-badge">Generated</span></label
+              >
+              <div class="password-field-row">
+                <div class="password-field">
+                  <input
+                    type="password"
+                    id="crewPassword"
+                    class="form-control"
+                    minlength="8"
+                    autocomplete="new-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="password-toggle"
+                    id="crewPassToggle"
+                    aria-label="Show password"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      aria-hidden="true"
+                    >
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  id="copyPasswordBtn"
+                  aria-label="Copy temporary password"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path
+                      d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    />
+                  </svg>
+                  Copy
+                </button>
+              </div>
+              <div id="passwordValidation" class="validation-message hidden"></div>
+              <small class="form-hint"
                 >Share this temporary password with the crew member; they will
                 be required to change it on first login.</small
               >
@@ -157,6 +210,8 @@
         setupTableFilters,
         handleApiError,
         handleApiSuccess,
+        setupPasswordToggle,
+        generateTempPassword,
       } from "/admin/common.js";
 
       const session = await initAdminPage({ activePage: "crew-verification" });
@@ -195,7 +250,7 @@
 
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="6" style="text-align: center;">No crew applications found.</td></tr>';
+            '<tr><td colspan="6" class="table-message">No crew applications found.</td></tr>';
         } else {
           tbody.innerHTML = pagination.items
             .map((a) => {
@@ -203,6 +258,7 @@
                 name: "N/A",
               };
               const canVerify = a.stage === "Pending Admin Verification";
+              const canReset = a.stage === "Rejected";
               return `
             <tr>
               <td><strong>${ui.escapeHtml(a.full_name)}</strong></td>
@@ -215,10 +271,13 @@
                   ${
                     canVerify
                       ? `
-                    <button class="btn btn-sm btn-primary" data-action="verify" data-id="${a.id}">Verify & Provision</button>
-                    <button class="btn btn-sm btn-outline" style="color: var(--danger); border-color: var(--danger);" data-action="reject" data-id="${a.id}">Reject</button>
+                    <button class="btn btn-primary btn-sm" data-action="verify" data-id="${a.id}">Verify & Provision</button>
+                    <button class="btn btn-danger btn-sm" data-action="reject" data-id="${a.id}">Reject</button>
                   `
-                      : `<span style="font-size:0.85rem; color:var(--text-muted);">${ui.escapeHtml(a.stage)}</span>`
+                      : `
+                    <span style="font-size:0.85rem; color:var(--text-muted);">${ui.escapeHtml(a.stage)}</span>
+                    ${canReset ? `<button class="btn btn-sm btn-outline" data-action="reset" data-id="${a.id}">Reset to Pending</button>` : ""}
+                  `
                   }
                 </div>
               </td>
@@ -246,29 +305,17 @@
 
       const modal = document.getElementById("verifyCrewModal");
       const { open: openModal, close: closeModal } = ui.modal(modal);
+      const crewPassInput = document.getElementById("crewPassword");
+      const crewPassValidation = document.getElementById("passwordValidation");
+      const crewPassToggle = document.getElementById("crewPassToggle");
 
-      // Strong-ish temporary password; the crew member must change it on first login.
-      function generateTempPassword() {
-        const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-        const lower = "abcdefghijkmnopqrstuvwxyz";
-        const digits = "23456789";
-        const symbols = "!@#$%^&*";
-        const all = upper + lower + digits + symbols;
-        const bytes = crypto.getRandomValues(new Uint8Array(16));
-        let p = Array.from(bytes, (b) => all[b % all.length]).join("");
-        if (!/[A-Z]/.test(p)) p = upper[0] + p.slice(1);
-        if (!/[a-z]/.test(p)) p = lower[0] + p.slice(1);
-        if (!/[0-9]/.test(p)) p = digits[0] + p.slice(1);
-        if (!/[!@#$%^&*]/.test(p)) p = symbols[0] + p.slice(1);
-        return p;
-      }
       document.getElementById("cancelCrewModalBtn").onclick = closeModal;
 
       const openVerifyModal = async (id) => {
         const app = apps.find((a) => a.id === id);
         if (!app) return;
         if (app.stage !== "Pending Admin Verification") {
-          handleApiError("Application is not awaiting admin verification.", { toast: true });
+          handleApiError(new Error("Application is not awaiting admin verification."), { toast: true });
           return;
         }
         const boat = boats.find((b) => b.id === app.boat_id) || { name: "N/A" };
@@ -277,39 +324,57 @@
         document.getElementById("modalAppInfo").textContent =
           `Reviewing application for ${app.full_name} on vessel "${boat.name}". Approving will create an active crew account and assign them to this vessel.`;
 
-        // Generate unique email using atomic API call to avoid race conditions
+        // Generate collision-resistant credentials; the API re-checks uniqueness on submit.
         const uniqueEmail = await api.users.generateUniqueEmail(app.full_name);
         document.getElementById("crewEmail").value = uniqueEmail;
         const uniqueUsername = await api.users.generateUniqueUsername(
           app.full_name,
         );
         document.getElementById("crewUsername").value = uniqueUsername;
-        document.getElementById("crewPassword").value = generateTempPassword();
-        document.getElementById("passwordValidation").style.display = "none";
+        crewPassInput.value = generateTempPassword();
+        crewPassInput.type = "password";
+        crewPassValidation.textContent = "";
+        crewPassValidation.classList.add("hidden");
+        crewPassValidation.classList.remove("ok", "error");
 
         openModal();
       };
 
       // Real-time password validation for crew modal
-      const crewPassInput = document.getElementById("crewPassword");
-      const crewPassValidation = document.getElementById("passwordValidation");
+      function crewPasswordIssue(value) {
+        if (value.length < 8) return "Password must be at least 8 characters.";
+        if (
+          !/[a-zA-Z]/.test(value) ||
+          !/[0-9]/.test(value) ||
+          !/[!@#$%^&*]/.test(value)
+        ) {
+          return "Password must be 8+ chars with a letter, a number, and a symbol.";
+        }
+        return "";
+      }
+
       function validateCrewPassword() {
         const val = crewPassInput.value;
-        crewPassValidation.style.display = val ? "block" : "none";
+        crewPassValidation.classList.toggle("hidden", !val);
         if (!val) return;
-        let ok = true;
-        let msg = "";
-        if (val.length < 8) {
-          ok = false;
-          msg = "Password must be at least 8 characters.";
-        } else if (!/[a-zA-Z]/.test(val) || !/[0-9]/.test(val)) {
-          ok = false;
-          msg = "Password must be 8+ chars with a letter and a number.";
-        }
-        crewPassValidation.textContent = msg;
-        crewPassValidation.style.color = ok ? "var(--success)" : "var(--danger)";
+        const issue = crewPasswordIssue(val);
+        crewPassValidation.textContent = issue;
+        crewPassValidation.classList.toggle("ok", !issue);
+        crewPassValidation.classList.toggle("error", !!issue);
       }
       crewPassInput.addEventListener("input", validateCrewPassword);
+      setupPasswordToggle(crewPassInput, crewPassToggle);
+
+      document.getElementById("copyPasswordBtn").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(crewPassInput.value);
+          handleApiSuccess("Temporary password copied.");
+        } catch (err) {
+          handleApiError(err, {
+            fallbackMessage: "Could not copy the password.",
+          });
+        }
+      };
 
       document.getElementById("verifyCrewForm").onsubmit = async (e) => {
         e.preventDefault();
@@ -318,12 +383,9 @@
         const username = document.getElementById("crewUsername").value.trim();
         const role = document.getElementById("crewRole").value;
         const password = document.getElementById("crewPassword").value;
-        if (
-          password.length < 8 ||
-          !/[a-zA-Z]/.test(password) ||
-          !/[0-9]/.test(password)
-        ) {
-          handleApiError("Initial password must be at least 8 characters and contain a letter and a number.", { toast: true });
+        const passIssue = crewPasswordIssue(password);
+        if (passIssue) {
+          handleApiError(new Error(passIssue), { toast: true });
           return;
         }
 
@@ -332,9 +394,28 @@
           .querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         submitBtn.disabled = true;
-        submitBtn.textContent = "Provisioning...";
+        submitBtn.textContent = "Checking availability...";
 
         try {
+          const app = apps.find((a) => a.id === id);
+          const applicantUserId = app?.applicant_user_id || null;
+          const existingUsers = await api.users.list();
+          if (
+            existingUsers.some(
+              (u) => u.id !== applicantUserId && u.email === email,
+            )
+          ) {
+            throw new Error("Email is already in use.");
+          }
+          if (
+            existingUsers.some(
+              (u) => u.id !== applicantUserId && u.username === username,
+            )
+          ) {
+            throw new Error("Username is already in use.");
+          }
+
+          submitBtn.textContent = "Provisioning...";
           await api.crewApplications.verifyAndProvision(id, {
             email,
             username,
@@ -367,6 +448,25 @@
         );
       };
 
+      const resetApp = async (id) => {
+        ui.confirm(
+          "Reset this application to Pending Admin Verification?",
+          async () => {
+            try {
+              await api.crewApplications.update(
+                id,
+                { stage: "Pending Admin Verification", decided_at: null },
+                csrfToken,
+              );
+              handleApiSuccess("Crew application reset to pending verification.", { toast: true });
+              await loadData();
+            } catch (err) {
+              handleApiError(err);
+            }
+          },
+        );
+      };
+
       document.getElementById("crewAppTableBody").onclick = (e) => {
         const btn = e.target.closest("button[data-action]");
         if (!btn) return;
@@ -374,6 +474,8 @@
           openVerifyModal(btn.dataset.id);
         else if (btn.dataset.action === "reject")
           rejectApp(btn.dataset.id);
+        else if (btn.dataset.action === "reset")
+          resetApp(btn.dataset.id);
       };
 
       loadData();

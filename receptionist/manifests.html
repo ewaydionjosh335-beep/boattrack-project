@@ -125,7 +125,7 @@
               </tr>
             </thead>
             <tbody id="manifestTableBody">
-              <tr><td colspan="7" style="text-align: center;">Select a trip to view manifest.</td></tr>
+              <tr><td colspan="7" class="table-message">Select a trip to view manifest.</td></tr>
             </tbody>
           </table>
         </div>
@@ -263,7 +263,7 @@
 
       const tbody = document.getElementById('manifestTableBody');
       if (tripManifests.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No passengers recorded on this trip yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="table-message">No passengers recorded on this trip yet.</td></tr>';
         return;
       }
 

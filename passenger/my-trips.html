@@ -96,7 +96,7 @@
             </tr>
           </thead>
           <tbody id="tripsTableBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading trip history...</td></tr>
+            <tr><td colspan="7" class="table-message">Loading trip history...</td></tr>
           </tbody>
         </table>
       </div>
@@ -177,7 +177,7 @@
       filtered.sort((a, b) => new Date(b.trip.departure_time) - new Date(a.trip.departure_time));
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No trip history found matching filters.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="table-message">No trip history found matching filters.</td></tr>`;
         return;
       }
 

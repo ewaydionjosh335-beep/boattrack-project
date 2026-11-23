@@ -28,15 +28,21 @@ export async function refreshSosBadge(badgeElementId = 'sosBadge', force = false
   const badge = document.getElementById(badgeElementId);
   if (!badge) return 0;
 
+  function updateBadge(count) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'inline' : 'none';
+    badge.setAttribute('aria-hidden', 'true');
+    // The badge sits inside the link, so expose the count on the link instead.
+    const link = badge.closest('a');
+    if (link) {
+      link.setAttribute('aria-label', count > 0 ? `SOS Alerts, ${count} open` : 'SOS Alerts');
+    }
+  }
+
   if (!force) {
     const cached = getCachedBadge();
     if (cached !== null) {
-      if (cached > 0) {
-        badge.textContent = cached;
-        badge.style.display = 'inline';
-      } else {
-        badge.style.display = 'none';
-      }
+      updateBadge(cached);
       return cached;
     }
   }
@@ -44,13 +50,7 @@ export async function refreshSosBadge(badgeElementId = 'sosBadge', force = false
   const alerts = await api.alerts.list();
   const openAlerts = alerts.filter(a => a.status === 'Open');
 
-  if (openAlerts.length > 0) {
-    badge.textContent = openAlerts.length;
-    badge.style.display = 'inline';
-  } else {
-    badge.style.display = 'none';
-  }
-
+  updateBadge(openAlerts.length);
   setCachedBadge(openAlerts.length);
   return openAlerts.length;
 }

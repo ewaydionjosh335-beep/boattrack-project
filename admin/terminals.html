@@ -36,14 +36,14 @@
             </thead>
             <tbody id="terminalsTableBody">
               <tr>
-                <td colspan="5" style="text-align: center">
+                <td colspan="5" class="table-message">
                   Loading terminals...
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
@@ -79,31 +79,35 @@
                 placeholder="Binangonan, Rizal"
               />
             </div>
-            <div class="form-group">
-              <label class="form-label">Latitude</label>
-              <input
-                type="number"
-                step="any"
-                min="-90"
-                max="90"
-                id="termLat"
-                class="form-control"
-                placeholder="14.3950"
-                title="Required for weather and risk assessment"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Longitude</label>
-              <input
-                type="number"
-                step="any"
-                min="-180"
-                max="180"
-                id="termLng"
-                class="form-control"
-                placeholder="121.1950"
-                title="Optional - Used for weather and risk assessment"
-              />
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="-90"
+                  max="90"
+                  id="termLat"
+                  class="form-control"
+                  placeholder="14.3950"
+                  title="Required for weather and risk assessment"
+                  aria-describedby="coordWarning"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="-180"
+                  max="180"
+                  id="termLng"
+                  class="form-control"
+                  placeholder="121.1950"
+                  title="Optional - Used for weather and risk assessment"
+                  aria-describedby="coordWarning"
+                />
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">Coast Guard Personnel Name</label>
@@ -115,7 +119,7 @@
                 placeholder="PCG Cdr. Edgardo Mendoza"
               />
             </div>
-            <div id="coordWarning" style="display: none; font-size: 0.85rem; color: var(--warning); margin-top: 0.5rem;">
+            <div id="coordWarning" class="form-warning hidden">
               Coordinates are optional. Leaving them blank will use default location mapping.
             </div>
             <div id="modalError" class="error-text"></div>
@@ -154,7 +158,7 @@
               </thead>
               <tbody id="boatsTableBody">
                 <tr>
-                  <td colspan="5" style="text-align: center">
+                  <td colspan="5" class="table-message">
                     Loading boats...
                   </td>
                 </tr>
@@ -209,11 +213,18 @@ const csrfToken = ensureCSRFToken();
 
       async function loadTerminals() {
         allTerminals = await api.terminals.list();
-        // Fetch assigned boats for each terminal
-        for (const term of allTerminals) {
-          const boats = await api.terminals.listBoats(term.id);
-          term.assignedBoats = boats;
+        // One boats fetch, grouped by home terminal instead of one call per terminal.
+        const boatsByTerminal = new Map();
+        for (const boat of await api.boats.list()) {
+          if (!boat.home_terminal_id) continue;
+          if (!boatsByTerminal.has(boat.home_terminal_id)) {
+            boatsByTerminal.set(boat.home_terminal_id, []);
+          }
+          boatsByTerminal.get(boat.home_terminal_id).push(boat);
         }
+        allTerminals.forEach((term) => {
+          term.assignedBoats = boatsByTerminal.get(term.id) || [];
+        });
         renderTable();
         await refreshSosBadge();
       }
@@ -225,7 +236,7 @@ const csrfToken = ensureCSRFToken();
 
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="5" style="text-align: center;">No terminals found.</td></tr>';
+            '<tr><td colspan="5" class="table-message">No terminals found.</td></tr>';
         } else {
           tbody.innerHTML = pagination.items
             .map(
@@ -233,8 +244,8 @@ const csrfToken = ensureCSRFToken();
             <tr>
               <td><strong>${ui.escapeHtml(t.name)}</strong></td>
               <td>${ui.escapeHtml(t.location)}</td>
-              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(t.coast_guard_personnel)}</span></td>
-              <td><span class="badge" style="background:#dbeafe; color:#1e40af;">${t.assignedBoats?.length || 0} boat(s)</span></td>
+              <td><span class="badge badge-neutral">${ui.escapeHtml(t.coast_guard_personnel)}</span></td>
+              <td><span class="badge badge-info">${t.assignedBoats?.length || 0} boat(s)</span></td>
                 <td>
                   <div class="table-actions">
                     <button class="btn btn-outline btn-sm" data-action="edit" data-id="${t.id}">Edit</button>
@@ -271,6 +282,7 @@ const csrfToken = ensureCSRFToken();
         document.getElementById("termLng").value = "";
         document.getElementById("termCoastGuard").value = "";
         document.getElementById("modalError").textContent = "";
+        document.getElementById("coordWarning").classList.add("hidden");
         openModal();
       };
 
@@ -286,6 +298,7 @@ const csrfToken = ensureCSRFToken();
         document.getElementById("termCoastGuard").value =
           term.coast_guard_personnel;
         document.getElementById("modalError").textContent = "";
+        document.getElementById("coordWarning").classList.add("hidden");
         openModal();
       };
 
@@ -326,14 +339,16 @@ const csrfToken = ensureCSRFToken();
         const errBox = document.getElementById("modalError");
         errBox.textContent = "";
 
-        // Show warning if only one coordinate is provided
+        // Coordinates are all-or-nothing: the API ignores partial pairs, so block instead.
         const hasLat = lat !== "";
         const hasLng = lng !== "";
         if (hasLat !== hasLng) {
-          coordWarning.style.display = "block";
-        } else {
-          coordWarning.style.display = "none";
+          coordWarning.classList.remove("hidden");
+          errBox.textContent =
+            "Enter both latitude and longitude, or leave both blank.";
+          return;
         }
+        coordWarning.classList.add("hidden");
 
         try {
           const data = {
@@ -341,11 +356,11 @@ const csrfToken = ensureCSRFToken();
             location,
             coast_guard_personnel,
           };
-          // Include coordinates if provided (partial is allowed with warning)
-          if (hasLat || hasLng) {
-            if (hasLat) data.lat = lat;
-            if (hasLng) data.lng = lng;
-          } else if (!hasLat && !hasLng && id) {
+          // Include coordinates only when both are present.
+          if (hasLat) {
+            data.lat = lat;
+            data.lng = lng;
+          } else if (id) {
             // Explicitly clearing both on edit
             data.lat = null;
             data.lng = null;
@@ -388,7 +403,7 @@ const csrfToken = ensureCSRFToken();
 
         if (allBoats.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="5" style="text-align: center;">No boats in system.</td></tr>';
+            '<tr><td colspan="5" class="table-message">No boats in system.</td></tr>';
           return;
         }
 
@@ -399,14 +414,16 @@ const csrfToken = ensureCSRFToken();
           <tr>
             <td>${ui.escapeHtml(b.name)}</td>
             <td>${ui.escapeHtml(b.boat_type)}</td>
-            <td><span class="badge" style="background:${b.boat_status === "Active" ? "#dcfce7" : "#fee2e2"}; color:${b.boat_status === "Active" ? "#166534" : "#991b1b"}">${ui.escapeHtml(b.boat_status)}</span></td>
-            <td>${isAssigned ? '<span class="badge" style="background:#dbeafe; color:#1e40af;">Yes</span>' : '<span class="badge" style="background:#f1f5f9; color:#64748b;">No</span>'}</td>
+            <td><span class="badge ${b.boat_status === "Active" ? "badge-active" : "badge-suspended"}">${ui.escapeHtml(b.boat_status)}</span></td>
+            <td>${isAssigned ? '<span class="badge badge-info">Yes</span>' : '<span class="badge badge-neutral">No</span>'}</td>
             <td>
-              ${
-                isAssigned
-                  ? `<button class="btn btn-danger btn-sm" data-action="unassign" data-boat-id="${b.id}">Unassign</button>`
-                  : `<button class="btn btn-primary btn-sm" data-action="assign" data-boat-id="${b.id}">Assign</button>`
-              }
+              <div class="table-actions">
+                ${
+                  isAssigned
+                    ? `<button class="btn btn-danger btn-sm" data-action="unassign" data-boat-id="${b.id}">Unassign</button>`
+                    : `<button class="btn btn-primary btn-sm" data-action="assign" data-boat-id="${b.id}">Assign</button>`
+                }
+              </div>
             </td>
           </tr>
         `;
@@ -423,14 +440,53 @@ const csrfToken = ensureCSRFToken();
             } else if (action === "unassign") {
               await unassignBoatFromTerminal(termId, boatId);
             }
-            await loadTerminalBoats(termId);
+            // Refresh shared state first so the modal renders the new assignment.
             await loadTerminals(); // Refresh main table
+            await loadTerminalBoats(termId);
           };
         });
       }
 
+      // Terminals served by a boat's Scheduled/Held trips. A boat can't be moved
+      // away from them, so Assign and Unassign use the same guard.
+      async function activeTripTerminals(boatId) {
+        const [trips, routes] = await Promise.all([
+          api.trips.list(),
+          api.routes.list(),
+        ]);
+        const routeById = new Map(routes.map((r) => [r.id, r]));
+        const terminals = new Set();
+        for (const trip of trips) {
+          if (trip.boat_id !== boatId) continue;
+          if (trip.trip_status !== "Scheduled" && trip.trip_status !== "Held")
+            continue;
+          const route = routeById.get(trip.route_id);
+          if (!route) continue;
+          if (route.origin_terminal_id) terminals.add(route.origin_terminal_id);
+          if (route.destination_terminal_id)
+            terminals.add(route.destination_terminal_id);
+        }
+        return terminals;
+      }
+
       async function assignBoatToTerminal(termId, boatId) {
         try {
+          const boat = await api.boats.get(boatId);
+          if (
+            !boat ||
+            boat.registration_status !== "Verified" ||
+            boat.boat_status !== "Active"
+          ) {
+            throw new Error(
+              "Only verified and active boats can be assigned to a terminal.",
+            );
+          }
+          const tripTerminals = await activeTripTerminals(boatId);
+          if (tripTerminals.size > 0 && !tripTerminals.has(termId)) {
+            throw new Error(
+              "Cannot assign: this boat has scheduled or held trips from another terminal. Release or complete them first.",
+            );
+          }
           await api.boats.update(boatId, { home_terminal_id: termId }, csrfToken);
           handleApiSuccess("Boat assigned to terminal successfully.");
         } catch (err) {
@@ -440,6 +496,12 @@ const csrfToken = ensureCSRFToken();
 
       async function unassignBoatFromTerminal(termId, boatId) {
         try {
+          const tripTerminals = await activeTripTerminals(boatId);
+          if (tripTerminals.has(termId)) {
+            throw new Error(
+              "Cannot unassign: this boat has scheduled or held trips using this terminal. Release or reassign them first.",
+            );
+          }
           await api.boats.update(boatId, { home_terminal_id: null }, csrfToken);
           handleApiSuccess("Boat unassigned from terminal.");
         } catch (err) {

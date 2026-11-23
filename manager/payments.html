@@ -141,7 +141,7 @@
               </tr>
             </thead>
             <tbody id="vesselSummaryBody">
-              <tr><td colspan="6" style="text-align: center;">Loading summary...</td></tr>
+              <tr><td colspan="6" class="table-message">Loading summary...</td></tr>
             </tbody>
           </table>
         </div>
@@ -168,7 +168,7 @@
               </tr>
             </thead>
             <tbody id="paymentsTableBody">
-              <tr><td colspan="9" style="text-align: center;">Loading payments...</td></tr>
+              <tr><td colspan="9" class="table-message">Loading payments...</td></tr>
             </tbody>
           </table>
         </div>
@@ -177,7 +177,7 @@
   </div>
 
   <div id="paymentModal" class="modal-backdrop" style="display: none;">
-    <div class="modal" style="max-width: 550px;">
+    <div class="modal modal-lg">
       <div class="modal-header">
         <h3>Transaction Details</h3>
         <button id="closeModalBtn" class="btn btn-sm btn-outline">&times;</button>
@@ -195,6 +195,7 @@
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
+    import { exportToCSV } from '/admin/common.js';
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
@@ -409,7 +410,7 @@
       const summaryBody = document.getElementById('vesselSummaryBody');
       const vesselKeys = Object.keys(vesselMap);
       if (vesselKeys.length === 0) {
-        summaryBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No payment data recorded.</td></tr>';
+        summaryBody.innerHTML = '<tr><td colspan="6" class="table-message">No payment data recorded.</td></tr>';
       } else {
         summaryBody.innerHTML = vesselKeys.map(k => {
           const v = vesselMap[k];
@@ -429,7 +430,7 @@
       // Payments Table
       const tbody = document.getElementById('paymentsTableBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No payments found matching filters.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="table-message">No payments found matching filters.</td></tr>';
       } else {
         tbody.innerHTML = filtered.map(p => {
           const { boat, passengerName } = getPaymentBoatAndPassenger(p);
@@ -506,7 +507,7 @@
           remitted: p.remittance_id ? 'Yes' : 'No'
         };
       });
-      ui.exportToCSV('port_manager_payments.csv', rows);
+      exportToCSV('port_manager_payments.csv', rows);
     };
 
     loadData();

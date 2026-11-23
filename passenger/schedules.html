@@ -86,7 +86,7 @@
             </tr>
           </thead>
           <tbody id="tripsTableBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading trips...</td></tr>
+            <tr><td colspan="7" class="table-message">Loading trips...</td></tr>
           </tbody>
         </table>
       </div>
@@ -125,7 +125,7 @@
       });
 
       if (filteredTrips.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No schedules found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="table-message">No schedules found.</td></tr>';
         return;
       }
 

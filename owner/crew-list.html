@@ -45,7 +45,7 @@
             </tr>
           </thead>
           <tbody id="crewTableBody">
-            <tr><td colspan="5" style="text-align: center;">Loading crew list...</td></tr>
+            <tr><td colspan="5" class="table-message">Loading crew list...</td></tr>
           </tbody>
         </table>
       </div>
@@ -69,7 +69,7 @@
         
         const tbody = document.getElementById('crewTableBody');
         if (myCrew.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No crew members found for your boats.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="table-message">No crew members found for your boats.</td></tr>';
             return;
         }
 

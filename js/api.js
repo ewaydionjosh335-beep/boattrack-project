@@ -417,11 +417,12 @@ export const api = {
       // FUTURE: POST /api/users/generate-email (atomic)
       const users = api._get('users') || [];
       const cleanBase = (baseName || 'crew').toLowerCase().replace(/[^a-z0-9]/g, '');
-      let email = `${cleanBase}@boattrack.local`;
+      // Timestamp + random suffix avoids two tabs generating the same address.
+      const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      let email = `${cleanBase}_${suffix}@boattrack.local`;
       let counter = 1;
       while (users.some(u => u.email === email)) {
-        counter++;
-        email = `${cleanBase}${counter}@boattrack.local`;
+        email = `${cleanBase}_${suffix}${counter++}@boattrack.local`;
       }
       return email;
     },
@@ -429,11 +430,12 @@ export const api = {
       // FUTURE: POST /api/users/generate-username (atomic)
       const users = api._get('users') || [];
       const cleanBase = (baseName || 'crew').toLowerCase().replace(/[^a-z0-9]/g, '');
-      let username = `crew_${cleanBase}`;
+      // Timestamp + random suffix avoids two tabs generating the same username.
+      const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      let username = `crew_${cleanBase}_${suffix}`;
       let counter = 1;
       while (users.some(u => u.username === username)) {
-        counter++;
-        username = `crew_${cleanBase}${counter}`;
+        username = `crew_${cleanBase}_${suffix}${counter++}`;
       }
       return username;
     },
@@ -1021,7 +1023,7 @@ export const api = {
       if (data.route_type !== undefined && data.route_type !== routes[idx].route_type) {
         const trips = api._get('trips') || [];
         const boats = api._get('boats') || [];
-        const affectedTrips = trips.filter(t => t.route_id === id && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived');
+        const affectedTrips = trips.filter(t => t.route_id === id && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived' && t.trip_status !== 'Held');
         for (const trip of affectedTrips) {
           const boat = boats.find(b => b.id === trip.boat_id);
           if (boat) {
@@ -1055,7 +1057,7 @@ export const api = {
           }
         }
       }
-      routes[idx] = { ...routes[idx], ...data, origin_terminal_id: origin, destination_terminal_id: destination, route_type: routeType, discount_rates: discountRates, fare };
+      routes[idx] = { ...routes[idx], ...data, origin_terminal_id: origin, destination_terminal_id: destination, route_type: routeType, discount_rates: discountRates || {}, fare };
       api._set('routes', routes);
       logAuditAction(session, 'UPDATE', 'route', id, { changes: data, previous: oldData });
       return routes[idx];
@@ -1094,7 +1096,7 @@ export const api = {
     const trips = api._get('trips') || [];
     for (const t of trips) {
       if (excludeTripId && t.id === excludeTripId) continue;
-      if (t.boat_id === boatId && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived') {
+      if (t.boat_id === boatId && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived' && t.trip_status !== 'Held') {
         const existingTime = new Date(t.departure_time).getTime();
         if (Math.abs(newTime - existingTime) < 60 * 60 * 1000) {
           throw new Error(`Conflict: Same boat cannot have two trips within 60 minutes (${t.departure_time}).`);
@@ -1877,7 +1879,10 @@ export const api = {
       const alerts = api._get('alerts') || [];
       const idx = alerts.findIndex(a => a.id === id);
       if (idx === -1) throw new Error('Alert not found.');
-      if (alerts[idx].status === 'Acknowledged') throw new Error('Already acknowledged.');
+      // Idempotent: if already acknowledged, return as-is (no error).
+      if (alerts[idx].status === 'Acknowledged') {
+        return alerts[idx];
+      }
       const oldStatus = alerts[idx].status;
       alerts[idx].status = 'Acknowledged';
       alerts[idx].acknowledged_by = acknowledgedBy || (session && session.user_id) || null;
@@ -2014,6 +2019,16 @@ export const api = {
       const app = apps[idx];
       if (app.stage !== 'Pending Admin Verification') {
         throw new Error('Crew application is not awaiting admin verification.');
+      }
+
+      // Re-check uniqueness at submission time in case another admin claimed it.
+      const users = api._get('users') || [];
+      const applicantUserId = app.applicant_user_id || null;
+      if (data.email && users.some(u => u.id !== applicantUserId && u.email === data.email)) {
+        throw new Error('Email already exists.');
+      }
+      if (data.username && users.some(u => u.id !== applicantUserId && u.username === data.username)) {
+        throw new Error('Username already exists.');
       }
 
       const { hashPassword } = await import('./auth.js');

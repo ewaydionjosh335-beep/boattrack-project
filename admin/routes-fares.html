@@ -35,17 +35,9 @@
             Statutory discount rates for Senior Citizens, PWDs, Students, and
             Cargo Rate per kg.
           </p>
-          <div
-            style="
-              display: grid;
-              grid-template-columns: repeat(4, 1fr) auto;
-              gap: 1rem;
-              align-items: end;
-              max-width: 950px;
-            "
-          >
-            <div style="display: flex; flex-direction: column; gap: 0.25rem">
-              <label class="form-label" style="font-size: 0.8rem"
+          <div class="settings-grid">
+            <div class="form-group compact">
+              <label class="form-label" for="discountRateInputSenior"
                 >Senior (%)</label
               >
               <input
@@ -56,8 +48,8 @@
                 max="100"
               />
             </div>
-            <div style="display: flex; flex-direction: column; gap: 0.25rem">
-              <label class="form-label" style="font-size: 0.8rem"
+            <div class="form-group compact">
+              <label class="form-label" for="discountRateInputPWD"
                 >PWD (%)</label
               >
               <input
@@ -68,8 +60,8 @@
                 max="100"
               />
             </div>
-            <div style="display: flex; flex-direction: column; gap: 0.25rem">
-              <label class="form-label" style="font-size: 0.8rem"
+            <div class="form-group compact">
+              <label class="form-label" for="discountRateInputStudent"
                 >Student (%)</label
               >
               <input
@@ -80,8 +72,8 @@
                 max="100"
               />
             </div>
-            <div style="display: flex; flex-direction: column; gap: 0.25rem">
-              <label class="form-label" style="font-size: 0.8rem"
+            <div class="form-group compact">
+              <label class="form-label" for="cargoRateInput"
                 >Cargo Rate (₱/kg)</label
               >
               <input
@@ -92,11 +84,7 @@
                 min="0"
               />
             </div>
-            <button
-              id="saveDiscountBtn"
-              class="btn btn-primary"
-              style="padding: 0.5rem 1rem; font-size: 0.9rem; height: 35px"
-            >
+            <button id="saveDiscountBtn" class="btn btn-primary btn-sm">
               Save
             </button>
           </div>
@@ -115,14 +103,14 @@
             </thead>
             <tbody id="routesTableBody">
               <tr>
-                <td colspan="5" style="text-align: center">
+                <td colspan="5" class="table-message">
                   Loading routes...
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
@@ -166,41 +154,15 @@
                 <option value="Mixed">Mixed</option>
               </select>
             </div>
-            <fieldset
-              class="form-group"
-              style="
-                margin-top: 1rem;
-                padding: 1rem;
-                border: 1px solid var(--border);
-                border-radius: 0.5rem;
-              "
-            >
-              <legend
-                style="font-size: 0.9rem; font-weight: 600; padding: 0 0.5rem"
-              >
-                Per-Route Discount Overrides (Optional)
-              </legend>
-              <p
-                style="
-                  font-size: 0.8rem;
-                  color: var(--text-muted);
-                  margin-bottom: 0.5rem;
-                "
-              >
+            <fieldset class="form-fieldset">
+              <legend>Per-Route Discount Overrides (Optional)</legend>
+              <p class="form-hint">
                 Leave blank to use global settings. Overrides apply only to this
                 route.
               </p>
-              <div
-                style="
-                  display: grid;
-                  grid-template-columns: repeat(3, 1fr);
-                  gap: 1rem;
-                "
-              >
-                <div
-                  style="display: flex; flex-direction: column; gap: 0.25rem"
-                >
-                  <label class="form-label" style="font-size: 0.8rem"
+              <div class="form-grid">
+                <div class="form-group compact">
+                  <label class="form-label" for="routeDiscountSenior"
                     >Senior (%)</label
                   >
                   <input
@@ -212,10 +174,8 @@
                     placeholder="Global"
                   />
                 </div>
-                <div
-                  style="display: flex; flex-direction: column; gap: 0.25rem"
-                >
-                  <label class="form-label" style="font-size: 0.8rem"
+                <div class="form-group compact">
+                  <label class="form-label" for="routeDiscountPWD"
                     >PWD (%)</label
                   >
                   <input
@@ -227,10 +187,8 @@
                     placeholder="Global"
                   />
                 </div>
-                <div
-                  style="display: flex; flex-direction: column; gap: 0.25rem"
-                >
-                  <label class="form-label" style="font-size: 0.8rem"
+                <div class="form-group compact">
+                  <label class="form-label" for="routeDiscountStudent"
                     >Student (%)</label
                   >
                   <input
@@ -337,7 +295,7 @@
 
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="5" style="text-align: center;">No routes defined.</td></tr>';
+            '<tr><td colspan="5" class="table-message">No routes defined.</td></tr>';
         } else {
           const discount = (key) => (100 - (settings[key] ?? 20)) / 100;
 
@@ -362,10 +320,12 @@
               <td><strong>${ui.escapeHtml(dest.name)}</strong></td>
               <td>₱${r.fare.toFixed(2)}</td>
               <td>
-                <div>Senior: ₱${(r.fare * (dr.senior !== undefined ? (100 - dr.senior) / 100 : discount("discount_rate_senior"))).toFixed(2)}${dr.senior !== undefined ? ' <span class="badge" style="font-size:0.7rem;">override</span>' : ""}</div>
-                <div>PWD: ₱${(r.fare * (dr.pwd !== undefined ? (100 - dr.pwd) / 100 : discount("discount_rate_pwd"))).toFixed(2)}${dr.pwd !== undefined ? ' <span class="badge" style="font-size:0.7rem;">override</span>' : ""}</div>
-                <div>Student: ₱${(r.fare * (dr.student !== undefined ? (100 - dr.student) / 100 : discount("discount_rate_student"))).toFixed(2)}${dr.student !== undefined ? ' <span class="badge" style="font-size:0.7rem;">override</span>' : ""}</div>
-                ${showOverrides ? `<div style="font-size:0.75rem;color:var(--primary);margin-top:0.25rem;"><strong>Route Type:</strong> ${r.route_type || "Passenger"}</div>` : ""}
+                <div class="fare-breakdown">
+                  <div class="fare-item">Senior: ₱${(r.fare * (dr.senior !== undefined ? (100 - dr.senior) / 100 : discount("discount_rate_senior"))).toFixed(2)}${dr.senior !== undefined ? ' <span class="badge fare-override-badge">override</span>' : ""}</div>
+                  <div class="fare-item">PWD: ₱${(r.fare * (dr.pwd !== undefined ? (100 - dr.pwd) / 100 : discount("discount_rate_pwd"))).toFixed(2)}${dr.pwd !== undefined ? ' <span class="badge fare-override-badge">override</span>' : ""}</div>
+                  <div class="fare-item">Student: ₱${(r.fare * (dr.student !== undefined ? (100 - dr.student) / 100 : discount("discount_rate_student"))).toFixed(2)}${dr.student !== undefined ? ' <span class="badge fare-override-badge">override</span>' : ""}</div>
+                  ${showOverrides ? `<div class="fare-note"><strong>Route Type:</strong> ${r.route_type || "Passenger"}</div>` : ""}
+                </div>
               </td>
               <td>
                 <div class="table-actions">
@@ -431,16 +391,13 @@
       document.getElementById("closeModalBtn").onclick = closeModal;
       document.getElementById("cancelModalBtn").onclick = closeModal;
 
+      const routeForm = document.getElementById("routeForm");
+
       document.getElementById("openAddModalBtn").onclick = () => {
-        document.getElementById("modalTitle").textContent = "Add Route";
+        routeForm.reset();
+        // Hidden inputs reflect their value attribute, so reset() can't clear it.
         document.getElementById("editRouteId").value = "";
-        document.getElementById("originTerm").value = "";
-        document.getElementById("destTerm").value = "";
-        document.getElementById("fareInput").value = "100.00";
-        document.getElementById("routeTypeInput").value = "Passenger";
-        document.getElementById("routeDiscountSenior").value = "";
-        document.getElementById("routeDiscountPWD").value = "";
-        document.getElementById("routeDiscountStudent").value = "";
+        document.getElementById("modalTitle").textContent = "Add Route";
         document.getElementById("modalError").textContent = "";
         openModal();
       };
@@ -486,7 +443,7 @@
           deleteRoute(btn.dataset.id);
       };
 
-      document.getElementById("routeForm").onsubmit = async (e) => {
+      routeForm.onsubmit = async (e) => {
         e.preventDefault();
         const id = document.getElementById("editRouteId").value;
         const origin_terminal_id = document.getElementById("originTerm").value;

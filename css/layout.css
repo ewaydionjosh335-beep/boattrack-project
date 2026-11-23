@@ -85,33 +85,62 @@
   white-space: nowrap;
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sidebar-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .sidebar-menu {
   padding: 1rem 0;
   overflow-y: auto;
 }
 
-.sidebar-menu a {
+.sidebar-menu a,
+.sidebar-menu button {
   display: flex;
   align-items: center;
   gap: 0.875rem;
   padding: 0.95rem 1.5rem;
   color: #adb5bd;
   text-decoration: none;
+  font-family: inherit;
   font-weight: 500;
   font-size: 1rem;
   white-space: nowrap;
   transition: background 0.2s, color 0.2s;
 }
 
-.sidebar-menu a svg {
+.sidebar-menu button {
+  width: 100%;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-menu a svg,
+.sidebar-menu button svg {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
 }
 
-.sidebar-menu a:hover, .sidebar-menu a.active {
+.sidebar-menu a:hover,
+.sidebar-menu a.active,
+.sidebar-menu button:hover {
   background-color: rgba(255,255,255,0.05);
   color: white;
+}
+
+.sidebar-menu .sidebar-logout,
+.sidebar-menu .sidebar-logout:hover {
+  color: var(--danger);
 }
 
 .sidebar-menu .badge {
@@ -167,5 +196,26 @@
   }
   .admin-main {
     margin-left: 0;
+  }
+}
+
+@media print {
+  .admin-sidebar,
+  .admin-header,
+  .admin-content > .card:first-child,
+  #noTripSelectedState {
+    display: none !important;
+  }
+  .admin-main {
+    margin-left: 0 !important;
+  }
+  .admin-content {
+    padding: 0 !important;
+  }
+  .table-container {
+    overflow: visible !important;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }

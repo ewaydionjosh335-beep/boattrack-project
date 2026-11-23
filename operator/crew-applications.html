@@ -55,7 +55,7 @@
             </tr>
           </thead>
           <tbody id="appTableBody">
-            <tr><td colspan="5" style="text-align: center;">Loading applications...</td></tr>
+            <tr><td colspan="5" class="table-message">Loading applications...</td></tr>
           </tbody>
         </table>
       </div>
@@ -116,7 +116,7 @@
         );
 
         if (filteredApps.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No crew applications found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="table-message">No crew applications found.</td></tr>';
             return;
         }
 

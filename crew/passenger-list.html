@@ -91,7 +91,7 @@
               </tr>
             </thead>
             <tbody id="manifestTableBody">
-              <tr><td colspan="4" style="text-align: center;">Select a trip to view manifest.</td></tr>
+              <tr><td colspan="4" class="table-message">Select a trip to view manifest.</td></tr>
             </tbody>
           </table>
         </div>
@@ -195,7 +195,7 @@
           window.history.replaceState({}, '', `?trip_id=${tripId}`);
           renderManifest(tripId);
         } else {
-          document.getElementById('manifestTableBody').innerHTML = '<tr><td colspan="4" style="text-align: center;">Select a trip to view manifest.</td></tr>';
+          document.getElementById('manifestTableBody').innerHTML = '<tr><td colspan="4" class="table-message">Select a trip to view manifest.</td></tr>';
           document.getElementById('totalsContainer').style.display = 'none';
         }
       };
@@ -228,7 +228,7 @@
 
       const tbody = document.getElementById('manifestTableBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No passengers found in this manifest.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="table-message">No passengers found in this manifest.</td></tr>';
         document.getElementById('totalsContainer').style.display = 'none';
         return;
       }

@@ -23,14 +23,8 @@
       </header>
 
       <div class="admin-content">
-        <div class="card" style="margin-bottom: 1.5rem">
-          <div
-            style="
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 1rem;
-            "
-          >
+        <div class="card filter-card">
+          <div class="filter-row">
             <input
               type="text"
               id="searchInput"
@@ -42,7 +36,10 @@
               <option value="Passenger">Passenger</option>
               <option value="Cargo">Cargo</option>
             </select>
-            <input type="date" id="dateFilter" class="form-control" />
+            <div>
+              <label for="dateFilter" class="sr-only">Date</label>
+              <input type="date" id="dateFilter" class="form-control" />
+            </div>
           </div>
         </div>
 
@@ -60,14 +57,14 @@
             </thead>
             <tbody id="bookingsTableBody">
               <tr>
-                <td colspan="6" style="text-align: center">
+                <td colspan="6" class="table-message">
                   Loading bookings...
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div id="paginationContainer" style="margin-top: 1rem"></div>
+        <div id="paginationContainer"></div>
       </div>
     </div>
 
@@ -89,6 +86,7 @@
         setupTableFilters,
         handleApiError,
         handleApiSuccess,
+        setupButtonLoading,
       } from "/admin/common.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
@@ -108,8 +106,8 @@
         await refreshSosBadge();
       }
 
-      // Parse UTC ISO string to local date key (PHT = UTC+8) - use shared function
-      const toLocalDateKey = (value) => uiLocalDateStr(value);
+      // Compare against the PHT operational date shown in the table.
+      const toDateKey = (value) => uiLocalDateStr(value);
 
       let currentPage = 1;
       const pageSize = 25;
@@ -134,7 +132,7 @@
         let filtered = filterTable(allBookings, filters, (item, f) => {
           if (!api.bookings.isApproved(item)) return false;
           if (f.typeFilter && item.booking_type !== f.typeFilter) return false;
-          if (dateFilter && toLocalDateKey(item.created_at) !== dateFilter)
+          if (dateFilter && toDateKey(item.created_at) !== dateFilter)
             return false;
           return true;
         });
@@ -155,6 +153,18 @@
         return filtered;
       }
 
+      // Pick the highest-priority payment for a booking: Paid > Refunded > Pending > Failed.
+      function getPaymentStatus(bookingId) {
+        const statusPriority = { Paid: 4, Refunded: 3, Pending: 2, Failed: 1 };
+        return allPayments
+          .filter((p) => p.booking_id === bookingId)
+          .reduce((best, p) => {
+            const priority = statusPriority[p.status] || 0;
+            const bestPriority = best ? statusPriority[best.status] || 0 : -1;
+            return priority > bestPriority ? p : best;
+          }, null);
+      }
+
       function renderTable() {
         const filtered = getFilteredBookings();
         const pagination = paginate(filtered, currentPage, pageSize);
@@ -162,7 +172,7 @@
         const tbody = document.getElementById("bookingsTableBody");
         if (pagination.items.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="6" style="text-align: center;">No approved bookings found.</td></tr>';
+            '<tr><td colspan="6" class="table-message">No approved bookings found.</td></tr>';
         } else {
           tbody.innerHTML = pagination.items
             .map((b) => {
@@ -173,15 +183,8 @@
                 ticket_no: "None",
                 gcash_ref: "N/A",
               };
-              // Prefer a successful payment; a later failed retry must not hide it.
-              const bookingPayments = allPayments
-                .filter((p) => p.booking_id === b.id)
-                .sort(
-                  (a, b) => new Date(a.created_at) - new Date(b.created_at),
-                );
-              const pay =
-                bookingPayments.find((p) => p.status === "Paid") ||
-                bookingPayments[bookingPayments.length - 1];
+              // Prefer the highest-priority payment; a later failed retry must not hide it.
+              const pay = getPaymentStatus(b.id);
               const payStatus = pay ? pay.status : "Pending";
               const gcashRef =
                 pay && pay.reference_no
@@ -190,18 +193,22 @@
 
               return `
             <tr>
-              <td><strong>${ui.escapeHtml(psg.full_name)}</strong><br><small style="color:var(--text-muted);">${ui.escapeHtml(b.id)}</small></td>
-              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(b.booking_type)}</span></td>
+              <td><strong>${ui.escapeHtml(psg.full_name)}</strong><br><small class="text-muted text-xs">${ui.escapeHtml(b.id)}</small></td>
+              <td><span class="badge badge-neutral">${ui.escapeHtml(b.booking_type)}</span></td>
               <td>${b.booking_type === "Passenger" ? `${ui.escapeHtml(b.passenger_count)} pax` : `${ui.escapeHtml(b.cargo_weight_kg)} kg`}</td>
               <td>
-                <div>E-Ticket: <strong>${ui.escapeHtml(etk.ticket_no)}</strong></div>
-                <div style="font-size:0.8rem; color:var(--text-muted);">Ref: ${ui.escapeHtml(gcashRef)}</div>
+                <div class="ticket-info">
+                  <div class="ticket-no">E-Ticket: <strong>${ui.escapeHtml(etk.ticket_no)}</strong></div>
+                  <div class="ticket-ref">Ref: ${ui.escapeHtml(gcashRef)}</div>
+                </div>
               </td>
               <td>
-                <span class="badge badge-active">Approved</span><br>
-                <span class="badge ${payStatus === "Paid" ? "badge-active" : "badge-pending"}" style="margin-top:2px;">Pay: ${ui.escapeHtml(payStatus)}</span>
+                <div class="badge-group">
+                  <span class="badge badge-active">Approved</span>
+                  <span class="badge ${payStatus === "Paid" ? "badge-active" : "badge-pending"}">Pay: ${ui.escapeHtml(payStatus)}</span>
+                </div>
               </td>
-              <td>${new Date(b.created_at).toLocaleDateString()}</td>
+              <td>${uiLocalDateStr(b.created_at)}</td>
             </tr>
           `;
             })
@@ -227,35 +234,38 @@
         renderTable: renderTable,
       });
 
-      document.getElementById("exportCsvBtn").onclick = () => {
+      document.getElementById("exportCsvBtn").onclick = async () => {
+        const btn = document.getElementById("exportCsvBtn");
         const approved = getFilteredBookings();
         if (!approved.length) {
           ui.showToast("No approved bookings to export.", "warning");
           return;
         }
-        const rows = approved.map((b) => {
-          const psg = allPassengers.find((p) => p.id === b.passenger_id) || {};
-          const etk = allEtickets.find((e) => e.booking_id === b.id) || {};
-          // Match the table: prefer the successful payment's reference number.
-          const bookingPayments = allPayments
-            .filter((p) => p.booking_id === b.id)
-            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          const pay =
-            bookingPayments.find((p) => p.status === "Paid") ||
-            bookingPayments[bookingPayments.length - 1];
-          return {
-            booking_id: b.id,
-            passenger_name: psg.full_name || "Unknown",
-            booking_type: b.booking_type,
-            passenger_count: b.passenger_count,
-            cargo_weight_kg: b.cargo_weight_kg,
-            ticket_no: etk.ticket_no || "",
-            gcash_ref: (pay && pay.reference_no) || etk.gcash_ref || "",
-            status: b.status,
-            created_at: b.created_at,
-          };
-        });
-        exportToCSV("approved_bookings.csv", rows);
+        const resetBtn = setupButtonLoading(btn, "Exporting...");
+        // Yield a task so the spinner paints before the synchronous CSV build.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        try {
+          const rows = approved.map((b) => {
+            const psg = allPassengers.find((p) => p.id === b.passenger_id) || {};
+            const etk = allEtickets.find((e) => e.booking_id === b.id) || {};
+            // Match the table: use the same highest-priority payment record.
+            const pay = getPaymentStatus(b.id);
+            return {
+              booking_id: b.id,
+              passenger_name: psg.full_name || "Unknown",
+              booking_type: b.booking_type,
+              passenger_count: b.passenger_count,
+              cargo_weight_kg: b.cargo_weight_kg,
+              ticket_no: etk.ticket_no || "",
+              gcash_ref: (pay && pay.reference_no) || etk.gcash_ref || "",
+              status: b.status,
+              created_at: b.created_at,
+            };
+          });
+          exportToCSV("approved_bookings.csv", rows);
+        } finally {
+          resetBtn();
+        }
       };
 
       loadData();

@@ -8,28 +8,6 @@
     <link rel="stylesheet" href="/css/base.css" />
     <link rel="stylesheet" href="/css/components.css" />
     <link rel="stylesheet" href="/css/layout.css" />
-    <style>
-      @media print {
-        .admin-sidebar,
-        .admin-header,
-        .admin-content > .card:first-child,
-        #noTripSelectedState {
-          display: none !important;
-        }
-        .admin-main {
-          margin-left: 0 !important;
-        }
-        .admin-content {
-          padding: 0 !important;
-        }
-        .table-container {
-          overflow: visible !important;
-        }
-        .stats-grid {
-          grid-template-columns: repeat(3, 1fr) !important;
-        }
-      }
-    </style>
   </head>
   <body class="admin-layout">
     <!-- SIDEBAR -->
@@ -50,98 +28,38 @@
       </header>
 
       <div class="admin-content">
-        <div class="card" style="margin-bottom: 2rem">
-          <div class="form-group" style="margin-bottom: 0">
-            <label class="form-label">Select Trip</label>
+        <div class="card filter-card">
+          <div class="form-group mb-0">
+            <label class="form-label" for="tripSelect">Select Trip</label>
             <select id="tripSelect" class="form-control">
               <option value="">-- Select Trip --</option>
             </select>
           </div>
         </div>
 
-        <div id="manifestContentArea" style="display: none">
-          <div
-            class="stats-grid"
-            style="
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-              gap: 1rem;
-              margin-bottom: 2rem;
-            "
-          >
-            <div
-              class="stat-card"
-              style="
-                background: white;
-                padding: 1.25rem;
-                border-radius: var(--radius-md);
-                border: 1px solid var(--border);
-              "
-            >
+        <div id="manifestContentArea" class="hidden">
+          <div class="stats-grid">
+            <div class="stat-card">
               <h4>Passenger Count / Cap</h4>
               <div class="val" id="statPaxCount">0 / 0</div>
             </div>
-            <div
-              class="stat-card"
-              style="
-                background: white;
-                padding: 1.25rem;
-                border-radius: var(--radius-md);
-                border: 1px solid var(--border);
-              "
-            >
+            <div class="stat-card">
               <h4>Total Load (Pax + Baggage + Cargo)</h4>
               <div class="val" id="statTotalLoad">0 kg</div>
             </div>
-            <div
-              class="stat-card"
-              style="
-                background: white;
-                padding: 1.25rem;
-                border-radius: var(--radius-md);
-                border: 1px solid var(--border);
-              "
-            >
+            <div class="stat-card info">
               <h4>Boat Max Load Limit</h4>
-              <div class="val" id="statMaxLoad" style="color: var(--teal)">
-                0 kg
-              </div>
+              <div class="val" id="statMaxLoad">0 kg</div>
             </div>
           </div>
 
           <div style="margin-bottom: 1.5rem">
             <label class="form-label">Weight Capacity Load Indicator</label>
-            <div
-              style="
-                background: #e2e8f0;
-                border-radius: 999px;
-                height: 20px;
-                overflow: hidden;
-                position: relative;
-              "
-            >
-              <div
-                id="loadProgressBar"
-                style="
-                  background: var(--success);
-                  height: 100%;
-                  width: 0%;
-                  transition: width 0.3s ease;
-                "
-              ></div>
+            <div class="progress-bar">
+              <div id="loadProgressBar" class="progress-bar-fill"></div>
             </div>
-            <div
-              id="loadWarning"
-              style="font-size: 0.85rem; margin-top: 0.375rem; font-weight: 600"
-            ></div>
-            <div
-              id="loadBreakdown"
-              style="
-                font-size: 0.8rem;
-                margin-top: 0.25rem;
-                color: var(--text-muted);
-              "
-            ></div>
+            <div id="loadWarning" class="load-warning"></div>
+            <div id="loadBreakdown" class="load-breakdown"></div>
           </div>
 
           <div class="table-container">
@@ -158,7 +76,7 @@
               </thead>
               <tbody id="manifestTableBody">
                 <tr>
-                  <td colspan="6" style="text-align: center">
+                  <td colspan="6" class="table-message">
                     No manifests for this trip.
                   </td>
                 </tr>
@@ -166,7 +84,7 @@
             </table>
           </div>
 
-          <div id="cargoSection" style="display: none; margin-top: 2rem">
+          <div id="cargoSection" class="cargo-section hidden">
             <h3 style="margin-bottom: 0.75rem">Approved Cargo</h3>
             <div class="table-container">
               <table>
@@ -185,10 +103,7 @@
           </div>
         </div>
 
-        <div
-          id="noTripSelectedState"
-          style="text-align: center; padding: 3rem; color: var(--text-muted)"
-        >
+        <div id="noTripSelectedState" class="empty-state">
           Please select a trip above to view its passenger manifest and load
           monitoring.
         </div>
@@ -202,7 +117,13 @@
       import { loadService } from "/js/services/loadService.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
       import { initAdminPage } from "/admin/init.js";
-      import { exportToCSV, handleApiError, handleApiSuccess } from "/admin/common.js";
+      import {
+        exportToCSV,
+        handleApiError,
+        handleApiSuccess,
+        LOAD_WARNING_THRESHOLD,
+        LOAD_DANGER_THRESHOLD,
+      } from "/admin/common.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
       const session = await initAdminPage({ activePage: "manifests" });
@@ -250,9 +171,10 @@
       document.getElementById("tripSelect").onchange = async (e) => {
         const tripId = e.target.value;
         if (!tripId) {
-          document.getElementById("manifestContentArea").style.display = "none";
-          document.getElementById("noTripSelectedState").style.display =
-            "block";
+          document.getElementById("manifestContentArea").classList.add("hidden");
+          document
+            .getElementById("noTripSelectedState")
+            .classList.remove("hidden");
           return;
         }
 
@@ -264,8 +186,10 @@
       };
 
       function renderManifestDetails() {
-        document.getElementById("noTripSelectedState").style.display = "none";
-        document.getElementById("manifestContentArea").style.display = "block";
+        document.getElementById("noTripSelectedState").classList.add("hidden");
+        document
+          .getElementById("manifestContentArea")
+          .classList.remove("hidden");
 
         const load = loadService.computeTripLoad({
           manifests: currentManifests,
@@ -277,7 +201,7 @@
         const tbody = document.getElementById("manifestTableBody");
         if (currentManifests.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="6" style="text-align: center;">No passengers checked in for this trip yet.</td></tr>';
+            '<tr><td colspan="6" class="table-message">No passengers checked in for this trip yet.</td></tr>';
         } else {
           tbody.innerHTML = currentManifests
             .map((m) => {
@@ -291,7 +215,7 @@
               <td>${ui.escapeHtml(psg.full_name)}</td>
               <td>${ui.escapeHtml(psg.weight_kg || 65)} kg</td>
               <td>${ui.escapeHtml(m.baggage_weight_kg || 0)} kg</td>
-              <td><span class="badge" style="background:#e2e8f0; color:#334155;">${ui.escapeHtml(m.discount_type)}</span></td>
+              <td><span class="badge badge-neutral">${ui.escapeHtml(m.discount_type)}</span></td>
               <td>₱${Number(m.fare || 0).toFixed(2)}</td>
             </tr>
           `;
@@ -301,9 +225,9 @@
 
         const cargoSection = document.getElementById("cargoSection");
         if (load.cargo_bookings.length === 0) {
-          cargoSection.style.display = "none";
+          cargoSection.classList.add("hidden");
         } else {
-          cargoSection.style.display = "block";
+          cargoSection.classList.remove("hidden");
           document.getElementById("cargoTableBody").innerHTML =
             load.cargo_bookings
               .map((b) => {
@@ -334,24 +258,40 @@
           `${totalLoad.toFixed(1)} kg`;
         document.getElementById("statMaxLoad").textContent = `${maxLoad} kg`;
 
-        const loadPercent =
-          maxLoad > 0 ? Math.min(100, (totalLoad / maxLoad) * 100) : 0;
+        const weightPct =
+          maxLoad > 0
+            ? Math.min(LOAD_DANGER_THRESHOLD, (totalLoad / maxLoad) * 100)
+            : 0;
+        const paxPct =
+          maxPax > 0
+            ? Math.min(LOAD_DANGER_THRESHOLD, (paxCount / maxPax) * 100)
+            : 0;
+        const loadPercent = Math.max(weightPct, paxPct);
         const progressBar = document.getElementById("loadProgressBar");
+        const warningBox = document.getElementById("loadWarning");
         progressBar.style.width = `${loadPercent}%`;
 
-        const warningBox = document.getElementById("loadWarning");
+        const setLoadState = (state) => {
+          progressBar.classList.remove("ok", "notice", "danger");
+          warningBox.classList.remove("ok", "notice", "danger");
+          progressBar.classList.add(state);
+          warningBox.classList.add(state);
+        };
+
+        if (!currentBoat) {
+          setLoadState("danger");
+          warningBox.textContent = "Boat data missing";
+          return;
+        }
         if (totalLoad > maxLoad || paxCount > maxPax) {
-          progressBar.style.backgroundColor = "var(--danger)";
-          warningBox.style.color = "var(--danger)";
+          setLoadState("danger");
           warningBox.textContent =
             "WARNING: Boat capacity or maximum weight load limit exceeded!";
-        } else if (loadPercent > 80) {
-          progressBar.style.backgroundColor = "var(--warning)";
-          warningBox.style.color = "#b07d2b";
+        } else if (loadPercent > LOAD_WARNING_THRESHOLD) {
+          setLoadState("notice");
           warningBox.textContent = "Notice: Approaching maximum load capacity.";
         } else {
-          progressBar.style.backgroundColor = "var(--success)";
-          warningBox.style.color = "var(--success)";
+          setLoadState("ok");
           warningBox.textContent =
             "Weight load within safe operational limits.";
         }
@@ -362,7 +302,7 @@
 
       document.getElementById("exportCsvBtn").onclick = () => {
         if (!currentManifests.length) {
-          handleApiError("No manifest data to export.", { toast: true });
+          handleApiError(new Error("No manifest data to export."), { toast: true });
           return;
         }
         const rows = currentManifests.map((m) => {

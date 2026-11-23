@@ -89,7 +89,7 @@
               </tr>
             </thead>
             <tbody id="todayTripsBody">
-              <tr><td colspan="7" style="text-align: center;">Loading today's trips...</td></tr>
+              <tr><td colspan="7" class="table-message">Loading today's trips...</td></tr>
             </tbody>
           </table>
         </div>
@@ -188,7 +188,7 @@
 
     const tbody = document.getElementById('todayTripsBody');
     if (boatTrips.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No trips found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="table-message">No trips found.</td></tr>';
     } else {
       tbody.innerHTML = boatTrips.map(t => {
         const route = routes.find(r => r.id === t.route_id) || {};
