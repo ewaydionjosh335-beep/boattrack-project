@@ -62,9 +62,12 @@
     </div>
   </div>
 
-  <div id="newAppModal" class="modal-backdrop" style="display:none;">
+  <div id="newAppModal" class="modal-backdrop">
     <div class="modal">
-        <div class="modal-header"><h3>New Application</h3></div>
+        <div class="modal-header">
+          <h3>New Application</h3>
+          <button type="button" class="modal-close" id="closeNewAppModalBtn" aria-label="Close">&times;</button>
+        </div>
         <form id="newAppForm">
           <div class="modal-body">
               <div class="form-group"><label class="form-label">Boat</label><select id="appBoat" class="form-control" required></select></div>
@@ -144,6 +147,7 @@
     }
 
     document.getElementById('newAppBtn').onclick = () => document.getElementById('newAppModal').style.display = 'flex';
+    document.getElementById('closeNewAppModalBtn').onclick = () => { document.getElementById('newAppModal').style.display = 'none'; };
     
     document.getElementById('newAppForm').onsubmit = async (e) => {
         e.preventDefault();

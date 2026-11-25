@@ -59,13 +59,11 @@
     </div>
 
     <!-- VERIFICATION MODAL -->
-    <div id="verifyModal" class="modal-backdrop" style="display: none">
+    <div id="verifyModal" class="modal-backdrop">
       <div class="modal modal-lg">
         <div class="modal-header">
           <h3 id="modalBoatName">Verify Boat Registration</h3>
-          <button class="btn btn-outline btn-sm" id="closeModalBtn">
-            &times;
-          </button>
+          <button type="button" class="modal-close" id="closeModalBtn" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="verifyBoatId" />
@@ -140,7 +138,6 @@
       import { ui } from "/js/ui.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
       import { initAdminPage } from "/admin/init.js";
-      import { ensureCSRFToken } from "/js/api.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import {
         paginate,
@@ -156,7 +153,6 @@
       } from "/admin/common.js";
 
       const session = await initAdminPage({ activePage: "boat-verification" });
-      const csrfToken = ensureCSRFToken();
 
       let allBoats = [];
       let allUsers = [];
@@ -338,7 +334,7 @@
             verified_by: session.user_id,
             remarks: remarks || "Verified and approved by Administrator.",
             operator_id,
-          }, csrfToken);
+          });
           handleApiSuccess("Boat successfully verified and approved.");
           closeModal();
           await loadBoats();
@@ -365,7 +361,7 @@
             registration_status: "Rejected",
             verified_by: session.user_id,
             remarks,
-          }, csrfToken);
+          });
           handleApiSuccess("Boat registration rejected.", { toast: true });
           closeModal();
           await loadBoats();
@@ -382,7 +378,7 @@
           `Are you sure you want to set boat status to ${newStatus}?`,
           async () => {
             try {
-              await api.boats.updateStatus(id, newStatus, null, csrfToken);
+              await api.boats.updateStatus(id, newStatus, null);
               handleApiSuccess(`Boat status updated to ${newStatus}`);
               await loadBoats();
             } catch (err) {

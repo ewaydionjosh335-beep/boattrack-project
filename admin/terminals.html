@@ -48,13 +48,11 @@
     </div>
 
     <!-- ADD/EDIT TERMINAL MODAL -->
-    <div id="termModal" class="modal-backdrop" style="display: none">
+    <div id="termModal" class="modal-backdrop">
       <div class="modal">
         <div class="modal-header">
           <h3 id="modalTitle">Add Terminal</h3>
-          <button class="btn btn-outline btn-sm" id="closeModalBtn">
-            &times;
-          </button>
+          <button type="button" class="modal-close" id="closeModalBtn" aria-label="Close">&times;</button>
         </div>
         <form id="termForm">
           <div class="modal-body">
@@ -135,13 +133,11 @@
     </div>
 
     <!-- MANAGE BOATS MODAL -->
-    <div id="boatsModal" class="modal-backdrop" style="display: none">
+    <div id="boatsModal" class="modal-backdrop">
       <div class="modal modal-lg">
         <div class="modal-header">
           <h3 id="boatsModalTitle">Manage Boats</h3>
-          <button class="btn btn-outline btn-sm" id="closeBoatsModalBtn">
-            &times;
-          </button>
+          <button type="button" class="modal-close" id="closeBoatsModalBtn" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="boatsTermId" />
@@ -184,7 +180,6 @@
       import { ui } from "/js/ui.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
       import { initAdminPage } from "/admin/init.js";
-      import { ensureCSRFToken } from "/js/api.js";
       import {
         paginate,
         renderPagination,
@@ -199,7 +194,6 @@
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
 
 const session = await initAdminPage({ activePage: "terminals" });
-const csrfToken = ensureCSRFToken();
 
       let allTerminals = [];
       let currentPage = 1;
@@ -307,7 +301,7 @@ const csrfToken = ensureCSRFToken();
           "Are you sure you want to delete this terminal?",
           async () => {
             try {
-              await api.terminals.delete(id, csrfToken);
+              await api.terminals.delete(id);
               handleApiSuccess("Terminal deleted successfully.");
               await loadTerminals();
             } catch (err) {
@@ -366,10 +360,10 @@ const csrfToken = ensureCSRFToken();
             data.lng = null;
           }
           if (id) {
-            await api.terminals.update(id, data, csrfToken);
+            await api.terminals.update(id, data);
             handleApiSuccess("Terminal updated successfully.");
           } else {
-            await api.terminals.create(data, csrfToken);
+            await api.terminals.create(data);
             handleApiSuccess("Terminal created successfully.");
           }
           closeModal();
@@ -487,7 +481,7 @@ const csrfToken = ensureCSRFToken();
               "Cannot assign: this boat has scheduled or held trips from another terminal. Release or complete them first.",
             );
           }
-          await api.boats.update(boatId, { home_terminal_id: termId }, csrfToken);
+          await api.boats.update(boatId, { home_terminal_id: termId });
           handleApiSuccess("Boat assigned to terminal successfully.");
         } catch (err) {
           handleApiError(err);
@@ -502,7 +496,7 @@ const csrfToken = ensureCSRFToken();
               "Cannot unassign: this boat has scheduled or held trips using this terminal. Release or reassign them first.",
             );
           }
-          await api.boats.update(boatId, { home_terminal_id: null }, csrfToken);
+          await api.boats.update(boatId, { home_terminal_id: null });
           handleApiSuccess("Boat unassigned from terminal.");
         } catch (err) {
           handleApiError(err);

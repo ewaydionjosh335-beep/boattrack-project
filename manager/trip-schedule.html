@@ -11,62 +11,44 @@
 </head>
 <body class="admin-layout">
 
-  <aside class="admin-sidebar">
-    <div class="sidebar-header">
-      <span style="display: flex; align-items: center; gap: 0.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
-        Port Manager
-      </span>
-    </div>
-    <div class="sidebar-menu">
-      <a href="/manager/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
-      <a href="/manager/trip-schedule.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Trip Schedule</a>
-      <a href="/manager/monitoring.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat & Trip Monitoring</a>
-      <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
-      <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
-      <a href="/manager/departure-approval.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
-      <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
-      <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
-      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
-    </div>
-  </aside>
+  <div id="sidebarContainer"></div>
 
   <div class="admin-main">
     <header class="admin-header">
       <h2>Trip Schedule Management</h2>
-      <div style="display: flex; gap: 0.75rem;">
+      <div class="page-header-actions">
         <button id="clusterViewToggleBtn" class="btn btn-outline">Cluster View: Off</button>
         <button id="openCreateModalBtn" class="btn btn-primary">Create New Trip</button>
       </div>
     </header>
 
     <div class="admin-content">
-      <div class="card" style="margin-bottom: 1.5rem;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
-          <div>
-            <label class="form-label" style="font-size: 0.8rem;">Date Filter</label>
+      <div class="card filter-card">
+        <div class="filter-row">
+          <div class="form-group compact">
+            <label class="form-label" for="filterDate">Date Filter</label>
             <input type="date" id="filterDate" class="form-control">
           </div>
-          <div>
-            <label class="form-label" style="font-size: 0.8rem;">Route Filter</label>
+          <div class="form-group compact">
+            <label class="form-label" for="filterRoute">Route Filter</label>
             <select id="filterRoute" class="form-control">
               <option value="">All Routes</option>
             </select>
           </div>
-          <div>
-            <label class="form-label" style="font-size: 0.8rem;">Boat Filter</label>
+          <div class="form-group compact">
+            <label class="form-label" for="filterBoat">Boat Filter</label>
             <select id="filterBoat" class="form-control">
               <option value="">All Boats</option>
             </select>
           </div>
-          <div>
-            <label class="form-label" style="font-size: 0.8rem;">Cluster Filter</label>
+          <div class="form-group compact">
+            <label class="form-label" for="filterCluster">Cluster Filter</label>
             <select id="filterCluster" class="form-control">
               <option value="">All Clusters</option>
             </select>
           </div>
-          <div>
-            <label class="form-label" style="font-size: 0.8rem;">Status Filter</label>
+          <div class="form-group compact">
+            <label class="form-label" for="filterStatus">Status Filter</label>
             <select id="filterStatus" class="form-control">
               <option value="">All Statuses</option>
               <option value="Scheduled">Scheduled</option>
@@ -81,15 +63,16 @@
       <div id="scheduleContainer">
         <!-- Rendered dynamically -->
       </div>
+      <div id="paginationContainer"></div>
     </div>
   </div>
 
   <!-- CREATE / EDIT TRIP MODAL -->
-  <div id="tripModal" class="modal-backdrop" style="display: none;">
+  <div id="tripModal" class="modal-backdrop">
     <div class="modal">
       <div class="modal-header">
         <h3 id="modalTitle">Create Trip</h3>
-        <button class="btn btn-outline btn-sm" id="closeModalBtn">&times;</button>
+        <button type="button" class="modal-close" id="closeModalBtn" aria-label="Close">&times;</button>
       </div>
       <form id="tripForm">
         <div class="modal-body">
@@ -101,16 +84,16 @@
           <div class="form-group">
             <label class="form-label">Boat (Verified & Active)</label>
             <select id="modalBoat" class="form-control" required></select>
-            <div id="boatWarning" class="error-text" style="color: var(--warning);"></div>
+            <div id="boatWarning" class="form-warning"></div>
           </div>
           <div class="form-group">
             <label class="form-label">Departure Date & Time</label>
             <input type="datetime-local" id="modalDeparture" class="form-control" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Required Passengers (≥1)</label>
+            <label class="form-label">Required Passengers (&ge;1)</label>
             <input type="number" id="modalRequiredPax" class="form-control" min="1" value="15" required>
-            <div id="paxCapacityWarning" class="error-text" style="color: var(--warning);"></div>
+            <div id="paxCapacityWarning" class="form-warning"></div>
           </div>
           <div id="modalError" class="error-text"></div>
         </div>
@@ -123,11 +106,11 @@
   </div>
 
   <!-- HOLD REASON MODAL -->
-  <div id="holdModal" class="modal-backdrop" style="display: none;">
+  <div id="holdModal" class="modal-backdrop">
     <div class="modal">
       <div class="modal-header">
         <h3>Hold Trip</h3>
-        <button class="btn btn-outline btn-sm" id="closeHoldModalBtn">&times;</button>
+        <button type="button" class="modal-close" id="closeHoldModalBtn" aria-label="Close">&times;</button>
       </div>
       <form id="holdForm">
         <div class="modal-body">
@@ -150,11 +133,16 @@
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
+    import { ManagerSidebar } from '/manager/_sidebar.js';
+    import { paginate, updatePagination, initPagination } from '/admin/common.js';
+    import { loadService } from '/js/services/loadService.js';
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
 
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    await ManagerSidebar.mount({ activePage: 'trip-schedule' });
+
+    const esc = ui.escapeHtml;
 
     let allTrips = [];
     let allBoats = [];
@@ -165,6 +153,9 @@
     let allBookings = [];
     let allApprovals = [];
     let isClusterView = false;
+    let currentPage = 1;
+    const pageSize = 25;
+    let boatParamApplied = false;
 
     async function loadData() {
       allTrips = await api.trips.list();
@@ -177,6 +168,20 @@
       allApprovals = await api.departureApprovals.list();
 
       populateFilterDropdowns();
+
+      // Deep link from the dashboard: /manager/trip-schedule.html?boat=<id>.
+      // Apply once so the 5s sync refresh does not stomp a manual filter change.
+      // The date filter is cleared so held trips from earlier days stay visible
+      // instead of landing on an empty "today" list.
+      if (!boatParamApplied) {
+        const boatParam = new URLSearchParams(window.location.search).get('boat');
+        if (boatParam && allBoats.some(b => b.id === boatParam)) {
+          document.getElementById('filterBoat').value = boatParam;
+          document.getElementById('filterDate').value = '';
+        }
+        boatParamApplied = true;
+      }
+
       renderSchedule();
     }
 
@@ -190,7 +195,7 @@
       routeSelect.innerHTML = '<option value="">All Routes</option>' + allRoutes.map(r => {
         const origin = allTerminals.find(t => t.id === r.origin_terminal_id)?.name || 'Origin';
         const dest = allTerminals.find(t => t.id === r.destination_terminal_id)?.name || 'Dest';
-        return `<option value="${esc(r.id)}">${esc(origin)} → ${esc(dest)}</option>`;
+        return `<option value="${esc(r.id)}">${esc(origin)} &rarr; ${esc(dest)}</option>`;
       }).join('');
       if (currentFilterRoute) routeSelect.value = currentFilterRoute;
 
@@ -200,18 +205,26 @@
       boatSelect.innerHTML = '<option value="">All Boats</option>' + allBoats.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
       if (currentFilterBoat) boatSelect.value = currentFilterBoat;
 
-      // Clusters filter
-      const clusters = [...new Set(allUsers.filter(u => u.cluster).map(u => u.cluster))];
+      // Clusters filter - only clusters from operators of verified boats, plus "Unassigned Cluster"
+      const verifiedBoatOperatorIds = allBoats
+        .filter(b => b.registration_status === 'Verified')
+        .map(b => b.operator_id)
+        .filter(Boolean);
+      const clusters = [...new Set(
+        allUsers
+          .filter(u => verifiedBoatOperatorIds.includes(u.id) && u.cluster)
+          .map(u => u.cluster)
+      )];
       const clusterSelect = document.getElementById('filterCluster');
       const currentFilterCluster = clusterSelect.value;
-      clusterSelect.innerHTML = '<option value="">All Clusters</option>' + clusters.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      clusterSelect.innerHTML = '<option value="">All Clusters</option>' + clusters.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('') + '<option value="__unassigned__">Unassigned Cluster</option>';
       if (currentFilterCluster) clusterSelect.value = currentFilterCluster;
 
       // Modal route & boat dropdowns
       document.getElementById('modalRoute').innerHTML = '<option value="">-- Select Route --</option>' + allRoutes.map(r => {
         const origin = allTerminals.find(t => t.id === r.origin_terminal_id)?.name || 'Origin';
         const dest = allTerminals.find(t => t.id === r.destination_terminal_id)?.name || 'Dest';
-        return `<option value="${esc(r.id)}">${esc(origin)} → ${esc(dest)} (₱${esc(r.fare)})</option>`;
+        return `<option value="${esc(r.id)}">${esc(origin)} &rarr; ${esc(dest)} (&#8369;${esc(r.fare)})</option>`;
       }).join('');
       if (modalRouteVal) document.getElementById('modalRoute').value = modalRouteVal;
 
@@ -250,22 +263,41 @@
         if (clusterVal) {
           const boat = allBoats.find(b => b.id === t.boat_id);
           const oper = boat ? allUsers.find(u => u.id === boat.operator_id) : null;
-          if (!oper || oper.cluster !== clusterVal) return false;
+          const tripCluster = oper?.cluster;
+          if (clusterVal === '__unassigned__') {
+            if (tripCluster) return false; // Has a cluster, but we want unassigned
+          } else if (tripCluster !== clusterVal) {
+            return false; // Cluster doesn't match
+          }
         }
         return true;
       });
 
       const container = document.getElementById('scheduleContainer');
+      const paginationContainer = document.getElementById('paginationContainer');
 
-      if (filtered.length === 0) {
-        container.innerHTML = '<div class="card empty-state">No trips found matching the selected filters.</div>';
+      // Apply pagination
+      const pagination = paginate(filtered, currentPage, pageSize);
+      let pagedTrips = pagination.items;
+
+      if (pagedTrips.length === 0 && currentPage > 1) {
+        // Page out of range, go to last page
+        currentPage = pagination.totalPages;
+        const newPagination = paginate(filtered, currentPage, pageSize);
+        Object.assign(pagination, newPagination);
+        pagedTrips = pagination.items;
+      }
+
+      if (pagedTrips.length === 0) {
+        container.innerHTML = '<div class="card table-empty"><svg class="table-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><p class="table-empty-text">No trips found matching the selected filters.</p><div class="table-empty-action"><button type="button" class="btn btn-outline btn-sm" onclick="window.clearFilters()">Clear Filters</button></div></div>';
+        paginationContainer.innerHTML = '';
         return;
       }
 
       if (isClusterView) {
         // Group by Cluster
         const clusterMap = {};
-        filtered.forEach(t => {
+        pagedTrips.forEach(t => {
           const boat = allBoats.find(b => b.id === t.boat_id) || {};
           const oper = boat.operator_id ? allUsers.find(u => u.id === boat.operator_id) : null;
           const clName = oper && oper.cluster ? oper.cluster : 'Unassigned Cluster';
@@ -274,18 +306,21 @@
         });
 
         container.innerHTML = Object.keys(clusterMap).map(cluster => `
-          <div class="card" style="margin-bottom: 1.5rem;">
-            <h3 style="margin-bottom: 1rem; color: var(--teal); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Cluster: ${esc(cluster)}</h3>
+          <div class="card mb-2">
+            <h3 class="text-teal mb-1" style="border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Cluster: ${esc(cluster)}</h3>
             ${renderTripTableHtml(clusterMap[cluster])}
           </div>
         `).join('');
       } else {
         container.innerHTML = `
           <div class="table-container">
-            ${renderTripTableHtml(filtered)}
+            ${renderTripTableHtml(pagedTrips)}
           </div>
         `;
       }
+
+      // Update pagination controls
+      updatePagination("#paginationContainer", pagination);
     }
 
     function renderTripTableHtml(tripsList) {
@@ -310,65 +345,101 @@
               const dest = allTerminals.find(term => term.id === route.destination_terminal_id)?.name || 'Destination';
               const timeStr = new Date(t.departure_time).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
               const mCount = allManifests.filter(m => m.trip_id === t.id).length;
+              const bookedPax = loadService.bookedPax(allManifests, allBookings, t.id);
 
               let badgeClass = 'badge-scheduled';
               if (t.trip_status === 'Held') badgeClass = 'badge-held';
               else if (t.trip_status === 'Departed') badgeClass = 'badge-departed';
               else if (t.trip_status === 'Arrived') badgeClass = 'badge-arrived';
 
-               const canEditOrHold = t.trip_status === 'Scheduled' || t.trip_status === 'Held';
-               // Departure needs a coast guard approval for the current schedule revision.
-               const latestApproval = allApprovals
-                 .filter(a => a.trip_id === t.id)
-                 .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0];
-               const approvalCurrent = !!latestApproval && latestApproval.decision === 'Approved'
-                 && (latestApproval.trip_revision || 0) === (t.approval_revision || 0);
-               const approvalExpired = !!latestApproval && latestApproval.decision === 'Approved' && !approvalCurrent;
-               const canMarkDeparted = t.trip_status === 'Scheduled' && approvalCurrent;
-               const canMarkArrived = t.trip_status === 'Departed';
-               // A trip with records must not be deleted: it would orphan bookings and approvals.
-               const bCount = allBookings.filter(b => b.trip_id === t.id).length;
-               const hasApproval = allApprovals.some(a => a.trip_id === t.id);
-               const recordBlock = mCount > 0
-                 ? `${mCount} manifest entr${mCount === 1 ? 'y' : 'ies'}`
-                 : bCount > 0
-                   ? `${bCount} booking${bCount === 1 ? '' : 's'}`
-                   : hasApproval ? 'departure approval record' : '';
-               const canDelete = !recordBlock && (t.trip_status === 'Scheduled' || t.trip_status === 'Held');
+              const canEditOrHold = t.trip_status === 'Scheduled' || t.trip_status === 'Held';
+              // Departure needs a coast guard approval for the current schedule revision.
+              const latestApproval = allApprovals
+                .filter(a => a.trip_id === t.id)
+                .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0];
+              const approvalCurrent = !!latestApproval && latestApproval.decision === 'Approved'
+                && (latestApproval.trip_revision || 0) === (t.approval_revision || 0);
+              const approvalExpired = !!latestApproval && latestApproval.decision === 'Approved' && !approvalCurrent;
+              // Suspension blocks release and departure until the boat is reactivated.
+              const boatSuspended = !!boat.boat_status && boat.boat_status !== 'Active';
+              const canMarkDeparted = t.trip_status === 'Scheduled' && approvalCurrent && !boatSuspended;
+              const canMarkArrived = t.trip_status === 'Departed';
+              // A trip with records must not be deleted: it would orphan bookings and approvals.
+              const bCount = allBookings.filter(b => b.trip_id === t.id).length;
+              const hasApproval = allApprovals.some(a => a.trip_id === t.id);
+              const recordBlock = mCount > 0
+                ? `${mCount} manifest entr${mCount === 1 ? 'y' : 'ies'}`
+                : bCount > 0
+                  ? `${bCount} booking${bCount === 1 ? '' : 's'}`
+                  : hasApproval ? 'departure approval record' : '';
+              const canDelete = !recordBlock && (t.trip_status === 'Scheduled' || t.trip_status === 'Held');
 
-               return `
-                 <tr>
-                   <td>
-                     <strong>${esc(boat.name)}</strong><br>
-                     <span style="font-size: 0.8rem; color: var(--text-muted);">${esc(oper ? oper.full_name + (oper.cluster ? ' (' + oper.cluster + ')' : '') : 'No Operator')}</span>
-                   </td>
-                   <td>${esc(origin)} → ${esc(dest)}</td>
-                   <td>${timeStr}</td>
-                   <td class="text-center">${mCount} / ${t.required_passengers}</td>
-                   <td>
-                     <span class="badge ${badgeClass}">${esc(t.trip_status)}</span>
-                     ${t.trip_status === 'Held' && t.held_reason ? `<br><span style="font-size: 0.75rem; color: var(--danger);">Reason: ${esc(t.held_reason)}</span>` : ''}
-                   </td>
-                   <td>
-                     <div class="table-actions">
-                       ${canEditOrHold ? `<button class="btn btn-outline btn-sm" onclick="window.editTrip('${t.id}')">Edit</button>` : ''}
-                       ${t.trip_status === 'Scheduled' ? `<button class="btn btn-outline btn-sm" style="color:var(--warning); border-color:var(--warning);" onclick="window.openHoldModal('${t.id}')">Hold</button>` : ''}
-                       ${t.trip_status === 'Held' ? `<button class="btn btn-outline btn-sm" style="color:var(--success); border-color:var(--success);" onclick="window.releaseTrip('${t.id}')">Release</button>` : ''}
-                       ${canMarkDeparted
-                         ? `<button class="btn btn-outline btn-sm" style="color:var(--primary); border-color:var(--primary);" onclick="window.markDeparted('${t.id}')">Mark Departed</button>`
-                         : t.trip_status === 'Scheduled'
-                           ? `<span style="font-size:0.75rem; color:var(--text-muted);">${approvalExpired ? 'Approval expired' : (latestApproval?.decision === 'Held' ? 'Coast Guard: Held' : 'Awaiting approval')}</span>`
-                           : ''}
-                       ${canMarkArrived ? `<button class="btn btn-outline btn-sm" style="color:var(--success); border-color:var(--success);" onclick="window.markArrived('${t.id}')">Mark Arrived</button>` : ''}
-                       ${canDelete
-                         ? `<button class="btn btn-danger btn-sm" onclick="window.deleteTrip('${t.id}')">Delete</button>`
-                         : recordBlock
-                           ? `<span style="font-size:0.75rem; color:var(--danger);" title="Cannot delete: ${esc(recordBlock)} already exist for this trip">Blocked: ${esc(recordBlock)}</span>`
-                           : `<span style="font-size:0.75rem; color:var(--text-muted);" title="Cannot delete departed/arrived trips">Locked</span>`}
-                     </div>
-                   </td>
-                 </tr>
-               `;
+              // Edit is blocked when manifests/bookings exist (boat/route changes would orphan them),
+              // when the boat is suspended, or when the departure time has passed: api.trips.update
+              // re-validates the departure time and would always reject, so don't offer an Edit
+              // that cannot succeed. Hold / Release / Delete stay available for past trips.
+              // An existing approval no longer blocks edits: saving bumps approval_revision and the
+              // old clearance shows as "Approval expired". Approval still blocks delete.
+              const departurePassed = !!t.departure_time && new Date(t.departure_time).getTime() < Date.now();
+              const editBlock = mCount > 0 || bCount > 0 || boatSuspended || departurePassed;
+              const editReason = boatSuspended
+                ? `Cannot edit: boat is ${boat.boat_status}`
+                : departurePassed
+                  ? 'Cannot edit: departure time has passed'
+                  : mCount > 0
+                    ? `Cannot edit: ${mCount} manifest entr${mCount === 1 ? 'y' : 'ies'} exist`
+                    : `Cannot edit: ${bCount} booking${bCount === 1 ? '' : 's'} exist`;
+
+              // Departure state lives in the Status column; the Actions column only carries actions.
+              const approvalUrl = `/manager/departure-approval.html?trip=${t.id}`;
+              const showApprovalLink = !canMarkDeparted && t.trip_status === 'Scheduled' && !boatSuspended;
+              const approvalStatus = !showApprovalLink
+                ? null
+                : approvalExpired
+                  ? { label: 'Approval expired', badge: 'badge-danger' }
+                  : latestApproval?.decision === 'Held'
+                    ? (t.trip_status === 'Held'
+                        ? { label: 'Held by Coast Guard', badge: 'badge-danger' }
+                        : { label: 'Previously held', badge: 'badge-warning' })
+                    : { label: 'Awaiting approval', badge: 'badge-warning' };
+              const lockNote = canDelete ? '' : recordBlock ? `Blocked: ${recordBlock}` : 'Locked';
+
+              return `
+                <tr>
+                  <td>
+                    <strong>${esc(boat.name)}</strong><br>
+                    <span class="text-sm text-muted">${esc(oper ? oper.full_name + (oper.cluster ? ' (' + oper.cluster + ')' : '') : 'No Operator')}</span>
+                  </td>
+                  <td>${esc(origin)} &rarr; ${esc(dest)}</td>
+                  <td>${timeStr}</td>
+                  <td class="text-center">${bookedPax} / ${t.required_passengers}</td>
+                  <td>
+                    <span class="badge ${badgeClass}">${esc(t.trip_status)}</span>
+                    ${approvalStatus ? `<br><span class="badge ${approvalStatus.badge}" style="margin-top: 0.35rem;">${esc(approvalStatus.label)}</span>` : ''}
+                    ${t.trip_status === 'Held' && t.held_reason ? `<br><span class="text-xs text-danger">Reason: ${esc(t.held_reason)}</span>` : ''}
+                    ${boatSuspended ? `<br><span class="text-xs text-danger">Boat ${esc(boat.boat_status)} — release and departure blocked</span>` : ''}
+                    ${lockNote ? `<br><span class="text-xs text-muted" title="Editing and deleting are disabled while this trip has records">${esc(lockNote)}</span>` : ''}
+                  </td>
+                  <td>
+                    <div class="table-actions">
+                      ${canEditOrHold
+                        ? `<span class="text-xs">${!editBlock ? `<button class="btn btn-outline btn-sm" onclick="window.editTrip('${t.id}')">Edit</button>` : `<span class="badge badge-warning" title="${esc(editReason)}">Edit blocked</span>`}</span>
+                           ${t.trip_status === 'Scheduled' ? `<button class="btn btn-outline-warning btn-sm" onclick="window.openHoldModal('${t.id}')">Hold</button>` : ''}
+                           ${t.trip_status === 'Held' && !boatSuspended ? `<button class="btn btn-outline-success btn-sm" onclick="window.releaseTrip('${t.id}')">Release</button>` : ''}`
+                        : ''}
+                      ${canMarkDeparted
+                        ? `<button class="btn btn-outline-primary btn-sm" onclick="window.markDeparted('${t.id}')">Mark Departed</button>`
+                        : showApprovalLink
+                          ? `<a href="${approvalUrl}" class="btn btn-outline-primary btn-sm" title="Open departure approval">View Approval</a>`
+                          : ''}
+                      ${canMarkArrived ? `<button class="btn btn-outline-success btn-sm" onclick="window.markArrived('${t.id}')">Mark Arrived</button>` : ''}
+                      ${canDelete
+                        ? `<button class="btn btn-danger btn-sm" onclick="window.deleteTrip('${t.id}')">Delete</button>`
+                        : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
             }).join('')}
           </tbody>
         </table>
@@ -376,63 +447,75 @@
     }
 
     // Filter event listeners
-    document.getElementById('filterDate').oninput = renderSchedule;
-    document.getElementById('filterRoute').onchange = renderSchedule;
-    document.getElementById('filterBoat').onchange = renderSchedule;
-    document.getElementById('filterCluster').onchange = renderSchedule;
-    document.getElementById('filterStatus').onchange = renderSchedule;
+    window.clearFilters = () => {
+      ['filterDate', 'filterRoute', 'filterBoat', 'filterCluster', 'filterStatus']
+        .forEach(id => { document.getElementById(id).value = ''; });
+      currentPage = 1;
+      isClusterView = false;
+      const btn = document.getElementById('clusterViewToggleBtn');
+      if (btn) {
+        btn.textContent = 'Cluster View: Off';
+        btn.className = 'btn btn-outline';
+      }
+      renderSchedule();
+    };
+
+    document.getElementById('filterDate').oninput = () => { currentPage = 1; renderSchedule(); };
+    document.getElementById('filterRoute').onchange = () => { currentPage = 1; renderSchedule(); };
+    document.getElementById('filterBoat').onchange = () => { currentPage = 1; renderSchedule(); };
+    document.getElementById('filterCluster').onchange = () => { currentPage = 1; renderSchedule(); };
+    document.getElementById('filterStatus').onchange = () => { currentPage = 1; renderSchedule(); };
 
     document.getElementById('clusterViewToggleBtn').onclick = () => {
       isClusterView = !isClusterView;
       const btn = document.getElementById('clusterViewToggleBtn');
       btn.textContent = `Cluster View: ${isClusterView ? 'On' : 'Off'}`;
       btn.className = isClusterView ? 'btn btn-primary' : 'btn btn-outline';
+      currentPage = 1;
       renderSchedule();
     };
 
     // Create / Edit modal
     const tripModal = document.getElementById('tripModal');
-    const closeTripModal = () => tripModal.style.display = 'none';
-    document.getElementById('closeModalBtn').onclick = closeTripModal;
-    document.getElementById('cancelModalBtn').onclick = closeTripModal;
+    // Shared modal helper wires Escape, backdrop close, focus trap and focus restore.
+    const tripDialog = ui.modal(tripModal);
+    document.getElementById('closeModalBtn').onclick = () => tripDialog.close();
+    document.getElementById('cancelModalBtn').onclick = () => tripDialog.close();
 
     document.getElementById('openCreateModalBtn').onclick = () => {
       document.getElementById('modalTitle').textContent = 'Create New Trip';
       document.getElementById('editTripId').value = '';
       document.getElementById('modalRoute').value = '';
       document.getElementById('modalBoat').value = '';
-      document.getElementById('modalBoat').disabled = false; // Edit blocks the boat on trips with manifests
+      document.getElementById('modalBoat').disabled = false;
       document.getElementById('modalRoute').disabled = false;
       document.getElementById('modalDeparture').value = '';
       document.getElementById('modalRequiredPax').value = '15';
       document.getElementById('modalError').textContent = '';
       document.getElementById('boatWarning').textContent = '';
       document.getElementById('paxCapacityWarning').textContent = '';
-      tripModal.style.display = 'flex';
+      validateModalCapacity();
+      tripDialog.open();
     };
 
-    document.getElementById('modalBoat').onchange = (e) => {
-      const boatId = e.target.value;
-      if (!boatId) return;
-      const boat = allBoats.find(b => b.id === boatId);
-      const reqPax = parseInt(document.getElementById('modalRequiredPax').value) || 0;
-      if (boat && reqPax > boat.passenger_capacity) {
-        document.getElementById('paxCapacityWarning').textContent = `Error: Required passengers (${reqPax}) exceeds boat capacity (${boat.passenger_capacity}). This is not allowed.`;
-      } else {
-        document.getElementById('paxCapacityWarning').textContent = '';
-      }
-    };
-
-    document.getElementById('modalRequiredPax').oninput = (e) => {
-      const reqPax = parseInt(e.target.value) || 0;
+    // Single source of truth for the capacity warning + Save enabled state.
+    function validateModalCapacity() {
       const boatId = document.getElementById('modalBoat').value;
       const boat = allBoats.find(b => b.id === boatId);
-      if (boat && reqPax > boat.passenger_capacity) {
-        document.getElementById('paxCapacityWarning').textContent = `Error: Required passengers (${reqPax}) exceeds boat capacity (${boat.passenger_capacity}). This is not allowed.`;
+      const reqPax = parseInt(document.getElementById('modalRequiredPax').value) || 0;
+      const warn = document.getElementById('paxCapacityWarning');
+      const saveBtn = document.querySelector('#tripForm button[type="submit"]');
+      if (boatId && boat && reqPax > boat.passenger_capacity) {
+        warn.textContent = `Error: Required passengers (${reqPax}) exceeds boat capacity (${boat.passenger_capacity}). This is not allowed.`;
+        if (saveBtn) saveBtn.disabled = true;
       } else {
-        document.getElementById('paxCapacityWarning').textContent = '';
+        warn.textContent = '';
+        if (saveBtn) saveBtn.disabled = false;
       }
-    };
+    }
+
+    document.getElementById('modalBoat').onchange = validateModalCapacity;
+    document.getElementById('modalRequiredPax').oninput = validateModalCapacity;
 
     window.editTrip = (id) => {
       const trip = allTrips.find(t => t.id === id);
@@ -447,6 +530,7 @@
       document.getElementById('modalRequiredPax').value = trip.required_passengers;
       document.getElementById('modalError').textContent = '';
       document.getElementById('boatWarning').textContent = '';
+      document.getElementById('paxCapacityWarning').textContent = '';
 
       // Manifest entries pin both boat and route: moving the trip would strand
       // passengers on a route they did not book.
@@ -463,7 +547,8 @@
         document.getElementById('boatWarning').textContent = '';
       }
 
-      tripModal.style.display = 'flex';
+      validateModalCapacity();
+      tripDialog.open();
     };
 
     document.getElementById('tripForm').onsubmit = async (e) => {
@@ -478,7 +563,10 @@
 
       try {
         if (id) {
-          const mEntries = allManifests.filter(m => m.trip_id === id);
+          // Re-fetch manifests at submit time to close the race window: a concurrent
+          // manifest creation must not allow a boat/route change on a pinned trip.
+          const currentManifests = await api.manifests.list();
+          const mEntries = currentManifests.filter(m => m.trip_id === id);
           const updateData = { departure_time, required_passengers };
           if (mEntries.length === 0) {
             updateData.boat_id = boat_id;
@@ -496,7 +584,7 @@
           });
           ui.showToast('Trip created successfully.', 'success');
         }
-        closeTripModal();
+        tripDialog.close();
         await loadData();
       } catch (err) {
         errBox.textContent = err.message;
@@ -505,15 +593,15 @@
 
     // Hold modal
     const holdModal = document.getElementById('holdModal');
-    const closeHoldModal = () => holdModal.style.display = 'none';
-    document.getElementById('closeHoldModalBtn').onclick = closeHoldModal;
-    document.getElementById('cancelHoldModalBtn').onclick = closeHoldModal;
+    const holdDialog = ui.modal(holdModal);
+    document.getElementById('closeHoldModalBtn').onclick = () => holdDialog.close();
+    document.getElementById('cancelHoldModalBtn').onclick = () => holdDialog.close();
 
     window.openHoldModal = (id) => {
       document.getElementById('holdTripId').value = id;
       document.getElementById('holdReasonInput').value = '';
       document.getElementById('holdModalError').textContent = '';
-      holdModal.style.display = 'flex';
+      holdDialog.open();
     };
 
     document.getElementById('holdForm').onsubmit = async (e) => {
@@ -527,7 +615,7 @@
         if (!reason) throw new Error('A reason is required to hold a trip.');
         await api.trips.updateStatus(id, 'Held', reason);
         ui.showToast('Trip placed on hold.', 'success');
-        closeHoldModal();
+        holdDialog.close();
         await loadData();
       } catch (err) {
         errBox.textContent = err.message;
@@ -589,14 +677,17 @@
       });
     };
 
+    // Date filter defaults to today (PHT); clearing the input still shows all dates.
+    document.getElementById('filterDate').value = ui.localDateStr();
+
     loadData();
     ui.setupSync(loadData);
 
-    document.getElementById('logoutBtn').onclick = async (e) => {
-      e.preventDefault();
-      await api.auth.logout();
-      window.location.href = '/login.html';
-    };
+    // Initialize pagination
+    initPagination('#paginationContainer', (page) => {
+      currentPage = page;
+      renderSchedule();
+    });
   </script>
 </body>
 </html>

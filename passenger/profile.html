@@ -98,6 +98,10 @@
                 </button>
               </div>
             </div>
+            <div class="form-group">
+              <label class="form-label">New Password (≥8 chars, 1 letter &amp; 1 number)</label>
+              <input type="password" id="newPassInput" class="form-control" required minlength="8">
+            </div>
             <button type="submit" class="btn btn-outline" style="margin-top: 0.5rem;">Update Password</button>
           </form>
         </div>
@@ -132,7 +136,7 @@
 
   <script type="module">
     import { api } from '/js/api.js';
-    import { auth, hashPassword } from '/js/auth.js';
+    import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
 
     const session = await auth.requireAuth(['passenger']);
@@ -173,7 +177,7 @@
       const newWeight = parseFloat(document.getElementById('weightInput').value) || 65;
 
       try {
-        await api.users.update(session.user_id, { full_name, contact });
+        await api.users.updateSelf({ full_name, contact });
         if (passenger) {
           const passengers = api._get('passengers') || [];
           const idx = passengers.findIndex(p => p.id === passenger.id);
@@ -193,14 +197,14 @@
 
     document.getElementById('passwordForm').onsubmit = async (e) => {
       e.preventDefault();
-      const newPass = document.getElementById('currentPassInput').value.trim();
+      const currentPass = document.getElementById('currentPassInput').value.trim();
+      const newPass = document.getElementById('newPassInput').value.trim();
 
       try {
-        if (!newPass) throw new Error('Password cannot be empty.');
-        const newHash = await hashPassword(newPass);
-        await api.users.update(session.user_id, { password: null, password_hash: newHash });
-        currentUser.password = null;
-        currentUser.password_hash = newHash;
+        if (!currentPass || !newPass) throw new Error('Current and new password are required.');
+        await api.users.changePassword(currentPass, newPass);
+        document.getElementById('currentPassInput').value = '';
+        document.getElementById('newPassInput').value = '';
         ui.showToast('Password updated successfully!', 'success');
       } catch (err) {
         ui.showToast(err.message, 'danger');

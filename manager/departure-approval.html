@@ -11,25 +11,7 @@
 </head>
 <body class="admin-layout">
 
-  <aside class="admin-sidebar">
-    <div class="sidebar-header">
-      <span style="display: flex; align-items: center; gap: 0.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
-        Port Manager
-      </span>
-    </div>
-    <div class="sidebar-menu">
-      <a href="/manager/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
-      <a href="/manager/trip-schedule.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Trip Schedule</a>
-      <a href="/manager/monitoring.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat &amp; Trip Monitoring</a>
-      <a href="/manager/risk-assessment.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
-      <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
-      <a href="/manager/departure-approval.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
-      <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
-      <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
-      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
-    </div>
-  </aside>
+  <aside id="sidebarContainer"></aside>
 
   <div class="admin-main">
     <header class="admin-header">
@@ -48,7 +30,7 @@
     <div class="modal modal-sm">
       <div class="modal-header">
         <h3>Hold Trip</h3>
-        <button type="button" class="btn btn-outline btn-sm" id="closeHoldRemarksModalBtn">&times;</button>
+        <button type="button" class="modal-close" id="closeHoldRemarksModalBtn" aria-label="Close">&times;</button>
       </div>
       <form id="holdRemarksForm">
         <div class="modal-body">
@@ -73,7 +55,7 @@
     <div class="modal modal-lg">
       <div class="modal-header">
         <h3>Record Departure Approval</h3>
-        <button type="button" class="btn btn-outline btn-sm" id="closeApprovalModalBtn">&times;</button>
+        <button type="button" class="modal-close" id="closeApprovalModalBtn" aria-label="Close">&times;</button>
       </div>
       <form id="approvalForm">
         <div class="modal-body">
@@ -98,15 +80,20 @@
     import { api } from '/js/api.js';
     import { auth } from '/js/auth.js';
     import { ui } from '/js/ui.js';
+    import { ManagerSidebar } from '/manager/_sidebar.js';
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
 
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // Mount shared sidebar
+    await ManagerSidebar.mount({ activePage: 'departure-approval' });
+
+    const esc = ui.escapeHtml;
 
     let evidenceByTrip = {};
     let activeTripId = null;
     let activeEvidence = null;
+    let terminalMissing = false;
 
     const latest = (list, field) => list
       .slice()
@@ -130,7 +117,12 @@
       // days are dropped and the list stays ordered by departure time.
       const today = ui.localDateStr();
       const pending = trips
-        .filter(t => (t.trip_status === 'Scheduled' || t.trip_status === 'Held') && ui.localDateStr(t.departure_time) === today)
+        .filter(t => {
+          // Held trips remain actionable regardless of departure date (they await
+          // release/approval), while Scheduled trips are limited to today's departures.
+          if (t.trip_status === 'Held') return true;
+          return t.trip_status === 'Scheduled' && ui.localDateStr(t.departure_time) === today;
+        })
         .sort((a, b) => new Date(a.departure_time) - new Date(b.departure_time));
       if (!pending.length) {
         list.innerHTML = '<div style="text-align: center; padding: 3rem; color: var(--text-muted); font-size: 1.1rem;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; opacity: 0.5;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><br>No trips departing today are awaiting departure approval.</div>';
@@ -164,9 +156,18 @@
         const approvalExpired = !!latestDecision && decision === 'Approved' && !approvalCurrent;
         const canDepart = trip.trip_status === 'Scheduled' && approvalCurrent;
         const isHeld = decision === 'Held' && trip.trip_status === 'Held';
+        // Suspension is a hard block: never clear or depart a suspended boat.
+        const suspended = !!boat && boat.boat_status !== 'Active';
+        const suspensionNote = trip.held_by_boat_suspension && trip.held_reason
+          ? trip.held_reason
+          : 'reactivate the boat first';
         const missingOrigin = !origin;
         const missingDest = !dest;
         const terminalWarning = missingOrigin || missingDest;
+        // The trip-status badge already says "Held"; repeating the coast-guard
+        // decision badge with the same word is just noise. Keep it when the two
+        // actually differ, or when there is an expiry warning to show.
+        const showDecisionBadge = decision !== trip.trip_status || approvalExpired;
 
         evidenceByTrip[trip.id] = { trip, route, origin, dest, boat, scan, insp, decision, approvalCurrent, isHeld, latestDecision };
 
@@ -176,8 +177,9 @@
             <div style="flex: 1; min-width: 280px;">
               <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
                 <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(trip.trip_status)}</span>
-                <span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(decision)} ${approvalExpired ? '(approval expired for this schedule)' : ''}</span>
+                ${showDecisionBadge ? `<span class="badge badge-${esc(String(decision).toLowerCase())}" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">${esc(decision)} ${approvalExpired ? '(approval expired for this schedule)' : ''}</span>` : ''}
                 ${terminalWarning ? `<span class="badge" style="background:#fef3c7; color:#92400e; font-size: 0.7rem; padding: 0.15rem 0.4rem;">⚠ Terminal${missingOrigin ? ' origin' : ''}${missingDest ? ' destination' : ''} missing</span>` : ''}
+                ${suspended ? `<span class="badge" style="background:#fee2e2; color:#991b1b; font-size: 0.7rem; padding: 0.15rem 0.4rem;">⛔ Boat ${esc(boat.boat_status)} — ${esc(suspensionNote)}</span>` : ''}
               </div>
               <h3 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; color: var(--primary);">
                 ${esc(boat?.name || 'Unknown vessel')}
@@ -198,27 +200,25 @@
                   <span style="color: ${classificationColor(scan?.classification)}; font-weight: 600;">
                     ${scan
                       ? `${esc(scan.classification)} by ${esc(scan.scanned_by || '-')} at ${new Date(scan.scanned_at).toLocaleString()}`
-                      : 'None on record'}
-                  </span>
+                      : 'None on record'}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                   <span style="color: var(--text-muted); min-width: 100px;">Inspection:</span>
                   <span style="color: ${!insp || insp.overall !== 'Passed' ? 'var(--danger)' : 'var(--text-muted)'}; font-weight: 600;">
                     ${insp
                       ? `${esc(insp.overall)} by ${esc(insp.inspected_by || '-')} at ${new Date(insp.inspected_at).toLocaleString()}`
-                      : 'None on record'}
-                  </span>
+                      : 'None on record'}</span>
                 </div>
               </div>
             </div>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-start; padding-top: 0.25rem;">
-              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin && !terminalWarning && !approvalCurrent ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;" ${terminalWarning ? 'title="Cannot approve: route terminal missing"' : ''}>
+              <button class="btn btn-primary approve" data-trip="${esc(trip.id)}" ${origin && !terminalWarning && !approvalCurrent && !suspended ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;" ${suspended ? 'title="Cannot approve: boat is suspended"' : terminalWarning ? 'title="Cannot approve: route terminal missing"' : ''}>
                 ${approvalCurrent ? 'Approved' : 'Approve'}
               </button>
               <button class="btn btn-danger hold" data-trip="${esc(trip.id)}" ${origin && !terminalWarning && !isHeld ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;" ${terminalWarning ? 'title="Cannot hold: route terminal missing"' : ''}>
                 ${isHeld ? 'Held' : 'Hold'}
               </button>
-              <button class="btn btn-outline depart" data-trip="${esc(trip.id)}" ${canDepart && !terminalWarning ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;" ${terminalWarning ? 'title="Cannot depart: route terminal missing"' : ''}>
+              <button class="btn btn-outline depart" data-trip="${esc(trip.id)}" ${canDepart && !terminalWarning && !suspended ? '' : 'disabled'} style="padding: 0.5rem 1rem; font-size: 0.9rem;" ${suspended ? 'title="Cannot depart: boat is suspended"' : terminalWarning ? 'title="Cannot depart: route terminal missing"' : ''}>
                 Mark Departed
               </button>
             </div>
@@ -252,26 +252,25 @@
     }
 
     const approvalModal = document.getElementById('approvalModal');
-    const closeApprovalModal = () => {
-      approvalModal.style.display = 'none';
-      activeTripId = null;
-      activeEvidence = null;
-      render();
-    };
-    document.getElementById('closeApprovalModalBtn').onclick = closeApprovalModal;
-    document.getElementById('cancelApprovalBtn').onclick = closeApprovalModal;
-    approvalModal.onclick = (e) => { if (e.target === approvalModal) closeApprovalModal(); };
+    // Shared modal helper wires Escape, backdrop close, focus trap and focus restore.
+    const approvalDialog = ui.modal(approvalModal, {
+      onClose: () => {
+        activeTripId = null;
+        activeEvidence = null;
+        render();
+      }
+    });
+    document.getElementById('closeApprovalModalBtn').onclick = () => approvalDialog.close();
+    document.getElementById('cancelApprovalBtn').onclick = () => approvalDialog.close();
 
     // Hold Remarks Modal
     let holdTarget = null;
     const holdRemarksModal = document.getElementById('holdRemarksModal');
-    const closeHoldRemarksModal = () => {
-      holdRemarksModal.style.display = 'none';
-      holdTarget = null;
-    };
-    document.getElementById('closeHoldRemarksModalBtn').onclick = closeHoldRemarksModal;
-    document.getElementById('cancelHoldRemarksBtn').onclick = closeHoldRemarksModal;
-    holdRemarksModal.onclick = (e) => { if (e.target === holdRemarksModal) closeHoldRemarksModal(); };
+    const holdRemarksDialog = ui.modal(holdRemarksModal, {
+      onClose: () => { holdTarget = null; }
+    });
+    document.getElementById('closeHoldRemarksModalBtn').onclick = () => holdRemarksDialog.close();
+    document.getElementById('cancelHoldRemarksBtn').onclick = () => holdRemarksDialog.close();
 
     function openHoldRemarksModal(tripId) {
       const ev = evidenceByTrip[tripId];
@@ -285,7 +284,7 @@
         `${!ev.origin || !ev.dest ? `<br><span style="color:#92400e; font-size:0.85rem;">⚠ ${!ev.origin ? 'Origin terminal missing' : ''}${!ev.dest ? ' Destination terminal missing' : ''}</span>` : ''}`;
       document.getElementById('holdRemarksInput').value = '';
       document.getElementById('holdRemarksError').textContent = '';
-      holdRemarksModal.style.display = 'flex';
+      holdRemarksDialog.open();
     }
 
     document.getElementById('holdRemarksForm').onsubmit = async (e) => {
@@ -296,15 +295,15 @@
       if (!remarks) { errBox.textContent = 'A hold reason is required.'; return; }
       if (!holdTarget) return;
       const { ev } = holdTarget;
-      const submitBtn = e.submitter;
-      submitBtn.disabled = true;
+      const submitBtn = document.querySelector('#holdRemarksForm button[type="submit"]');
       try {
+        if (submitBtn) submitBtn.disabled = true;
         const curApprovals = await api.departureApprovals.listByTrip(ev.trip.id);
         const curLatest = latest(curApprovals, 'recorded_at');
         const curTrip = (await api.trips.list()).find(t => t.id === ev.trip.id);
         if (curLatest?.decision === 'Held' && curTrip?.trip_status === 'Held') {
           ui.showToast('Trip is already held.', 'warning');
-          closeHoldRemarksModal();
+          holdRemarksDialog.close();
           render();
           return;
         }
@@ -321,15 +320,15 @@
           recorded_by: session.full_name,
           recorded_at: new Date().toISOString()
         });
-        if (ev.trip.trip_status !== 'Held') {
-          await api.trips.updateStatus(ev.trip.id, 'Held', remarks);
-        }
+        // The departure approval record above drives the trip to Held status
+        // (single source of truth); no duplicate updateStatus call here.
         ui.showToast('Trip held.', 'success');
-        closeHoldRemarksModal();
+        holdRemarksDialog.close();
         render();
       } catch (err) {
         errBox.textContent = err.message;
-        submitBtn.disabled = false;
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
     };
 
@@ -353,56 +352,56 @@
         decision: ev.decision,
         approvalCurrent: ev.approvalCurrent
       };
-const { trip, origin, dest, boat, scan, insp } = activeEvidence;
+      const { trip, origin, dest, boat, scan, insp } = activeEvidence;
       const needsJudgement = !scan || scan.classification !== 'Safe' || !insp || insp.overall !== 'Passed';
       const failedItems = (insp?.items || []).filter(i => i.result === 'Fail');
-      const terminalMissing = !origin || !dest;
+      terminalMissing = !origin || !dest;
 
       document.getElementById('approvalTripId').value = tripId;
-       document.getElementById('approvalSummary').innerHTML = `
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
-            <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(trip.trip_status)}</span>
-            <strong style="font-size: 1.1rem; color: var(--primary);">${esc(boat?.name || 'Vessel')}</strong>
-          </div>
-          <div style="font-size: 1rem; color: var(--text-main);">
-            ${esc(origin?.name || 'Origin')} &rarr; ${esc(dest?.name || 'Destination')}
-          </div>
-          <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">
-            Departure: ${new Date(trip.departure_time).toLocaleString()} &middot; Status: ${esc(trip.trip_status)}
-          </div>
-          ${terminalMissing ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background:#fef3c7; color:#92400e; border-radius:4px; font-weight:600;">⚠ ${!origin ? 'Origin terminal missing' : ''}${!dest ? ' Destination terminal missing' : ''} — cannot record approval until fixed in Admin → Terminals/Routes</div>` : ''}`;
+      document.getElementById('approvalSummary').innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+          <span class="badge badge-${esc(String(trip.trip_status).toLowerCase())}" style="font-size: 0.8rem; padding: 0.3rem 0.75rem;">${esc(trip.trip_status)}</span>
+          <strong style="font-size: 1.1rem; color: var(--primary);">${esc(boat?.name || 'Vessel')}</strong>
+        </div>
+        <div style="font-size: 1rem; color: var(--text-main);">
+          ${esc(origin?.name || 'Origin')} &rarr; ${esc(dest?.name || 'Destination')}
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">
+          Departure: ${new Date(trip.departure_time).toLocaleString()} &middot; Status: ${esc(trip.trip_status)}
+        </div>
+        ${terminalMissing ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background:#fef3c7; color:#92400e; border-radius:4px; font-weight:600;">⚠ ${!origin ? 'Origin terminal missing' : ''}${!dest ? ' Destination terminal missing' : ''} — cannot record approval until fixed in Admin → Terminals/Routes</div>` : ''}`;
 
-        document.getElementById('approvalEvidence').innerHTML = `
-         <div class="table-container" style="font-size: 0.95rem;">
-           <table style="width: 100%;">
-             <tr>
-               <td style="width: 35%; padding: 0.75rem 1rem;"><strong>Risk scan</strong></td>
-               <td style="padding: 0.75rem 1rem;">${scan
-                 ? `<span class="badge" style="background: ${classificationColor(scan.classification)}; color: white; padding: 0.3rem 0.75rem; font-size: 0.85rem;">${esc(scan.classification)}</span>
-                    <span style="margin-left: 0.5rem;">${esc(scan.scanned_by || '-')} &middot; ${new Date(scan.scanned_at).toLocaleString()}</span>`
-                 : '<span style="color: var(--danger); font-weight: 600;">No scan on record</span>'}</td>
-             </tr>
-             ${scan ? `<tr>
-               <td style="padding: 0.75rem 1rem;"><strong>Load / Capacity</strong></td>
-               <td style="padding: 0.75rem 1rem;">${Number(scan.total_load_kg || 0).toFixed(1)} / ${esc(scan.max_load_kg ?? '-')} kg &middot;
-                   ${esc(scan.passenger_count ?? '-')} / ${esc(scan.passenger_capacity ?? '-')} pax</td>
-             </tr>` : ''}
-             <tr>
-               <td style="padding: 0.75rem 1rem;"><strong>Pre-departure inspection</strong></td>
-               <td style="padding: 0.75rem 1rem;">${insp
-                 ? `<strong style="color: ${insp.overall === 'Passed' ? 'var(--success)' : 'var(--danger)'}; font-size: 1rem;">${esc(insp.overall)}</strong>
-                    by ${esc(insp.inspected_by || '-')} &middot; ${new Date(insp.inspected_at).toLocaleString()}`
-                 : '<span style="color: var(--danger); font-weight: 600;">None on record</span>'}</td>
-             </tr>
-             ${failedItems.length ? `<tr>
-               <td style="padding: 0.75rem 1rem;"><strong>Failed items</strong></td>
-               <td style="padding: 0.75rem 1rem; color: var(--danger);">${failedItems.map(i => esc(i.item) + (i.note ? ` (${esc(i.note)})` : '')).join('<br>')}</td>
-             </tr>` : ''}
-           </table>
-         </div>
-         ${needsJudgement
-           ? '<p style="color: var(--danger); font-size: 0.9rem; margin-top: 1rem; padding: 0.75rem; background: #fef2f2; border-radius: 6px; font-weight: 600;">The latest scan or inspection is not a clean Safe / Passed result. The coast guard still decides, so record the reason for clearing this trip.</p>'
-           : ''}`;
+      document.getElementById('approvalEvidence').innerHTML = `
+        <div class="table-container" style="font-size: 0.95rem;">
+          <table style="width: 100%;">
+            <tr>
+              <td style="width: 35%; padding: 0.75rem 1rem;"><strong>Risk scan</strong></td>
+              <td style="padding: 0.75rem 1rem;">${scan
+                ? `<span class="badge" style="background: ${classificationColor(scan.classification)}; color: white; padding: 0.3rem 0.75rem; font-size: 0.85rem;">${esc(scan.classification)}</span>
+                   <span style="margin-left: 0.5rem;">${esc(scan.scanned_by || '-')} &middot; ${new Date(scan.scanned_at).toLocaleString()}</span>`
+                : '<span style="color: var(--danger); font-weight: 600;">No scan on record</span>'}</td>
+            </tr>
+            ${scan ? `<tr>
+              <td style="padding: 0.75rem 1rem;"><strong>Load / Capacity</strong></td>
+              <td style="padding: 0.75rem 1rem;">${Number(scan.total_load_kg || 0).toFixed(1)} / ${esc(scan.max_load_kg ?? '-')} kg &middot;
+                  ${esc(scan.passenger_count ?? '-')} / ${esc(scan.passenger_capacity ?? '-')} pax</td>
+            </tr>` : ''}
+            <tr>
+              <td style="padding: 0.75rem 1rem;"><strong>Pre-departure inspection</strong></td>
+              <td style="padding: 0.75rem 1rem;">${insp
+                ? `<strong style="color: ${insp.overall === 'Passed' ? 'var(--success)' : 'var(--danger)'}; font-size: 1rem;">${esc(insp.overall)}</strong>
+                   by ${esc(insp.inspected_by || '-')} &middot; ${new Date(insp.inspected_at).toLocaleString()}`
+                : '<span style="color: var(--danger); font-weight: 600;">None on record</span>'}</td>
+            </tr>
+            ${failedItems.length ? `<tr>
+              <td style="padding: 0.75rem 1rem;"><strong>Failed items</strong></td>
+              <td style="padding: 0.75rem 1rem; color: var(--danger);">${failedItems.map(i => esc(i.item) + (i.note ? ` (${esc(i.note)})` : '')).join('<br>')}</td>
+            </tr>` : ''}
+          </table>
+        </div>
+        ${needsJudgement
+          ? '<p style="color: var(--danger); font-size: 0.9rem; margin-top: 1rem; padding: 0.75rem; background: #fef2f2; border-radius: 6px; font-weight: 600;">The latest scan or inspection is not a clean Safe / Passed result. The coast guard still decides, so record the reason for clearing this trip.</p>'
+          : ''}`;
 
       document.getElementById('approvalRemarksLabel').innerHTML = needsJudgement
         ? 'Justification for clearing (required, at least 10 characters)'
@@ -410,7 +409,7 @@ const { trip, origin, dest, boat, scan, insp } = activeEvidence;
       document.getElementById('approvalRemarks').value = '';
       document.getElementById('approvalError').textContent = '';
       document.getElementById('recordApprovalBtn').disabled = terminalMissing;
-      approvalModal.style.display = 'flex';
+      approvalDialog.open();
     }
 
     document.getElementById('approvalForm').onsubmit = async (e) => {
@@ -459,7 +458,7 @@ const { trip, origin, dest, boat, scan, insp } = activeEvidence;
           await api.trips.updateStatus(ev.trip.id, 'Scheduled', null);
         }
         ui.showToast('Trip approved.', 'success');
-        closeApprovalModal();
+        approvalDialog.close();
       } catch (err) {
         errBox.textContent = err.message;
         btn.disabled = false;
@@ -468,17 +467,55 @@ const { trip, origin, dest, boat, scan, insp } = activeEvidence;
 
     try {
       await render();
+
+      // Auto-open approval modal if ?trip=ID query param is present (from Trip Schedule link)
+      const urlParams = new URLSearchParams(window.location.search);
+      const tripParam = urlParams.get('trip');
+      if (tripParam) {
+        if (evidenceByTrip[tripParam]) {
+          openApprovalModal(tripParam);
+        } else {
+          // Trip not in today's list (past/future). Load evidence on-demand.
+          try {
+            const [trips, routes, terminals, approvals, scans, inspections, boats] = await Promise.all([
+              api.trips.list(), api.routes.list(), api.terminals.list(),
+              api.departureApprovals.list(), api.riskScans.list(), api.inspections.list(), api.boats.list()
+            ]);
+            const trip = trips.find(t => t.id === tripParam);
+            if (!trip) {
+              ui.showToast('Trip not found.', 'error');
+            } else {
+              // Build evidence for this trip
+              const route = routes.find(r => r.id === trip.route_id);
+              const origin = terminals.find(t => t.id === route?.origin_terminal_id);
+              const dest = terminals.find(t => t.id === route?.destination_terminal_id);
+              const boat = boats.find(b => b.id === trip.boat_id);
+              const latestDecision = approvals
+                .filter(a => a.trip_id === trip.id)
+                .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0];
+              const scan = (scans.filter(s => s.trip_id === trip.id && s.boat_id === trip.boat_id))
+                .sort((a, b) => new Date(b.scanned_at) - new Date(a.scanned_at))[0] || null;
+              const insp = (inspections.filter(i =>
+                i.trip_id === trip.id && i.boat_id === trip.boat_id && i.inspection_type === 'Pre-departure'))
+                .sort((a, b) => new Date(b.inspected_at) - new Date(a.inspected_at))[0] || null;
+              const decision = latestDecision?.decision || 'Pending';
+              const approvalCurrent = !!latestDecision && decision === 'Approved'
+                && (latestDecision.trip_revision || 0) === (trip.approval_revision || 0);
+              evidenceByTrip[trip.id] = { trip, route, origin, dest, boat, scan, insp, decision, approvalCurrent, isHeld: decision === 'Held' && trip.trip_status === 'Held', latestDecision };
+              ui.showToast(`Loaded trip ${tripParam} (not in today's departures).`, 'info');
+              openApprovalModal(tripParam);
+            }
+          } catch (err) {
+            ui.showToast('Failed to load trip: ' + err.message, 'error');
+          }
+        }
+      }
+
       ui.setupSync(render);
     } catch (err) {
       document.getElementById('approvalList').innerHTML = `<div style="color: var(--danger); padding: 2rem; text-align: center; font-size: 1rem;">Error loading trips: ${esc(err.message)}</div>`;
       console.error('Departure Approval render error:', err);
     }
-
-    document.getElementById('logoutBtn').onclick = async (e) => {
-      e.preventDefault();
-      await api.auth.logout();
-      window.location.href = '/login.html';
-    };
   </script>
 </body>
 </html>

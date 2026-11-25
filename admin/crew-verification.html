@@ -62,10 +62,11 @@
     </div>
 
     <!-- VERIFICATION MODAL -->
-    <div id="verifyCrewModal" class="modal-backdrop" style="display: none">
+    <div id="verifyCrewModal" class="modal-backdrop">
       <div class="modal">
         <div class="modal-header">
-          <h3 id="modalTitle">Verify & Provision Crew Account</h3>
+          <h3 id="modalTitle">Verify &amp; Provision Crew Account</h3>
+          <button type="button" class="modal-close" id="closeCrewModalBtn" aria-label="Close">&times;</button>
         </div>
         <form id="verifyCrewForm">
           <div class="modal-body">
@@ -198,7 +199,6 @@
       import { ui } from "/js/ui.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
       import { initAdminPage } from "/admin/init.js";
-      import { ensureCSRFToken } from "/js/api.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import {
         paginate,
@@ -215,7 +215,6 @@
       } from "/admin/common.js";
 
       const session = await initAdminPage({ activePage: "crew-verification" });
-      const csrfToken = ensureCSRFToken();
 
       let apps = [];
       let boats = [];
@@ -310,6 +309,7 @@
       const crewPassToggle = document.getElementById("crewPassToggle");
 
       document.getElementById("cancelCrewModalBtn").onclick = closeModal;
+      document.getElementById("closeCrewModalBtn").onclick = closeModal;
 
       const openVerifyModal = async (id) => {
         const app = apps.find((a) => a.id === id);
@@ -421,7 +421,7 @@
             username,
             role,
             password,
-          }, csrfToken);
+          });
           closeModal();
           handleApiSuccess("Crew verified and account successfully provisioned!");
           await loadData();
@@ -438,7 +438,7 @@
           "Are you sure you want to reject this crew application?",
           async () => {
             try {
-              await api.crewApplications.decide(id, "Rejected", csrfToken);
+              await api.crewApplications.decide(id, "Rejected");
               handleApiSuccess("Crew application rejected.", { toast: true });
               await loadData();
             } catch (err) {
@@ -456,7 +456,6 @@
               await api.crewApplications.update(
                 id,
                 { stage: "Pending Admin Verification", decided_at: null },
-                csrfToken,
               );
               handleApiSuccess("Crew application reset to pending verification.", { toast: true });
               await loadData();

@@ -235,12 +235,10 @@
       import { ui } from "/js/ui.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
       import { initAdminPage } from "/admin/init.js";
-      import { ensureCSRFToken } from "/js/api.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import { handleApiError, handleApiSuccess } from "/admin/common.js";
 
       const session = await initAdminPage({ activePage: "dev-tools" });
-      const csrfToken = ensureCSRFToken();
 
       await refreshSosBadge();
 
@@ -304,7 +302,7 @@
                   throw new Error(
                     `No active ${role.replace("_", " ")} account found. Create one first.`,
                   );
-                await api.auth.impersonate(user.id, csrfToken);
+                await api.auth.impersonate(user.id);
                 window.location.href = btn.getAttribute("data-url");
               } catch (err) {
                 handleApiError(err);

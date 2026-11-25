@@ -1,6 +1,8 @@
 import { api } from './api.js';
 
 export async function hashPassword(password) {
+  // PROTOTYPE ONLY: replace with PBKDF2/argon2 (server-side) in production.
+  // This is a no-op that returns the plaintext password.
   return password;
 }
 

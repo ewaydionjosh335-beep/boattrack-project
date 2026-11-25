@@ -1,11 +1,18 @@
 // js/services/weatherService.js
 export const weatherService = {
-  async fetchForTerminal(terminal, targetTime = null) {
+  async fetchForTerminal(terminal, targetTime = null, { force = false } = {}) {
     const cacheKey = 'weather_cache_' + terminal.id;
-    try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-      if (cached && Date.now() - cached.fetched_at < 30*60*1000) return cached;
-    } catch(e){}
+    if (!force) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (cached && Date.now() - cached.fetched_at < 30*60*1000) {
+          // The cached record holds the whole hourly forecast, so re-select the
+          // hour that matches this caller's targetTime instead of reusing whatever
+          // hour (usually "now") the previous caller asked for.
+          return cached.hourly ? { ...cached, ...pickHour(cached.hourly, targetTime) } : cached;
+        }
+      } catch(e){}
+    }
     let source = 'Open-Meteo';
     let data = null;
     // A hanging weather API used to leave scans with no result at all.
@@ -27,11 +34,25 @@ export const weatherService = {
   }
 };
 
+function pickHour(hourly, targetTime = null) {
+  const target = targetTime ? new Date(targetTime).getTime() : Date.now();
+  let best = hourly[0];
+  let bestDiff = Infinity;
+  for (const h of hourly) {
+    const diff = Math.abs(new Date(h.for_time).getTime() - target);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = h;
+    }
+  }
+  return best;
+}
+
 function buildRecord(terminal, source, data, targetTime = null) {
   const now = new Date();
   const hourly = [];
   if (data && data.hourly) {
-    for (let i=0;i<Math.min(24,data.hourly.time.length);i++){
+    for (let i=0;i<data.hourly.time.length;i++){
       hourly.push({
         for_time: data.hourly.time[i],
         temperature_c: data.hourly.temperature_2m[i],
@@ -44,23 +65,15 @@ function buildRecord(terminal, source, data, targetTime = null) {
       });
     }
   } else {
-    for (let i=0;i<24;i++){
+    // Offline fallback covers the same 3-day window as the API request.
+    for (let i=0;i<72;i++){
       const t = new Date(now.getTime()+i*3600000);
       hourly.push({ for_time: t.toISOString(), temperature_c: 28, precipitation_probability: 20, precipitation_mm: 0, weather_code: 1, wind_speed_kmh: 12, wind_gust_kmh: 18, visibility_m: 10000 });
     }
     source = source === 'Open-Meteo' ? 'Offline sample' : source;
   }
   // Find the hourly entry closest to targetTime (or now if not provided)
-  const target = targetTime ? new Date(targetTime).getTime() : now.getTime();
-  let best = hourly[0];
-  let bestDiff = Infinity;
-  for (const h of hourly) {
-    const diff = Math.abs(new Date(h.for_time).getTime() - target);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      best = h;
-    }
-  }
+  const best = pickHour(hourly, targetTime);
   return {
     terminal_id: terminal.id,
     source,

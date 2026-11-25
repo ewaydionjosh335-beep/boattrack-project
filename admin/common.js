@@ -263,7 +263,7 @@ export function renderPagination(pagination) {
     '<div class="pagination">';
 
   // Previous button
-  html += `<button class="btn btn-outline btn-sm" ${currentPage === 1 ? "disabled" : ""} data-page="${currentPage - 1}">Prev</button>`;
+  html += `<button class="btn btn-outline btn-sm" ${currentPage === 1 ? "disabled" : ""} data-page="prev">Prev</button>`;
 
   // Page numbers (show max 5 pages centered on current)
   let startPage = Math.max(1, currentPage - 2);
@@ -277,7 +277,7 @@ export function renderPagination(pagination) {
   }
 
   // Next button
-  html += `<button class="btn btn-outline btn-sm" ${currentPage === totalPages ? "disabled" : ""} data-page="${currentPage + 1}">Next</button>`;
+  html += `<button class="btn btn-outline btn-sm" ${currentPage === totalPages ? "disabled" : ""} data-page="next">Next</button>`;
 
   html += `</div>`;
   return html;

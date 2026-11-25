@@ -11,6 +11,21 @@ export const loadService = {
       b.trip_id === tripId && (b.status === 'Approved' || b.status === 'Paid') && b.booking_type === 'Cargo');
   },
 
+  // Booked passengers for a trip. Manifest entries are authoritative; bookings
+  // with no manifest entry yet are added once, and Cancelled/Rejected bookings
+  // are ignored, so a manifested booking is never counted twice. Cargo bookings
+  // carry no passenger.
+  bookedPax(manifests, bookings, tripId) {
+    const tripManifests = (manifests || []).filter(m => m.trip_id === tripId);
+    const manifestedBookingIds = new Set(tripManifests.map(m => m.booking_id).filter(Boolean));
+    const extraBooked = (bookings || [])
+      .filter(b => b.trip_id === tripId
+        && b.status !== 'Cancelled' && b.status !== 'Rejected'
+        && !manifestedBookingIds.has(b.id))
+      .reduce((sum, b) => sum + (parseInt(b.passenger_count, 10) || (b.booking_type === 'Cargo' ? 0 : 1)), 0);
+    return tripManifests.length + extraBooked;
+  },
+
   computeTripLoad({ manifests = [], passengers = [], bookings = [], tripId, defaultPassengerWeightKg = DEFAULT_PASSENGER_WEIGHT_KG }) {
     const tripManifests = (manifests || []).filter(m => m.trip_id === tripId);
 

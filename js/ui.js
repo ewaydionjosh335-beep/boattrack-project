@@ -15,7 +15,11 @@ export const ui = {
 
   localDateStr(value = new Date()) {
     const d = value instanceof Date ? value : new Date(value);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // Convert to PHT (UTC+8) for consistency with admin/common.js, so UTC
+    // departure times near midnight are bucketed to the correct local day.
+    const phtOffset = 8 * 60 * 60 * 1000;
+    const phtDate = new Date(d.getTime() + phtOffset);
+    return `${phtDate.getUTCFullYear()}-${String(phtDate.getUTCMonth() + 1).padStart(2, '0')}-${String(phtDate.getUTCDate()).padStart(2, '0')}`;
   },
 
   // Escape untrusted values before inserting them into innerHTML.

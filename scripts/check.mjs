@@ -12,6 +12,11 @@ for (const file of ['api.js', 'auth.js', 'seed.js']) {
     .replace(/(['"]\.\/[a-z]+)\.js(['"])/g, '$1.mjs$2');
   await writeFile(path.join(dir, file.replace(/\.js$/, '.mjs')), src);
 }
+// weatherService has no relative imports; copy flat so Node treats it as ESM.
+await writeFile(
+  path.join(dir, 'weatherService.mjs'),
+  await readFile(new URL('../js/services/weatherService.js', import.meta.url), 'utf8')
+);
 
 const store = new Map();
 globalThis.localStorage = {
@@ -24,6 +29,7 @@ globalThis.window = { crypto: globalThis.crypto };
 
 const { api, ensureCSRFToken } = await import(pathToFileURL(path.join(dir, 'api.mjs')));
 const { seedDatabase } = await import(pathToFileURL(path.join(dir, 'seed.mjs')));
+const { weatherService } = await import(pathToFileURL(path.join(dir, 'weatherService.mjs')));
 
 const session = { user_id: 'usr_admin', role: 'administrator', expires_at: new Date(Date.now() + 3600e3).toISOString() };
 const csrfToken = ensureCSRFToken();
@@ -95,6 +101,74 @@ await api.boats.updateStatus('b1', 'Active', null, csrfToken);
 const after = api._get('trips');
 assert.equal(after[0].trip_status, 'Scheduled', 'suspension-held trip resumed');
 assert.equal(after[1].trip_status, 'Held', 'manual hold survives reactivation');
+
+// Suspension is a hard block for release, coast guard approval, and departure.
+api._set('boats', [seedBoat]);
+api._set('trips', [{ id: 't1', boat_id: 'b1', route_id: 'r1', trip_status: 'Scheduled', approval_revision: 0 }]);
+api._set('departure_approvals', []);
+await api.boats.updateStatus('b1', 'Suspended', 'Hull damage', csrfToken);
+await assert.rejects(api.departureApprovals.create({ trip_id: 't1', decision: 'Approved', recorded_at: new Date().toISOString() }), /Reactivate/);
+await assert.rejects(api.trips.updateStatus('t1', 'Scheduled'), /Reactivate/);
+// Even a Scheduled trip with a current approval cannot depart while suspended.
+api._set('trips', [{ id: 't1', boat_id: 'b1', route_id: 'r1', trip_status: 'Scheduled', approval_revision: 0 }]);
+api._set('departure_approvals', [{ id: 'da_seed', trip_id: 't1', decision: 'Approved', trip_revision: 0, recorded_at: new Date().toISOString() }]);
+await assert.rejects(api.trips.markDeparted('t1'), /Reactivate/);
+// Reactivation is the only way back.
+await api.boats.updateStatus('b1', 'Active', null, csrfToken);
+assert.equal(api._get('trips')[0].trip_status, 'Scheduled', 'reactivation releases suspension-held trips');
+const cleared = await api.departureApprovals.create({ trip_id: 't1', decision: 'Approved', recorded_at: new Date().toISOString() });
+assert.equal(cleared.decision, 'Approved', 'approval works once the boat is active');
+
+// Cached weather re-selects the hour for the caller's target time.
+const hour = (t, temp) => ({ for_time: t, temperature_c: temp, wind_speed_kmh: 10, wind_gust_kmh: 15, precipitation_probability: 10, precipitation_mm: 0, weather_code: 1, visibility_m: 10000 });
+localStorage.setItem('weather_cache_term1', JSON.stringify({
+  terminal_id: 'term1', fetched_at: Date.now(),
+  for_time: '2026-01-01T10:00:00+08:00', temperature_c: 30,
+  hourly: [hour('2026-01-01T10:00:00+08:00', 30), hour('2026-01-01T14:00:00+08:00', 20)]
+}));
+const cachedWeather = await weatherService.fetchForTerminal({ id: 'term1', lat: 1, lng: 1 }, '2026-01-01T14:00:00+08:00');
+assert.equal(cachedWeather.temperature_c, 20, 'cache hit uses the target hour, not the cached hour');
+
+// The forecast is not truncated to the first 24 hours.
+const times = [], temps = [];
+for (let i = 0; i < 72; i++) {
+  times.push(new Date(Date.UTC(2026, 0, 1, 0) + i * 3600e3).toISOString());
+  temps.push(i);
+}
+globalThis.fetch = async () => ({
+  ok: true,
+  json: async () => ({ hourly: {
+    time: times,
+    temperature_2m: temps,
+    precipitation_probability: times.map(() => 1),
+    precipitation: times.map(() => 0),
+    weather_code: times.map(() => 1),
+    wind_speed_10m: times.map(() => 10),
+    wind_gusts_10m: times.map(() => 15),
+    visibility: times.map(() => 10000)
+  } })
+});
+const farWeather = await weatherService.fetchForTerminal({ id: 'term_far', lat: 1, lng: 1 }, times[40]);
+assert.equal(farWeather.temperature_c, 40, 'reads hourly entries beyond the first 24 hours');
+
+// Manual refresh bypasses a fresh cache; automatic reads still use it.
+localStorage.setItem('weather_cache_term_force', JSON.stringify({
+  terminal_id: 'term_force', fetched_at: Date.now(), for_time: times[0], temperature_c: 5,
+  hourly: [hour(times[0], 5)]
+}));
+const cachedNoForce = await weatherService.fetchForTerminal({ id: 'term_force', lat: 1, lng: 1 }, times[0]);
+assert.equal(cachedNoForce.temperature_c, 5, 'default read uses the cache');
+const forcedWeather = await weatherService.fetchForTerminal({ id: 'term_force', lat: 1, lng: 1 }, times[0], { force: true });
+assert.equal(forcedWeather.temperature_c, 0, 'force bypasses the cache');
+
+// Schedule edits are allowed with an existing approval: the revision bump expires it.
+api._set('boats', [{ ...seedBoat, registration_status: 'Verified', boat_status: 'Active' }]);
+api._set('trips', [{ id: 't_edit', boat_id: 'b1', route_id: 'r1', departure_time: new Date(Date.now() + 3600e3).toISOString(), required_passengers: 5, trip_status: 'Scheduled', approval_revision: 0 }]);
+api._set('manifests', []);
+api._set('bookings', []);
+api._set('departure_approvals', [{ id: 'da_edit', trip_id: 't_edit', decision: 'Approved', trip_revision: 0, recorded_at: new Date().toISOString() }]);
+const editedTrip = await api.trips.update('t_edit', { departure_time: new Date(Date.now() + 7200e3).toISOString() });
+assert.equal(editedTrip.approval_revision, 1, 'edit bumps approval_revision, expiring the old clearance');
 
 // Provisioning an existing applicant promotes the account and reuses one crew row.
 api._set('crew_applications', [{ id: 'c1', applicant_user_id: 'usr_pax', full_name: 'Applicant', boat_id: 'b1', stage: 'Pending Admin Verification' }]);
@@ -177,6 +251,32 @@ api._set('alerts', [{ id: 'alert_1', status: 'Open' }]);
 const acked = await api.alerts.acknowledge('alert_1', null, csrfToken);
 assert.equal(acked.acknowledged_by, 'usr_admin');
 assert.ok(acked.acknowledged_at);
+
+// Self-service profile/password: own whitelisted fields only, hash verified once.
+api._set('session', session);
+const selfUser = await api.users.create({
+  full_name: 'Self User', email: 'self@x.local', username: 'selfuser',
+  password_hash: 'oldpass1', role: 'port_manager', status: 'Active'
+}, csrfToken);
+api._set('session', { ...session, user_id: selfUser.id, role: 'port_manager' });
+
+const selfUpdated = await api.users.updateSelf({
+  full_name: 'Renamed', contact: '0917', role: 'administrator', status: 'Suspended', email: 'evil@x.local'
+});
+assert.equal(selfUpdated.full_name, 'Renamed');
+assert.equal(selfUpdated.contact, '0917');
+assert.equal(selfUpdated.role, 'port_manager', 'role cannot be escalated');
+assert.equal(selfUpdated.status, 'Active', 'status cannot be changed');
+assert.equal(selfUpdated.email, 'self@x.local', 'email is not self-editable');
+
+await assert.rejects(api.users.changePassword('wrongpass', 'newpass1'), /incorrect/);
+const pwChanged = await api.users.changePassword('oldpass1', 'newpass1');
+assert.equal(pwChanged.must_change_password, false);
+assert.ok(pwChanged.password_salt, 'new password is salted');
+assert.notEqual(pwChanged.password_hash, 'oldpass1');
+await assert.rejects(api.auth.login('self@x.local', 'oldpass1'), /Invalid/);
+const reLogin = await api.auth.login('self@x.local', 'newpass1');
+assert.equal(reLogin.user_id, selfUser.id);
 
 // "Wipe Data (Keep Accounts)" sticks, and a forced seed fills the verification queues.
 localStorage.clear();

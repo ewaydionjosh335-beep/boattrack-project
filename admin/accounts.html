@@ -77,13 +77,11 @@
     </div>
 
     <!-- ADD / EDIT MODAL -->
-    <div id="accountModal" class="modal-backdrop" style="display: none">
+    <div id="accountModal" class="modal-backdrop">
       <div class="modal">
         <div class="modal-header">
           <h3 id="modalTitle">Add Account</h3>
-          <button class="btn btn-outline btn-sm" id="closeModalBtn">
-            &times;
-          </button>
+          <button type="button" class="modal-close" id="closeModalBtn" aria-label="Close">&times;</button>
         </div>
         <form id="accountForm">
           <div class="modal-body">
@@ -182,7 +180,6 @@
       import { ui } from "/js/ui.js";
       import { AdminSidebar } from "/admin/_sidebar.js";
       import { initAdminPage } from "/admin/init.js";
-      import { ensureCSRFToken } from "/js/api.js";
       import { refreshSosBadge } from "/js/utils/sosBadge.js";
       import {
         paginate,
@@ -199,7 +196,6 @@
       } from "/admin/common.js";
 
 const session = await initAdminPage({ activePage: "accounts" });
-const csrfToken = ensureCSRFToken();
 
       let allUsers = [];
       let activeAdminCount = 0;
@@ -390,7 +386,7 @@ const csrfToken = ensureCSRFToken();
           `Are you sure you want to set this account status to ${newStatus}?`,
           async () => {
             try {
-              await api.users.update(id, { status: newStatus }, csrfToken);
+              await api.users.update(id, { status: newStatus });
               handleApiSuccess(`Account status updated to ${newStatus}`);
               await loadAccounts();
             } catch (err) {
@@ -405,7 +401,7 @@ const csrfToken = ensureCSRFToken();
           "Are you sure you want to delete this account? This action cannot be undone.",
           async () => {
             try {
-              await api.users.delete(id, csrfToken);
+              await api.users.delete(id);
               handleApiSuccess("Account deleted successfully.");
               await loadAccounts();
             } catch (err) {
@@ -451,7 +447,7 @@ const csrfToken = ensureCSRFToken();
             if (rawPass) {
               updateData.password_hash = await hashPassword(rawPass);
             }
-            await api.users.update(id, updateData, csrfToken);
+            await api.users.update(id, updateData);
             handleApiSuccess(
               rawPass
                 ? "Account updated. New password saved — it will be required on next login."
@@ -468,7 +464,7 @@ const csrfToken = ensureCSRFToken();
               password_hash,
               status: "Active",
               must_change_password: true,
-            }, csrfToken);
+            });
             handleApiSuccess("Account created successfully.");
           }
           closeModal();

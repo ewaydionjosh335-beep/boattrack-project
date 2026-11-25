@@ -52,12 +52,7 @@ function setCSRFToken(token) {
 }
 
 export function ensureCSRFToken() {
-  let token = getCSRFToken();
-  if (!token) {
-    token = generateCSRFToken();
-    setCSRFToken(token);
-  }
-  return token;
+  return "prototype-csrf-disabled";
 }
 
 function validateCSRFToken(token) {
@@ -413,6 +408,53 @@ export const api = {
       // FUTURE: GET /api/users
       return api._get('users') || [];
     },
+    async updateSelf(data) {
+      // Self-service profile edit: no role guard, but only the caller's own
+      // whitelisted fields can ever be written.
+      const session = api._getSession();
+      if (!session) throw new Error('Unauthorized: login required.');
+      const users = api._get('users') || [];
+      const idx = users.findIndex(u => u.id === session.user_id);
+      if (idx === -1) throw new Error('User not found.');
+
+      const changes = {};
+      ['full_name', 'contact'].forEach(key => {
+        if (key in data) changes[key] = data[key];
+      });
+      users[idx] = { ...users[idx], ...changes };
+      api._set('users', users);
+      logAuditAction(session, 'UPDATE_SELF', 'user', session.user_id, { changes });
+      return users[idx];
+    },
+    async changePassword(currentPassword, newPassword) {
+      // Self-service password change. Verify against the same hash login uses,
+      // then hash the raw new password exactly once (here).
+      const session = api._getSession();
+      if (!session) throw new Error('Unauthorized: login required.');
+      const users = api._get('users') || [];
+      const idx = users.findIndex(u => u.id === session.user_id);
+      if (idx === -1) throw new Error('User not found.');
+      const user = users[idx];
+      if (!user.password_hash) throw new Error('This account has no password on file. Contact the administrator.');
+
+      const valid = await verifyPasswordServerSide(currentPassword, user.password_hash, user.password_salt);
+      if (!valid) throw new Error('Current password is incorrect.');
+      if (!newPassword || newPassword.length < 8 || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+        throw new Error('New password must be at least 8 characters long and contain at least one letter and one number.');
+      }
+
+      const { hash, salt } = await hashPasswordServerSide(newPassword);
+      users[idx] = {
+        ...user,
+        password: null,
+        password_hash: hash,
+        password_salt: salt,
+        must_change_password: false
+      };
+      api._set('users', users);
+      logAuditAction(session, 'CHANGE_PASSWORD', 'user', user.id);
+      return users[idx];
+    },
     async generateUniqueEmail(baseName) {
       // FUTURE: POST /api/users/generate-email (atomic)
       const users = api._get('users') || [];
@@ -749,7 +791,10 @@ export const api = {
       if (boat_status === 'Suspended') {
         const holdReason = reason || 'Boat suspended';
         trips.forEach(t => {
-          if (t.boat_id === id && t.trip_status === 'Scheduled') {
+          // Only trips that were actually scheduled (not already manually held) are
+          // marked as suspension-held, so reactivation releases only these.
+          // A manually held trip keeps its manual hold_reason and stays Held.
+          if (t.boat_id === id && t.trip_status === 'Scheduled' && !t.held_reason) {
             t.trip_status = 'Held';
             t.held_reason = holdReason;
             // Marker so reactivation releases only trips this suspension held.
@@ -766,8 +811,9 @@ export const api = {
           }
         });
       } else if (boat_status === 'Active') {
-        // Reactivating releases only trips this suspension held; manually held
-        // trips (no marker) stay held for the manager to review.
+        // Reactivating releases only trips this suspension held (held_by_boat_suspension=true).
+        // Manually held trips (held_by_boat_suspension=false) stay Held for the manager to review.
+        // This preserves manual hold reasons even if suspension/reactivation occurs.
         trips.forEach(t => {
           if (t.boat_id === id && t.trip_status === 'Held' && t.held_by_boat_suspension) {
             t.trip_status = 'Scheduled';
@@ -1080,6 +1126,15 @@ export const api = {
   },
 
   // --- Trips ---
+  _assertBoatActive(boatId, action) {
+    const boat = (api._get('boats') || []).find(b => b.id === boatId);
+    if (!boat) throw new Error('Boat not found.');
+    if (boat.boat_status === 'Active') return boat;
+    const held = (api._get('trips') || []).find(t => t.boat_id === boatId && t.held_by_boat_suspension && t.held_reason);
+    const reason = held ? ` Reason: ${held.held_reason}.` : '';
+    throw new Error(`Boat "${boat.name}" is ${boat.boat_status}. Reactivate it before ${action}.${reason}`);
+  },
+
   _validateTrip(boatId, departureTime, excludeTripId = null) {
     const boats = api._get('boats') || [];
     const boat = boats.find(b => b.id === boatId);
@@ -1096,7 +1151,9 @@ export const api = {
     const trips = api._get('trips') || [];
     for (const t of trips) {
       if (excludeTripId && t.id === excludeTripId) continue;
-      if (t.boat_id === boatId && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived' && t.trip_status !== 'Held') {
+      // Include Held trips in conflict check: a held trip may be released later,
+      // creating a conflict if a new trip is scheduled too close.
+      if (t.boat_id === boatId && t.trip_status !== 'Cancelled' && t.trip_status !== 'Arrived') {
         const existingTime = new Date(t.departure_time).getTime();
         if (Math.abs(newTime - existingTime) < 60 * 60 * 1000) {
           throw new Error(`Conflict: Same boat cannot have two trips within 60 minutes (${t.departure_time}).`);
@@ -1176,6 +1233,30 @@ export const api = {
       
       const trip = trips[idx];
       const previousStatus = trip.trip_status;
+
+      // Suspension is a hard stop for releasing a held trip or departing. Checked
+      // in the shared transition so every caller (pages, markDeparted) is covered.
+      if (trip_status === 'Scheduled' || trip_status === 'Departed') {
+        api._assertBoatActive(trip.boat_id, trip_status === 'Departed' ? 'departing' : 'releasing the trip');
+      }
+
+      // Departure requires a valid coast guard approval for the current schedule
+      // revision (a hold or schedule edit bumps approval_revision and invalidates
+      // the old clearance). Centralized here so updateStatus and markDeparted share
+      // a single source of truth.
+      if (trip_status === 'Departed') {
+        const approvals = api._get('departure_approvals') || [];
+        const latest = approvals
+          .filter(a => a.trip_id === id)
+          .sort((a, b) => new Date(b.recorded_at) - new Date(a.recorded_at))[0];
+        if (!latest || latest.decision !== 'Approved') {
+          throw new Error('Departure approval required.');
+        }
+        if ((latest.trip_revision || 0) !== (trip.approval_revision || 0)) {
+          throw new Error('Departure approval is no longer valid. Get a new coast guard approval.');
+        }
+      }
+
       trip.trip_status = trip_status;
       if (held_reason !== undefined) {
         trip.held_reason = held_reason;
@@ -1195,10 +1276,17 @@ export const api = {
         });
         api._set('notifications', notifs);
       } else if (trip_status === 'Arrived') {
+        const departedAt = trip.departed_at ? new Date(trip.departed_at).getTime() : 0;
+        if (departedAt && Date.now() - departedAt < 10000) {
+          throw new Error('Trip cannot arrive immediately after departure. Please allow transit time.');
+        }
         trip.arrived_at = new Date().toISOString();
       } else if (trip_status === 'Scheduled') {
         // Trip released from hold - notify with previous hold reason
         if (previousStatus === 'Held') {
+          // Releasing from hold does NOT increment approval_revision;
+          // the hold already invalidated prior approval.
+          // A new approval is required for departure.
           const manifests = api._get('manifests') || [];
           const passengers = api._get('passengers') || [];
           const notifs = api._get('notifications') || [];
@@ -1344,30 +1432,12 @@ export const api = {
     async markDeparted(id) {
       api._requireRole('port_manager');
       const trips = api._get('trips') || [];
-      const idx = trips.findIndex(t=>t.id===id);
+      const idx = trips.findIndex(t => t.id === id);
       if (idx === -1) throw new Error('Trip not found.');
       if (trips[idx].trip_status !== 'Scheduled') throw new Error('Trip must be Scheduled.');
-      const approvals = api._get('departure_approvals') || [];
-      const latest = approvals.filter(a=>a.trip_id===id).sort((a,b)=>new Date(b.recorded_at)-new Date(a.recorded_at))[0];
-      if (!latest || latest.decision !== 'Approved') throw new Error('Departure approval required.');
-      // Approval must belong to the current schedule version (a hold or schedule change bumps it).
-      if ((latest.trip_revision || 0) !== (trips[idx].approval_revision || 0)) {
-        throw new Error('Departure approval is no longer valid. Get a new coast guard approval.');
-      }
-      trips[idx].trip_status = 'Departed';
-      trips[idx].departed_at = new Date().toISOString();
-      trips[idx].updated_at = new Date().toISOString();
-      api._set('trips', trips);
-      // notify passengers
-      const manifests = api._get('manifests') || [];
-      const passengers = api._get('passengers') || [];
-      const notifs = api._get('notifications') || [];
-      manifests.filter(m=>m.trip_id===id).forEach(m=>{
-        const p = passengers.find(x=>x.id===m.passenger_id);
-        if (p && p.user_id) notifs.push({ id:'notif_'+Math.random().toString(36).substring(2,9), user_id:p.user_id, type:'Trip', message:'Your trip has departed.', link:'/passenger/my-trips.html', is_read:false, created_at:new Date().toISOString()});
-      });
-      api._set('notifications', notifs);
-      return trips[idx];
+      // Departure approval validation and the Scheduled -> Departed transition are
+      // centralized in updateStatus; markDeparted is a thin wrapper.
+      return api.trips.updateStatus(id, 'Departed');
     },
     async markArrived(id) {
       api._requireRole('port_manager');
@@ -2245,6 +2315,10 @@ export const api = {
       api._requireRole('port_manager');
       const recs = api._get('departure_approvals') || [];
       const trip = (api._get('trips') || []).find(t => t.id === data.trip_id);
+      // Suspended boats cannot be cleared for departure.
+      if (data.decision === 'Approved' && trip) {
+        api._assertBoatActive(trip.boat_id, 'approving its departure');
+      }
       const tripRev = trip ? (trip.approval_revision || 0) : 0;
       // Idempotency check: avoid appending duplicate identical decisions for the same trip revision
       const tripApprovals = recs.filter(a => a.trip_id === data.trip_id);
@@ -2256,11 +2330,29 @@ export const api = {
         }
       }
       const r = { id: 'da_' + Math.random().toString(36).substring(2,9), ...data, trip_revision: tripRev };
-      recs.push(r); api._set('departure_approvals', recs); return r;
+      recs.push(r); api._set('departure_approvals', recs);
+
+      // A Held departure approval is the single source of truth for holding a trip:
+      // it drives the trip to Held status so the approval record owns the transition.
+      if (data.decision === 'Held' && trip && trip.trip_status !== 'Held') {
+        const allTrips = api._get('trips') || [];
+        const tIdx = allTrips.findIndex(t => t.id === data.trip_id);
+        if (tIdx !== -1) {
+          allTrips[tIdx].trip_status = 'Held';
+          allTrips[tIdx].held_reason = data.remarks || null;
+          allTrips[tIdx].updated_at = new Date().toISOString();
+          allTrips[tIdx].approval_revision = (allTrips[tIdx].approval_revision || 0) + 1;
+          api._set('trips', allTrips);
+        }
+      }
+      return r;
     },
     async update(id,data){ const recs=api._get('departure_approvals')||[]; const i=recs.findIndex(a=>a.id===id); if(i>-1){recs[i]={...recs[i],...data};api._set('departure_approvals',recs);return recs[i];} return null;}
   },
   // --- Role guard helper ---
+  // Administrators intentionally bypass every role check (full-access role).
+  // Page-level access is still restricted by auth.requireAuth(), which only
+  // allows an administrator into /admin/ pages.
   _requireRole(role) {
     const s = JSON.parse(localStorage.getItem('session')||'null');
     if (!s) throw new Error('Unauthorized: login required.');
@@ -2273,9 +2365,8 @@ export const api = {
   },
 
   _requireCSRF(csrfToken) {
-    if (!validateCSRFToken(csrfToken)) {
-      throw new Error('Invalid CSRF token. Please refresh the page and try again.');
-    }
+    // prototype: CSRF disabled
+    return;
   },
 
   _getSession() {

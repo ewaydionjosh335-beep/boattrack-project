@@ -11,25 +11,7 @@
 </head>
 <body class="admin-layout">
 
-  <aside class="admin-sidebar">
-    <div class="sidebar-header">
-      <span style="display: flex; align-items: center; gap: 0.5rem;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg>
-        Port Manager
-      </span>
-    </div>
-    <div class="sidebar-menu">
-      <a href="/manager/dashboard.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Dashboard</a>
-      <a href="/manager/trip-schedule.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg> Trip Schedule</a>
-      <a href="/manager/monitoring.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.3.6 4.5 1.62 6"/><path d="M12 10V4l3 2-3 2"/></svg> Boat & Trip Monitoring</a>
-      <a href="/manager/risk-assessment.html" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risk Assessment</a>
-      <a href="/manager/payments.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Payment Records</a>
-      <a href="/manager/departure-approval.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Departure Approval</a>
-      <a href="/manager/weather.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg> Weather</a>
-      <a href="/manager/profile.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Profile</a>
-      <a href="#" id="logoutBtn" style="color: var(--danger);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Logout</a>
-    </div>
-  </aside>
+  <aside id="sidebarContainer"></aside>
 
   <div class="admin-main">
     <header class="admin-header">
@@ -61,21 +43,18 @@
           </table>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- RISK SCAN RESULT MODAL -->
-  <div id="riskScanModal" class="modal-backdrop" style="display: none;">
-    <div class="modal modal-lg">
-      <div class="modal-header">
-        <h3 id="riskModalTitle">Risk Assessment Result</h3>
-        <button class="btn btn-outline btn-sm" id="closeRiskModalBtn">&times;</button>
-      </div>
-      <div class="modal-body" id="riskModalBody" style="font-size: 0.9rem;">
-        <!-- Dynamic content -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" id="riskModalCloseBtn">Close</button>
+      <!-- RISK SCAN MODAL -->
+      <div id="riskScanModal" class="modal-backdrop" style="display: none;">
+        <div class="modal modal-lg">
+          <div class="modal-header">
+            <h3>Risk Scan Result</h3>
+            <button type="button" class="modal-close" id="closeRiskModalBtn" aria-label="Close">&times;</button>
+          </div>
+          <div class="modal-body" id="riskModalBody">
+            <p style="color: var(--text-muted);">Loading scan result...</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -87,27 +66,29 @@
     import { weatherService } from '/js/services/weatherService.js';
     import { riskAiService } from '/js/services/riskAiService.js';
     import { loadService } from '/js/services/loadService.js';
+    import { ManagerSidebar } from '/manager/_sidebar.js';
 
     const session = await auth.requireAuth(['port_manager']);
     if (!session) throw new Error('Unauthorized');
 
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // Mount shared sidebar
+    await ManagerSidebar.mount({ activePage: 'risk-assessment' });
+
+    const esc = ui.escapeHtml;
 
     // Modal handlers
     const riskScanModal = document.getElementById('riskScanModal');
     let scanJustPerformed = false;
-    const closeRiskModal = () => {
-      riskScanModal.style.display = 'none';
-      if (scanJustPerformed) {
-        scanJustPerformed = false;
-        loadRiskData();
+    // Shared helper provides Escape, backdrop close, focus trap and focus restore.
+    const riskScanDialog = ui.modal(riskScanModal, {
+      onClose: () => {
+        if (scanJustPerformed) {
+          scanJustPerformed = false;
+          loadRiskData();
+        }
       }
-    };
-    document.getElementById('closeRiskModalBtn').onclick = closeRiskModal;
-    document.getElementById('riskModalCloseBtn').onclick = closeRiskModal;
-    riskScanModal.onclick = (e) => {
-      if (e.target === riskScanModal) closeRiskModal();
-    };
+    });
+    document.getElementById('closeRiskModalBtn').onclick = () => riskScanDialog.close();
 
     async function loadRiskData() {
       const trips = await api.trips.list();
@@ -152,8 +133,7 @@
         container.innerHTML = '<p style="color: var(--text-muted);">No scheduled or held trips available for risk assessment.</p>';
       }
 
-      renderRecentScans(scans, trips, boats, routes, terminals);
-
+      // Bind scan buttons
       document.querySelectorAll('.scan-btn').forEach(btn => btn.addEventListener('click', async e => {
         // The click can land on the button's <svg>/<path>, so read the dataset from the button.
         const tripId = btn.dataset.trip;
@@ -166,141 +146,146 @@
           ui.showToast('Trip is missing boat, route, or origin terminal data.', 'error');
           return;
         }
+        if (!term.lat || !term.lng) {
+          ui.showToast(`Origin terminal "${term.name}" is missing coordinates. Set them in Terminals before scanning.`, 'error');
+          return;
+        }
         const origin = term.name || 'Origin';
         const dest = terminals.find(t => t.id === route.destination_terminal_id)?.name || 'Destination';
 
         ui.showToast('Fetching weather forecast and computing load totals...', 'info');
+        btn.disabled = true;
 
-        const rec = await weatherService.fetchForTerminal(term, trip.departure_time);
-        const weatherRecord = await api.weatherRecords.create(rec);
+        try {
+          const rec = await weatherService.fetchForTerminal(term, trip.departure_time);
+          // Reuse an existing weather record for this terminal/time to avoid spam; only create when data is new.
+          const existing = (await api.weatherRecords.list()).find(w => w.terminal_id === rec.terminal_id && w.for_time === rec.for_time);
+          const weatherRecord = existing || await api.weatherRecords.create(rec);
 
-        const load = loadService.computeTripLoad({
-          manifests, passengers, bookings, tripId: trip.id
-        });
+          const load = loadService.computeTripLoad({
+            manifests, passengers, bookings, tripId: trip.id
+          });
 
-        const forecast = {
-          wind_speed_kmh: rec.wind_speed_kmh,
-          wind_gust_kmh: rec.wind_gust_kmh,
-          precipitation_probability: rec.precipitation_probability,
-          weather_code: rec.weather_code,
-          visibility_m: rec.visibility_m
-        };
-        const totals = {
-          total_load_kg: load.total_load_kg,
-          max_load_kg: boat.max_load_kg,
-          passenger_count: load.passenger_count,
-          passenger_capacity: boat.passenger_capacity,
-          total_passenger_weight_kg: load.passenger_weight_kg,
-          total_baggage_kg: load.baggage_weight_kg,
-          total_cargo_kg: load.cargo_weight_kg
-        };
+          const forecast = {
+            wind_speed_kmh: rec.wind_speed_kmh,
+            wind_gust_kmh: rec.wind_gust_kmh,
+            precipitation_probability: rec.precipitation_probability,
+            weather_code: rec.weather_code,
+            visibility_m: rec.visibility_m
+          };
+          const totals = {
+            total_load_kg: load.total_load_kg,
+            max_load_kg: boat.max_load_kg,
+            passenger_count: load.passenger_count,
+            passenger_capacity: boat.passenger_capacity,
+            total_passenger_weight_kg: load.passenger_weight_kg,
+            total_baggage_kg: load.baggage_weight_kg,
+            total_cargo_kg: load.cargo_weight_kg
+          };
 
-        const r = riskAiService.classify({ forecast, totals });
-        const payload = { forecast, totals };
+          const r = riskAiService.classify({ forecast, totals });
+          const payload = { forecast, totals };
 
-        await api.riskScans.create({
-          trip_id: tripId,
-          boat_id: boat.id,
-          weather_record_id: weatherRecord.id,
-          passenger_count: load.passenger_count,
-          passenger_capacity: boat.passenger_capacity,
-          total_passenger_weight_kg: load.passenger_weight_kg,
-          total_baggage_kg: load.baggage_weight_kg,
-          total_cargo_kg: load.cargo_weight_kg,
-          total_load_kg: load.total_load_kg,
-          max_load_kg: boat.max_load_kg,
-          classification: r.classification,
-          explanation: r.explanation,
-          ai_payload: payload,
-          source: r.source,
-          scanned_by: session.full_name,
-          scanned_at: new Date().toISOString(),
-          relayed_at: null,
-          relayed_by: null
-        });
+          await api.riskScans.create({
+            trip_id: tripId,
+            boat_id: boat.id,
+            weather_record_id: weatherRecord.id,
+            passenger_count: load.passenger_count,
+            passenger_capacity: boat.passenger_capacity,
+            total_passenger_weight_kg: load.passenger_weight_kg,
+            total_baggage_kg: load.baggage_weight_kg,
+            total_cargo_kg: load.cargo_weight_kg,
+            total_load_kg: load.total_load_kg,
+            max_load_kg: boat.max_load_kg,
+            classification: r.classification,
+            explanation: r.explanation,
+            ai_payload: payload,
+            source: r.source,
+            scanned_by: session.full_name,
+            scanned_at: new Date().toISOString(),
+            relayed_at: null,
+            relayed_by: null
+          });
 
-        let badgeColor = 'var(--success)';
-        if (r.classification === 'Caution') badgeColor = 'var(--warning)';
-        else if (r.classification === 'Not Advisable') badgeColor = 'var(--danger)';
+          let badgeColor = 'var(--success)';
+          if (r.classification === 'Caution') badgeColor = 'var(--warning)';
+          else if (r.classification === 'Not Advisable') badgeColor = 'var(--danger)';
 
-        document.getElementById('riskModalBody').innerHTML = `
+          document.getElementById('riskModalBody').innerHTML = `
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
-            <h4 style="margin: 0; color: var(--primary);">Vessel: ${esc(boat.name)} <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-muted);">(${esc(origin)} → ${esc(dest)})</span></h4>
-            <span class="badge" style="background: ${badgeColor}; color: white; padding: 0.25rem 0.75rem; border-radius: 999px;">${esc(r.classification)}</span>
+            <h4 style="margin: 0; color: var(--primary);">Vessel: ${esc(boat.name)} <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-muted);">(${esc(origin)} &rarr; ${esc(dest)})</span></h4>
+            <span style="background: ${badgeColor}; color: white; padding: 0.5rem 1rem; border-radius: 999px; font-weight: 600; font-size: 1rem;">${esc(r.classification)}</span>
           </div>
-          <div style="margin-bottom: 1.25rem;">
-            <h5 style="margin-bottom: 0.5rem; color: var(--primary); font-size: 0.9rem;">Weather Forecast Metrics</h5>
-            <div class="table-container" style="font-size: 0.85rem;">
-              <table style="width: 100%;">
-                <tr><td><strong>Wind Speed</strong></td><td>${forecast.wind_speed_kmh} km/h</td></tr>
-                <tr><td><strong>Wind Gust</strong></td><td>${forecast.wind_gust_kmh} km/h</td></tr>
-                <tr><td><strong>Precipitation Probability</strong></td><td>${forecast.precipitation_probability}%</td></tr>
-                <tr><td><strong>Weather Code</strong></td><td>${forecast.weather_code}</td></tr>
-                <tr><td><strong>Visibility</strong></td><td>${forecast.visibility_m} m</td></tr>
-              </table>
+          <div style="font-size: 0.95rem; color: var(--text-main); margin-bottom: 1rem; line-height: 1.6;">${esc(r.explanation)}</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm);">
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Load / Capacity</div>
+              <div style="font-weight: 600;">${Number(totals.total_load_kg).toFixed(1)} / ${totals.max_load_kg} kg</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm);">
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Passengers</div>
+              <div style="font-weight: 600;">${totals.passenger_count} / ${totals.passenger_capacity}</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm);">
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Wind / Gust</div>
+              <div style="font-weight: 600;">${Number(forecast.wind_speed_kmh).toFixed(1)} / ${Number(forecast.wind_gust_kmh).toFixed(1)} km/h</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm);">
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Precip. Probability</div>
+              <div style="font-weight: 600;">${forecast.precipitation_probability}%</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm);">
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Visibility</div>
+              <div style="font-weight: 600;">${Number(forecast.visibility_m).toFixed(0)} m</div>
+            </div>
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-sm);">
+              <div style="color: var(--text-muted); font-size: 0.8rem;">Source</div>
+              <div style="font-weight: 600;">${esc(r.source)}</div>
             </div>
           </div>
-
-          <div>
-            <h5 style="margin-bottom: 0.5rem; color: var(--primary); font-size: 0.9rem;">Vessel Load & Capacity Totals</h5>
-            <div class="table-container" style="font-size: 0.85rem;">
-              <table style="width: 100%;">
-                <tr><td><strong>Total Load / Max Load</strong></td><td>${totals.total_load_kg.toFixed(1)} kg / ${totals.max_load_kg} kg</td></tr>
-                <tr><td><strong>Passenger Count / Capacity</strong></td><td>${totals.passenger_count} / ${totals.passenger_capacity}</td></tr>
-                <tr><td><strong>Passenger Weight</strong></td><td>${totals.total_passenger_weight_kg.toFixed(1)} kg</td></tr>
-                <tr><td><strong>Baggage Weight</strong></td><td>${totals.total_baggage_kg.toFixed(1)} kg</td></tr>
-                <tr><td><strong>Cargo Weight</strong></td><td>${totals.total_cargo_kg.toFixed(1)} kg</td></tr>
-              </table>
-            </div>
-          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">Scanned by: ${esc(session.full_name)} &middot; ${new Date().toLocaleString()}</p>
         `;
 
-        riskScanModal.style.display = 'flex';
-        scanJustPerformed = true;
-        ui.showToast('Risk scan completed and recorded successfully.', 'success');
+          scanJustPerformed = true;
+          riskScanDialog.open();
+        } catch (err) {
+          ui.showToast(err.message || 'Risk scan failed. Please try again.', 'error');
+        } finally {
+          btn.disabled = false;
+        }
       }));
-    }
 
-    function renderRecentScans(scans, trips, boats, routes, terminals) {
-      const body = document.getElementById('recentScansBody');
-      const recent = scans
-        .slice()
-        .sort((a, b) => new Date(b.scanned_at) - new Date(a.scanned_at))
-        .slice(0, 10);
+      // Render recent scans
+      const recentBody = document.getElementById('recentScansBody');
+      const recentScans = [...scans].sort((a, b) => new Date(b.scanned_at) - new Date(a.scanned_at)).slice(0, 10);
+      if (recentScans.length === 0) {
+        recentBody.innerHTML = '<tr><td colspan="5" class="table-message">No risk scans recorded yet.</td></tr>';
+      } else {
+        recentBody.innerHTML = recentScans.map(scan => {
+          const trip = trips.find(t => t.id === scan.trip_id) || {};
+          const boat = boats.find(b => b.id === scan.boat_id) || { name: 'Unknown' };
+          const route = routes.find(r => r.id === trip.route_id) || {};
+          const origin = terminals.find(t => t.id === route.origin_terminal_id)?.name || 'Origin';
+          const dest = terminals.find(t => t.id === route.destination_terminal_id)?.name || 'Destination';
+          let badgeColor = 'var(--success)';
+          if (scan.classification === 'Caution') badgeColor = 'var(--warning)';
+          else if (scan.classification === 'Not Advisable') badgeColor = 'var(--danger)';
 
-      if (!recent.length) {
-        body.innerHTML = '<tr><td colspan="5" class="table-message">No risk scans recorded yet.</td></tr>';
-        return;
+          return `
+            <tr>
+              <td>${new Date(scan.scanned_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
+              <td><strong>${esc(boat.name)}</strong></td>
+              <td>${esc(origin)} &rarr; ${esc(dest)}</td>
+              <td><span class="badge" style="background: ${badgeColor}; color: white; padding: 0.3rem 0.75rem; font-size: 0.8rem;">${esc(scan.classification)}</span></td>
+              <td>${esc(scan.scanned_by || '-')}</td>
+            </tr>
+          `;
+        }).join('');
       }
-
-      body.innerHTML = recent.map(scan => {
-        const boat = boats.find(b => b.id === scan.boat_id) || {};
-        const trip = trips.find(t => t.id === scan.trip_id);
-        const route = routes.find(r => r.id === trip?.route_id);
-        const origin = terminals.find(t => t.id === route?.origin_terminal_id)?.name || 'Origin';
-        const dest = terminals.find(t => t.id === route?.destination_terminal_id)?.name || 'Destination';
-        let color = 'var(--success)';
-        if (scan.classification === 'Caution') color = 'var(--warning)';
-        else if (scan.classification === 'Not Advisable') color = 'var(--danger)';
-        return `
-          <tr>
-            <td>${new Date(scan.scanned_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td>
-            <td><strong>${esc(boat.name || 'Unknown vessel')}</strong></td>
-            <td>${esc(origin)} → ${esc(dest)}${trip ? ` <span style="font-size:0.75rem; color:var(--text-muted);">(${esc(trip.trip_status)})</span>` : ''}</td>
-            <td><span class="badge" style="background: ${color}; color: white;">${esc(scan.classification)}</span></td>
-            <td>${esc(scan.scanned_by || '-')}</td>
-          </tr>`;
-      }).join('');
     }
 
     loadRiskData();
     ui.setupSync(loadRiskData);
-
-    document.getElementById('logoutBtn').onclick = async (e) => {
-      e.preventDefault();
-      await api.auth.logout();
-      window.location.href = '/login.html';
-    };
   </script>
 </body>
 </html>
